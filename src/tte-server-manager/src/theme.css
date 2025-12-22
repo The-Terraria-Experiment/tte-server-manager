@@ -1,1 +1,37 @@
 @import "tailwindcss";
+
+@custom-variant hover (&:hover);
+
+@theme {
+	--color-gray-0:		hsl(0, 0%, 3%);
+	--color-gray-1:		hsl(0, 0%, 10%);
+	--color-gray-2:		hsl(0, 0%, 12%);
+	--color-gray-3:		hsl(0, 0%, 16%);
+	--color-gray-4:		hsl(0, 0%, 19%);
+	--color-gray-5:		hsl(0, 0%, 24%);
+	--color-gray-6:		hsl(0, 0%, 39%);
+	--color-gray-7:		hsl(0, 0%, 52%);
+	--color-gray-8:		hsl(0, 0%, 70%);
+	--color-gray-9:		hsl(0, 0%, 80%);
+	--color-gray-10:	hsl(0, 0%, 90%);
+	--color-white-0: 	hsl(0, 0%, 86%);
+	--color-white-1: 	hsl(0, 0%, 98%);
+	--color-blue-0:		hsl(194, 100%, 27%);
+	--color-blue-1:		hsl(197, 100%, 36%);
+	--color-blue-2:		hsl(197, 100%, 50%);
+	--color-purple-0:	hsl(268, 41%, 23%);
+	--color-purple-1:	hsl(271, 41%, 28%);
+	--color-purple-2:	hsl(267, 40%, 34%);
+	--color-purple-3:	hsl(265, 40%, 39%);
+	--color-purple-4:	hsl(271, 41%, 56%);
+	--color-purple-5:	hsl(272, 41%, 70%);
+	--color-green-0:	hsl(138, 51%, 38%);
+	--color-green-1:	hsl(137, 50%, 43%);
+	--color-green-2:	hsl(138, 47%, 64%);
+	--color-red-0:		hsl(10, 65%, 41%);
+	--color-red-1:		hsl(10, 65%, 48%);
+	--color-red-2:		hsl(10, 65%, 56%);
+	--color-yellow-0:	hsl(36, 98%, 52%);
+	--color-yellow-1:	hsl(36, 99%, 56%);
+	--color-yellow-2:	hsl(36, 99%, 64%);
+}
