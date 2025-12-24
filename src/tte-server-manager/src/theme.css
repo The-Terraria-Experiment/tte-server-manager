@@ -38,20 +38,23 @@ These add height and width classes from 4 to 20 with step of 2, not worrying abo
 	--color-green-0:	hsl(138, 51%, 38%);
 	--color-green-1:	hsl(137, 50%, 43%);
 	--color-green-2:	hsl(138, 47%, 64%);
-	--color-red-0:		hsl(10, 65%, 41%);
+	/* --color-red-0:		hsl(10, 65%, 41%);
 	--color-red-1:		hsl(10, 65%, 48%);
-	--color-red-2:		hsl(10, 65%, 56%);
+	--color-red-2:		hsl(10, 65%, 56%); */
 	--color-yellow-0:	hsl(36, 98%, 52%);
 	--color-yellow-1:	hsl(36, 99%, 56%);
 	--color-yellow-2:	hsl(36, 99%, 64%);
 
-	--color-tte-red-0: #ce1864;
-	--color-tte-red-1: #d85e46;
-	--color-tte-blue-0: #132438;
-	--color-tte-blue-1: #275e67;
-	--color-tte-blue-2: #86f0da;
-	--color-tte-blue-3: #b4f8c8;
-	--color-tte-offwhite: #e4f9de;
+	--color-red-0: #ce1864;
+	--color-red-1: #d85e46;
+	--color-teal-0: #132438;
+	--color-teal-1: #18414c;
+	--color-teal-2: #275e67;
+	--color-teal-3: #479093;
+	--color-teal-4: #6dbcb0;
+	--color-teal-5: #86f0da;
+	--color-teal-6: #b4f8c8;
+	--color-cream: #e4f9de;
 
 }
 
