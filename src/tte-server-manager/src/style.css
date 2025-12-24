@@ -1,0 +1,16 @@
+input[type="text"], input[type="number"], input[type="password"] {
+	border: none;
+	padding-top: 0.5rem;
+	padding-bottom: 0.5rem;
+	padding-left: 15px;
+	padding-right: 15px;
+	font-family: var(--font-main);
+	background: var(--color-white);
+	border-radius: 5px;
+	font-size: 1rem;
+	outline-color: var(--color-green-0);
+}
+
+body {
+	background: var(--color-gray-2);
+}

@@ -1,0 +1,89 @@
+@import "tailwindcss";
+
+@custom-variant hover (&:hover);
+
+/*
+Tailwind Safelists
+https://stackoverflow.com/questions/79323991/how-is-it-possible-to-specify-a-safelist-in-tailwindcss-v4-is-it-possible-to-li
+
+These add height and width classes from 4 to 20 with step of 2, not worrying about breakpoints
+*/
+@source inline('h-{{10..20..2}}');
+@source inline('h-{{4..10}}');
+@source inline('w-{{4..20..2}}');
+@source inline('w-{{4..10}}');
+
+
+@theme {
+	--color-gray-0:		hsl(0, 0%, 3%);
+	--color-gray-1:		hsl(0, 0%, 10%);
+	--color-gray-2:		hsl(0, 0%, 12%);
+	--color-gray-3:		hsl(0, 0%, 16%);
+	--color-gray-4:		hsl(0, 0%, 19%);
+	--color-gray-5:		hsl(0, 0%, 24%);
+	--color-gray-6:		hsl(0, 0%, 39%);
+	--color-gray-7:		hsl(0, 0%, 52%);
+	--color-gray-8:		hsl(0, 0%, 70%);
+	--color-gray-9:		hsl(0, 0%, 80%);
+	--color-gray-10:	hsl(0, 0%, 90%);
+	--color-white-0: 	hsl(0, 0%, 86%);
+	--color-white-1: 	hsl(0, 0%, 98%);
+	--color-blue-0:		hsl(194, 100%, 27%);
+	--color-blue-1:		hsl(197, 100%, 36%);
+	--color-blue-2:		hsl(197, 100%, 50%);
+	--color-purple-0:	hsl(268, 41%, 23%);
+	--color-purple-1:	hsl(271, 41%, 28%);
+	--color-purple-2:	hsl(267, 40%, 34%);
+	--color-purple-3:	hsl(265, 40%, 39%);
+	--color-purple-4:	hsl(271, 41%, 56%);
+	--color-purple-5:	hsl(272, 41%, 70%);
+	--color-green-0:	hsl(138, 51%, 38%);
+	--color-green-1:	hsl(137, 50%, 43%);
+	--color-green-2:	hsl(138, 47%, 64%);
+	/* --color-red-0:		hsl(10, 65%, 41%);
+	--color-red-1:		hsl(10, 65%, 48%);
+	--color-red-2:		hsl(10, 65%, 56%); */
+	--color-yellow-0:	hsl(36, 98%, 52%);
+	--color-yellow-1:	hsl(36, 99%, 56%);
+	--color-yellow-2:	hsl(36, 99%, 64%);
+
+	--color-red-0: #ce1864;
+	--color-red-1: #d85e46;
+	--color-teal-0: #132438;
+	--color-teal-1: #18414c;
+	--color-teal-2: #275e67;
+	--color-teal-3: #479093;
+	--color-teal-4: #6dbcb0;
+	--color-teal-5: #86f0da;
+	--color-teal-6: #b4f8c8;
+	--color-cream: #e4f9de;
+
+}
+
+@font-face {
+	font-family: "Inter";
+	src: url("/fonts/Inter-VariableFont_opsz,wght.ttf");
+}
+
+@font-face {
+	font-family: "Inter";
+	src: url("/fonts/Inter-Italic-VariableFont_opsz\,wght.ttf");
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("/fonts/JetBrainsMono-VariableFont_wght.ttf");
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf");
+	font-style: italic;
+}
+
+
+@theme {
+	--font-main: "Inter", system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", "Consolas", monospace, system-ui, sans-serif;
+}
