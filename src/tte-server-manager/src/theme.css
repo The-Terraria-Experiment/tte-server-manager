@@ -8,8 +8,10 @@ https://stackoverflow.com/questions/79323991/how-is-it-possible-to-specify-a-saf
 
 These add height and width classes from 4 to 20 with step of 2, not worrying about breakpoints
 */
-@source inline('h-{{4..20..2}}');
+@source inline('h-{{10..20..2}}');
+@source inline('h-{{4..10}}');
 @source inline('w-{{4..20..2}}');
+@source inline('w-{{4..10}}');
 
 
 @theme {

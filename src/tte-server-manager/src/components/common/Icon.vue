@@ -1,6 +1,6 @@
 <template>
 	<div :title="hoverText">
-		<svg v-if="iconColor" :class="iconClasses" :style="rawStyle">
+		<svg v-if="color" :class="iconClasses" :style="rawStyle">
 			<use :xlink:href="iconPath"></use>
 		</svg>
 		<img v-else :src="iconPath" :class="iconClasses" />

@@ -1,5 +1,5 @@
 <template>
-	<div class="cursor-pointer rounded-lg flex justify-center items-center">
+	<div class="cursor-pointer rounded-lg flex items-center">
 		<slot></slot>
 	</div>
 </template>
