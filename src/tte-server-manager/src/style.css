@@ -12,5 +12,5 @@ input[type="text"], input[type="number"], input[type="password"] {
 }
 
 body {
-	background: var(--color-gray-3);
+	background: var(--color-gray-2);
 }

@@ -2,6 +2,16 @@
 
 @custom-variant hover (&:hover);
 
+/*
+Tailwind Safelists
+https://stackoverflow.com/questions/79323991/how-is-it-possible-to-specify-a-safelist-in-tailwindcss-v4-is-it-possible-to-li
+
+These add height and width classes from 4 to 20 with step of 2, not worrying about breakpoints
+*/
+@source inline('h-{{4..20..2}}');
+@source inline('w-{{4..20..2}}');
+
+
 @theme {
 	--color-gray-0:		hsl(0, 0%, 3%);
 	--color-gray-1:		hsl(0, 0%, 10%);
@@ -34,4 +44,41 @@
 	--color-yellow-0:	hsl(36, 98%, 52%);
 	--color-yellow-1:	hsl(36, 99%, 56%);
 	--color-yellow-2:	hsl(36, 99%, 64%);
+
+	--color-tte-red-0: #ce1864;
+	--color-tte-red-1: #d85e46;
+	--color-tte-blue-0: #132438;
+	--color-tte-blue-1: #275e67;
+	--color-tte-blue-2: #86f0da;
+	--color-tte-blue-3: #b4f8c8;
+	--color-tte-offwhite: #e4f9de;
+
+}
+
+@font-face {
+	font-family: "Inter";
+	src: url("/fonts/Inter-VariableFont_opsz,wght.ttf");
+}
+
+@font-face {
+	font-family: "Inter";
+	src: url("/fonts/Inter-Italic-VariableFont_opsz\,wght.ttf");
+	font-style: italic;
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("/fonts/JetBrainsMono-VariableFont_wght.ttf");
+}
+
+@font-face {
+	font-family: "JetBrains Mono";
+	src: url("/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf");
+	font-style: italic;
+}
+
+
+@theme {
+	--font-main: "Inter", system-ui, sans-serif;
+	--font-mono: "JetBrains Mono", "Consolas", monospace, system-ui, sans-serif;
 }
