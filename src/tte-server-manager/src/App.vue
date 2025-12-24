@@ -1,9 +1,9 @@
 <template>
 	<div>
 		<StickyHeader />
-		<RouterView />
 		<MobileNav v-if="isMobile" />
 		<DesktopNav v-else />
+		<RouterView />
 	</div>
 </template>
 
