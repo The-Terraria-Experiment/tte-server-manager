@@ -2,7 +2,7 @@
 	<div class="bg-gray-3 fixed bottom-0 h-16 w-full rounded-t-2xl flex justify-around px-4 font-main font-semibold text-cream text-xs">
 		<RouterLink to="/overview" class="w-1/5">
 			<FlexButton :class="['flex-col justify-end h-full p-2', selectedClass('/overview')]">
-				<Icon icon="gauge" size="5" :color="selectedClass('/overview')"/>
+				<Icon icon="gauge" size="5" :color="selectedClass(['', '/', '/overview'])"/>
 				<div class="mt-1">OVERVIEW</div>
 			</FlexButton>
 		</RouterLink>
@@ -37,8 +37,11 @@ export default {
 		Icon,
 	},
 	methods: {
-		selectedClass(route) {
-			if (this.$route.path === route) {
+		selectedClass(routes) {
+			if (!Array.isArray(routes)) {
+				routes = [routes];
+			}
+			if (routes.includes(this.$route.path)) {
 				return 'text-cream';
 			}
 			return 'text-gray-7';
@@ -49,12 +52,4 @@ export default {
 
 <style scoped>
 	@reference "../../theme.css";
-
-	.navBtnSelected {
-		/* @apply bg-linear-to-br from-teal-2 to-teal-0; */
-		/* @apply text-cream; */
-	}
-	/* :not(.navBtnSelected) {
-		@apply text-gray-7;
-	} */
 </style>

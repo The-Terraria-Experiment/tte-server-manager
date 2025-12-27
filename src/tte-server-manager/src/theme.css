@@ -47,8 +47,12 @@ These add height and width classes from 4 to 20 with step of 2, not worrying abo
 	--color-yellow-1:	hsl(36, 99%, 56%);
 	--color-yellow-2:	hsl(36, 99%, 64%);
 
-	--color-red-0: #ce1864;
-	--color-red-1: #d85e46;
+	--color-red-0: #660042;
+	--color-red-1: #9b0064;
+	--color-red-2: #ce1864;
+	--color-red-3: #cc4c62;
+	--color-red-4: #d85e46;
+	--color-red-5: #ed703e;
 	--color-teal-0: #132438;
 	--color-teal-1: #18414c;
 	--color-teal-2: #275e67;

@@ -17,7 +17,7 @@
 			</FlexButton>
 			<FlexButton 
 				v-else
-				class="text-cream bg-linear-to-r from-red-500 to-red-700 mr-2 md:mr-6 md:mt-4" 
+				class="text-cream bg-linear-to-r from-red-4 to-red-1 mr-2 md:mr-6 md:mt-4" 
 				@click="handleSignOut"
 			>
 				<p class="font-main font-bold py-2 px-4 md:px-14">LOG OUT</p>
