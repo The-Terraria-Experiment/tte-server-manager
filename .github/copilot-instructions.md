@@ -6,18 +6,18 @@ These instructions guide AI assistants working on this repository. Keep changes 
 
 ## Overview
 - **Goal:** Server management interface for Terraria/TShock/TModLoader running on EC2.
-- **Stack:** Vue 3 SPA (Vite, Pinia, Vue Router, Tailwind) on CloudFront + S3; API Gateway → Lambda; Cognito auth; DynamoDB permissions; Secrets Manager; CloudWatch; EC2 with SSM; S3 for game files; TShock REST API.
+- **Stack:** Vue 3 SPA (Vite, Pinia, Vue Router, Tailwind) hosted via AWS Amplify Hosting; API Gateway → Lambda; Amplify Auth (Cognito) with built-in flows; DynamoDB permissions; Secrets Manager; CloudWatch; EC2 with SSM; S3 for game files; TShock REST API.
 - **Scalability:** Design for multiple `Instance` and `GameServer` entities (no hardcoding single IDs).
 
 ## Architecture
-- **Web Interface:** Vue SPA built with Vite; hosted by CloudFront, assets in S3.
+- **Web Interface:** Vue SPA built with Vite; deployed on AWS Amplify Hosting (build/deploy pipeline managed by Amplify).
 - **API Layer:** API Gateway with REST endpoints; JWT from Cognito (ID token) forwarded by frontend; Lambda authorizer optional.
 - **Lambda Functions (examples):**
   - `PermValidator`: validates requested actions against Dynamo permissions.
   - `TShockManager`: calls TShock REST API (token in Secrets Manager).
   - `EC2Manager`: start/stop/restart instance, SSM commands, status.
   - `DynamoPermManager`: CRUD for permission entries, user roles.
-- **Auth:** Cognito User Pool (login/register via hosted UI or custom flow); roles map to app permissions.
+- **Auth:** Amplify Auth (Cognito User Pool) using Amplify’s hosted flow and configured providers; roles map to app permissions.
 - **Data:** DynamoDB tables
   - `PermissionEntries` (PK: `tenant#<id>`, SK: `perm#<resource>#<action>`)
   - `UserData` (PK: `user#<sub>`, attributes: profile, roles)
@@ -56,7 +56,7 @@ These instructions guide AI assistants working on this repository. Keep changes 
 - **Frontend `.env` keys (Vite):**
   - `VITE_API_BASE_URL` (API Gateway URL)
   - `VITE_COGNITO_USER_POOL_ID`, `VITE_COGNITO_CLIENT_ID`, `VITE_COGNITO_REGION`
-  - Optional: `VITE_CLOUDFRONT_URL`, `VITE_S3_BUCKET_CONFIG`, `VITE_S3_BUCKET_WORLDS`
+  - Optional: `VITE_AMPLIFY_APP_URL`
 - **Lambda env vars:** `AWS_REGION`, `DYNAMO_TABLE_PERMISSIONS`, `DYNAMO_TABLE_USERS`, `DYNAMO_TABLE_TOOL_LOGS`, `TSHOCK_SECRET_NAME`, `S3_BUCKET_CONFIG`, `S3_BUCKET_WORLDS`, `EC2_INSTANCE_IDS` (CSV), `ALLOW_MULTI_INSTANCE=true`.
 - **Secrets:** TShock API token in Secrets Manager under `TSHOCK_SECRET_NAME`.
 
@@ -64,7 +64,7 @@ These instructions guide AI assistants working on this repository. Keep changes 
 - **Least privilege:** IAM roles only grant exact actions (Dynamo, S3, EC2:Start/Stop, SSM:SendCommand, Secrets:GetSecretValue).
 - **Validation:** Every action goes through `PermValidator` with user `sub` and resource/action.
 - **Audit:** Write compact JSON logs to CloudWatch and `ToolLogs` for admin actions.
-- **CORS:** Restrict origins to CloudFront domain; allow `Authorization` header.
+- **CORS:** Restrict origins to the Amplify app domain; allow `Authorization` header.
 
 ## Developer Workflows
 - **Install & run:**
