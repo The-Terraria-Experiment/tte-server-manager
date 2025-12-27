@@ -10,9 +10,9 @@ import outputs from "../amplify_outputs.json"
 
 const pinia = createPinia();
 
+Amplify.configure(outputs);
+
 createApp(App)
 	.use(router)
 	.use(pinia)
 	.mount('#app');
-
-Amplify.configure(outputs);

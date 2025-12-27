@@ -8,40 +8,53 @@
 		<BevelCurve v-if="!isMobile" color="text-gray-5" size="6" />
 
 		<div class="bg-gray-3 md:bg-transparent flex items-center md:items-start">
-			<!-- <Authenticator> -->
-				<!-- <template v-slot="{user, signIn}"> -->
-					<FlexButton class="text-cream bg-linear-to-r from-teal-4 to-teal-1 mr-2 md:mr-6 md:mt-4" @click="signIn">
-						<p class="font-main font-bold py-2 px-4 md:px-14">LOG IN</p>
-					</FlexButton>
-				<!-- </template> -->
-			<!-- </Authenticator> -->
-
-			<!-- <template v-slot="{ user, signOut }">
-      <h1>Hello {{ user.username }}!</h1>
-      <button @click="signOut">Sign Out</button>
-    </template> -->
-			
+			<FlexButton 
+				v-if="!userStore.isAuthenticated"
+				class="text-cream bg-linear-to-r from-teal-4 to-teal-1 mr-2 md:mr-6 md:mt-4" 
+				@click="goToLogin"
+			>
+				<p class="font-main font-bold py-2 px-4 md:px-14">LOG IN</p>
+			</FlexButton>
+			<FlexButton 
+				v-else
+				class="text-cream bg-linear-to-r from-red-500 to-red-700 mr-2 md:mr-6 md:mt-4" 
+				@click="handleSignOut"
+			>
+				<p class="font-main font-bold py-2 px-4 md:px-14">LOG OUT</p>
+			</FlexButton>
 		</div>
 	</div>
 </template>
 
 <script>
-import { signInWithRedirect } from 'aws-amplify/auth';
 import screen from '../../mixins/screen'
 import BevelCurve from '../common/BevelCurve.vue';
 import FlexButton from '../common/FlexButton.vue';
-import { Authenticator } from "@aws-amplify/ui-vue";
+import { useUserStore } from '../../stores/userStore';
+import { useRouter } from 'vue-router';
 	
 export default {
 	mixins: [screen],
 	components: {
 		BevelCurve,
 		FlexButton,
-		Authenticator,
+	},
+	setup() {
+		const userStore = useUserStore();
+		const router = useRouter();
+		
+		// Load user on component mount
+		userStore.loadUser();
+		
+		return { userStore, router };
 	},
 	methods: {
-		signIn() {
-			signInWithRedirect();
+		goToLogin() {
+			this.router.push('/login');
+		},
+		async handleSignOut() {
+			await this.userStore.signOut();
+			this.router.push('/');
 		}
 	}
 }

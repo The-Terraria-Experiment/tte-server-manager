@@ -1,5 +1,8 @@
 <template>
-	<div>
+	<div v-if="$route.path === '/login'">
+		<RouterView />
+	</div>
+	<div v-else>
 		<StickyHeader />
 
 		<div v-if="isMobile">
