@@ -14,14 +14,6 @@
 import { Authenticator } from "@aws-amplify/ui-vue";
 import { I18n } from "aws-amplify/utils";
 import "@aws-amplify/ui-vue/styles.css";
-import {onMounted, watch} from "vue";
-import {useRouter, useRoute} from "vue-router";
-import {getCurrentUser} from "aws-amplify/auth";
-import {useUserStore} from "../../stores/userStore";
-
-const router = useRouter();
-const route = useRoute();
-const userStore = useUserStore();
 
 I18n.putVocabulariesForLanguage('en', {
 	'Sign In': "LOGIN",
@@ -52,46 +44,6 @@ const formFields = {
 		},
 	},
 };
-
-// Check auth status and redirect if already logged in
-onMounted(async () => {
-	try {
-		await getCurrentUser();
-		// Already authenticated, redirect to intended page or overview
-		const redirect = route.query.redirect || "/overview";
-		router.push(redirect);
-	} catch {
-		// Not authenticated, stay on login page
-	}
-});
-
-// Watch for auth changes and redirect on successful login
-const checkAuthAndRedirect = async () => {
-	try {
-		const user = await getCurrentUser();
-		if (user) {
-			await userStore.loadUser();
-			const redirect = route.query.redirect || "/overview";
-			router.push(redirect);
-		}
-	} catch {
-		// Not authenticated
-	}
-};
-
-// Poll for auth changes (Authenticator component doesn't emit events easily)
-let authCheckInterval;
-onMounted(() => {
-	authCheckInterval = setInterval(checkAuthAndRedirect, 500);
-});
-
-// Cleanup
-import {onUnmounted} from "vue";
-onUnmounted(() => {
-	if (authCheckInterval) {
-		clearInterval(authCheckInterval);
-	}
-});
 </script>
 
 <style scoped>
