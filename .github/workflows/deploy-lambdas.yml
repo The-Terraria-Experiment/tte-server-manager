@@ -1,0 +1,75 @@
+name: Deploy Lambdas
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/lambda/**'
+      - '.github/workflows/deploy-lambdas.yml'
+
+env:
+  AWS_REGION: us-east-2
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '24'
+
+      - name: Build Lambda bundles
+        run: node src/lambda/build.js
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-bundles
+          path: src/lambda/dist/
+          retention-days: 1
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        lambda: [instance-manager, server-manager, user-manager]
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: lambda-bundles
+          path: src/lambda/dist/
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Determine function name
+        id: func-name
+        run: |
+          # Map folder name to Lambda function name
+          # e.g., "ec2-manager" folder → "ec2-manager-dev" function
+          ENV_SUFFIX="${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
+          FUNC_NAME="${{ matrix.lambda }}-${ENV_SUFFIX}"
+          echo "name=$FUNC_NAME" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name "${{ steps.func-name.outputs.name }}" \
+            --zip-file "fileb://src/lambda/dist/${{ matrix.lambda }}.zip"
+          echo "✓ Deployed ${{ steps.func-name.outputs.name }}"
+
+      - name: Wait for update
+        run: |
+          aws lambda wait function-updated \
+            --function-name "${{ steps.func-name.outputs.name }}" || true

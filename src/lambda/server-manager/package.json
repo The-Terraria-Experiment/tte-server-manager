@@ -1,0 +1,9 @@
+{
+  "name": "server-manager",
+  "version": "1.0.0",
+  "description": "TShock game server management Lambda",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.0.0"
+  }
+}
