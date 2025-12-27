@@ -46,11 +46,10 @@ jobs:
           name: lambda-bundles
           path: src/lambda/dist/
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v2
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          role-to-assume: ${{ secrets.AWS_LAMBDA_DEPLOY_ROLE }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Determine function name
@@ -59,7 +58,7 @@ jobs:
           # Map folder name to Lambda function name
           # e.g., "ec2-manager" folder → "ec2-manager-dev" function
           ENV_SUFFIX="${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
-          FUNC_NAME="${{ matrix.lambda }}-${ENV_SUFFIX}"
+          FUNC_NAME="ttesm-${{ matrix.lambda }}-${ENV_SUFFIX}"
           echo "name=$FUNC_NAME" >> $GITHUB_OUTPUT
 
       - name: Deploy to Lambda
