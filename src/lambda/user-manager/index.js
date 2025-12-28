@@ -3,9 +3,9 @@
  * Handles user permissions, roles, and user data operations
  */
 
-const {validatePermission} = require("../shared/utils/permissions");
-const {errorHandler} = require("../shared/middleware/errorHandler");
-const {notFoundError} = require("../shared/utils/response");
+const {validatePermission} = require("./shared/utils/permissions");
+const {errorHandler} = require("./shared/middleware/errorHandler");
+const {notFoundError} = require("./shared/utils/response");
 
 // Action handlers
 const actions = {
