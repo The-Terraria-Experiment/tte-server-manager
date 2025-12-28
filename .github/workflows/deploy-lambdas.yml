@@ -11,6 +11,10 @@ on:
 env:
   AWS_REGION: us-east-2
 
+permissions:
+  id-token: write   # Required for OIDC authentication with AWS
+  contents: read    # Required to checkout the repository
+
 jobs:
   build:
     runs-on: ubuntu-latest
