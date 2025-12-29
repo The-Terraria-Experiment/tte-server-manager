@@ -3,38 +3,44 @@
  * Checks user permissions against DynamoDB permission entries
  */
 
+const { PERM_TABLE } = require("../constants");
+const { assertIsTruthyString, assertIsTruthy } = require("../middleware/assert");
 const {getDynamoItem} = require("./dynamo");
 
 /**
  * Validate user has permission for resource/action
  * @param {object} event - API Gateway event (contains requestContext.authorizer.claims)
- * @param {string} resource - Resource type (instance, server, user, file)
- * @param {string} action - Action (read, write, execute, admin)
+ * @param {string} permission - Permission to validate
  * @throws {Error} if permission denied
  */
-async function validatePermission(event, resource, action) {
-	// TODO: Extract user sub from event.requestContext.authorizer.claims.sub
-	// TODO: Query DynamoDB PermissionEntries table
-	// TODO: Check if user has role/permission for this resource/action
-	// TODO: Throw error if denied
+async function validatePermission(event, permission) {
+	assertIsTruthyString(permission, "validatePermission requires permission value");
+	assertIsTruthy(event, "validatePermission requires a Gateway event");
 
 	const userSub = event.requestContext?.authorizer?.claims?.sub;
 	if (!userSub) {
 		throw new Error("Unauthorized: No user context");
 	}
 
-	// Example check logic:
-	// const permitted = await checkPermission(userSub, resource, action);
-	// if (!permitted) throw new Error(`Permission denied: ${action} on ${resource}`);
+	const permitted = await checkPermission(userSub, permission);
+	if (!permitted) {
+		throw new Error(`Permission denied to <${userSub}> for resource <${event.httpMethod} ${event.resource}>`);
+	}
 }
 
 /**
  * Check if user has specific permission
  */
-async function checkPermission(userSub, resource, action) {
-	// TODO: Implement permission lookup in DynamoDB
-	// Return true/false
-	return true; // Placeholder
+async function checkPermission(userSub, permission) {
+	const item = await getDynamoItem(PERM_TABLE, userSub);
+
+	if (!item || !item.permissions) return false;
+
+	if (item.permissions.has(permission)) {
+		return true;
+	}
+
+	return false;
 }
 
 module.exports = {
