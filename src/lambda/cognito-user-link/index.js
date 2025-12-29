@@ -6,7 +6,7 @@
 
 const {putDynamoItem} = require("./shared/utils/dynamo");
 const {PERM_TABLE} = require("./shared/constants");
-const {PERMISSIONS} = require("../shared/permissionValues");
+const {PERMISSIONS} = require("./shared/permissionValues");
 
 exports.handler = async (event, context) => {
 	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
