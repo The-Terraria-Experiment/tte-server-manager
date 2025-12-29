@@ -6,7 +6,7 @@
 
 const {putDynamoItem} = require("./shared/utils/dynamo");
 const {PERM_TABLE} = require("./shared/constants");
-const { default: permissionValues } = require("../shared/permissionValues");
+const {PERMISSIONS} = require("../shared/permissionValues");
 
 exports.handler = async (event, context) => {
 	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
@@ -22,7 +22,7 @@ exports.handler = async (event, context) => {
 			sub,
 			username,
 			email,
-			permissions: [permissionValues.access], // Default role; admins can grant additional roles later
+			permissions: [PERMISSIONS.access], // Default role; admins can grant additional roles later
 			createdAt: new Date().toISOString(),
 			lastLogin: new Date().toISOString(),
 		};
@@ -39,7 +39,6 @@ exports.handler = async (event, context) => {
 
 		// Return event unmodified (required for Cognito triggers)
 		return event;
-
 	} catch (error) {
 		console.error("Error in PostConfirmation handler:", error);
 		// Return event to allow user registration to complete

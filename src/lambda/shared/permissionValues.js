@@ -1,4 +1,4 @@
-export default {
+const PERMISSIONS = {
 	access: "access",
 	server: {
 		list: "server.list",
@@ -48,3 +48,5 @@ export default {
 		}
 	}
 }
+
+module.exports = { PERMISSIONS };

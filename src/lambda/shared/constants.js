@@ -1,1 +1,5 @@
-export const PERM_TABLE = "ttesm-user-perms";
+const PERM_TABLE = "ttesm-user-perms";
+
+module.exports = {
+	PERM_TABLE,
+}
