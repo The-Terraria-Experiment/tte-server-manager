@@ -29,8 +29,8 @@ for (const fn of FUNCTIONS) {
 	// Create build directory for function
 	fs.mkdirSync(buildFnDir, {recursive: true});
 
-	// Copy function files
-	copyRecursive(fnDir, buildFnDir, ["node_modules", "package-lock.json"]);
+	// Copy function files (exclude shared since we copy it explicitly next)
+	copyRecursive(fnDir, buildFnDir, ["node_modules", "package-lock.json", "shared"]);
 
 	// Copy shared utilities
 	const sharedSrc = path.join(__dirname, "shared");
