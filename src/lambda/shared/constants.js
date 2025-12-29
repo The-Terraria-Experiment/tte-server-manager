@@ -1,0 +1,1 @@
+export const PERM_TABLE = "ttesm-user-perms";
