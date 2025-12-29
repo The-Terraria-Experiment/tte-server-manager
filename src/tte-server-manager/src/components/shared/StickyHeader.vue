@@ -10,14 +10,16 @@
 		<div class="bg-gray-3 md:bg-transparent flex items-center md:items-start">
 			<FlexButton 
 				v-if="!userStore.isAuthenticated"
-				class="text-cream bg-linear-to-r from-teal-4 to-teal-1 mr-2 md:mr-6 md:mt-4" 
+				class="mr-2 md:mr-6 md:mt-4" 
+				:variant="BTN_VARIANT.PRIMARY"
 				@click="goToLogin"
 			>
 				<p class="font-main font-bold py-2 px-4 md:px-14">LOG IN</p>
 			</FlexButton>
 			<FlexButton 
 				v-else
-				class="text-cream bg-linear-to-r from-red-4 to-red-1 mr-2 md:mr-6 md:mt-4" 
+				class="mr-2 md:mr-6 md:mt-4" 
+				:variant="BTN_VARIANT.DANGER"
 				@click="handleSignOut"
 			>
 				<p class="font-main font-bold py-2 px-4 md:px-14">LOG OUT</p>
@@ -32,12 +34,18 @@ import BevelCurve from '../common/BevelCurve.vue';
 import FlexButton from '../common/FlexButton.vue';
 import { useUserStore } from '../../stores/userStore';
 import { useRouter } from 'vue-router';
+import { BTN_VARIANT } from '../../util/constants';
 	
 export default {
 	mixins: [screen],
 	components: {
 		BevelCurve,
 		FlexButton,
+	},
+	data() {
+		return {
+			BTN_VARIANT
+		}
 	},
 	setup() {
 		const userStore = useUserStore();

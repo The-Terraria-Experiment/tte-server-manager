@@ -15,12 +15,13 @@ export const router = createRouter({
 		{ path: "/instance", component: Instance, meta: { requiresAuth: true } },
 		{ path: "/server", component: Server, meta: { requiresAuth: true } },
 		{ path: "/users", component: Users, meta: { requiresAuth: true } },
-		{ path: "/", component: Home, meta: { requiresAuth: false } },
+		{ path: "/", component: Overview, meta: { requiresAuth: false } },
 		{ path: "/:pathMatch(.*)*", redirect: "/" }, // catch-all
 	]
 });
 
 router.beforeEach((to) => {
+	return;
 	const user = useUserStore();
 	if (to.meta.requiresAuth && !user.isAuthenticated) {
 		return { path: "/login", query: { redirect: to.fullPath } };
