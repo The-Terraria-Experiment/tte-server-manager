@@ -1,4 +1,5 @@
 export default {
+	access: "access",
 	server: {
 		list: "server.list",
 		world: {

@@ -8,7 +8,7 @@ const fs = require("fs");
 const path = require("path");
 const {execSync} = require("child_process");
 
-const FUNCTIONS = ["instance-manager", "server-manager", "user-manager"];
+const FUNCTIONS = ["instance-manager", "server-manager", "user-manager", "cognito-user-link"];
 const BUILD_DIR = path.join(__dirname, "dist");
 
 console.log("Building Lambda functions...\n");
