@@ -69,7 +69,7 @@ console.log("🎉 All functions built successfully!");
 console.log(`\nDeployment packages in: ${BUILD_DIR}`);
 
 /**
- * Recursively copy directory
+ * Recursively copy directory (handles symlinks correctly)
  */
 function copyRecursive(src, dest, exclude = []) {
 	if (!fs.existsSync(dest)) {
@@ -84,7 +84,20 @@ function copyRecursive(src, dest, exclude = []) {
 		const srcPath = path.join(src, entry.name);
 		const destPath = path.join(dest, entry.name);
 
-		if (entry.isDirectory()) {
+		// Resolve symlinks to their actual targets
+		const stats = fs.lstatSync(srcPath);
+		
+		if (stats.isSymbolicLink()) {
+			// Follow the symlink and copy the actual content
+			const realPath = fs.realpathSync(srcPath);
+			const realStats = fs.statSync(realPath);
+			
+			if (realStats.isDirectory()) {
+				copyRecursive(realPath, destPath, exclude);
+			} else {
+				fs.copyFileSync(realPath, destPath);
+			}
+		} else if (entry.isDirectory()) {
 			copyRecursive(srcPath, destPath, exclude);
 		} else {
 			fs.copyFileSync(srcPath, destPath);
