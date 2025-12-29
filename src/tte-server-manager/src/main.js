@@ -10,6 +10,10 @@ import outputs from "../amplify_outputs.json"
 
 const pinia = createPinia();
 
+// Can't find a way to configure Amplify to use the custom Cognito domain, so we override it here
+// https://github.com/aws-amplify/amplify-cli/issues/1880#issuecomment-1980860528
+outputs.oauth.domain = "sm.auth.terrariaexperiment.click";
+
 Amplify.configure(outputs);
 
 createApp(App)
