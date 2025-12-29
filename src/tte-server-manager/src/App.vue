@@ -6,14 +6,14 @@
 		<StickyHeader />
 
 		<div v-if="isMobile">
-			<div class="p-4">
+			<div class="p-4 w-full">
 				<RouterView />
 			</div>
 			<MobileNav />
 		</div>
 		<div v-else class="flex w-full h-max">
 			<DesktopNav />
-			<div class="ml-22 p-8">
+			<div class="ml-22 p-8 w-full">
 				<RouterView />	
 			</div>
 		</div>
