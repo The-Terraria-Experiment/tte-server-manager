@@ -2,20 +2,19 @@
  * Start EC2 instance
  */
 
-const { startInstance } = require('../../shared/utils/aws');
-const { successResponse, validationError } = require('../../shared/utils/response');
+const {startInstance} = require("../../shared/utils/aws");
+const {successResponse, validationError} = require("../../shared/utils/response");
 
 async function handle(event) {
-  const instanceId = event.pathParameters?.id;
-  
-  if (!instanceId) {
-    return validationError('Instance ID is required');
-  }
+	const instanceId = event.pathParameters?.id;
 
-  // TODO: Start instance
-  await startInstance(instanceId);
+	if (!instanceId) {
+		return validationError("Instance ID is required");
+	}
 
-  return successResponse({ message: 'Instance starting', instanceId });
+	await startInstance(instanceId);
+
+	return successResponse({message: "Instance starting", instanceId});
 }
 
-module.exports = { handle };
+module.exports = {handle};
