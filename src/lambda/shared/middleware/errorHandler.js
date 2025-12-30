@@ -10,11 +10,11 @@ const { errorResponse, permissionDeniedError } = require("../utils/response");
  * @param {Error} error 
  * @returns 
  */
-function logError(error) {
+function logError(error, event = null) {
 	console.error("Lambda error:", {
 		error: error.message,
 		stack: error.stack,
-		event: JSON.stringify(event),
+		event: event ? JSON.stringify(event) : null,
 	});
 
 	// Map common errors to appropriate status codes
@@ -42,7 +42,7 @@ function errorHandler(handler) {
 		try {
 			return await handler(event, context);
 		} catch (error) {
-			return logError(error);
+			return logError(error, event);
 		}
 	};
 }
