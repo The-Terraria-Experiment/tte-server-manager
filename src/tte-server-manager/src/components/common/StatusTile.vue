@@ -2,8 +2,12 @@
 	<div class="bg-gray-3 rounded-xl overflow-hidden h-max">
 		<div class="flex w-full items-stretch" @click="toggle">
 			<div class="flex flex-col grow font-main font-bold">
-				<slot name="header"></slot>
-				<slot name="summary"></slot>
+				<div class="flex items-center px-4 pt-2 pb-4">
+					<slot name="header"></slot>
+				</div>
+				<div class="px-4 pb-4">
+					<slot name="summary"></slot>
+				</div>
 			</div>
 			<div v-if="collapsible" class="cursor-pointer flex items-center px-2">
 				<Icon 

@@ -53,7 +53,7 @@ export default {
 <style scoped>
 	@reference "../../theme.css";
 
-	.navBtnSelected{
-		@apply bg-linear-to-br from-teal-2 to-teal-0;
+	.navBtnSelected {
+		@apply bg-linear-to-br from-teal-2 to-teal-0 to-70%;
 	}
 </style>
