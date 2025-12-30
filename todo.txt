@@ -1,2 +1,0 @@
-- Publish Google Cloud project
-- Set Cognito email to SES
