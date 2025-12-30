@@ -25,6 +25,10 @@ const endpoints = {
 		action: require("./actions/writePermissions"),
 		permRequired: PERMISSIONS.users.permissions.write,
 	},
+	"GET /users/permissions/getown": {
+		action: require("./actions/readOwnPermissions"),
+		permRequired: PERMISSIONS.access
+	}
 };
 
 exports.handler = errorHandler(async (event, context) => {
