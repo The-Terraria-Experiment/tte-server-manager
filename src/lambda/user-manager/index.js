@@ -6,14 +6,29 @@
 const {validatePermission} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
+const {PERMISSIONS} = require("../instance-manager/shared/permissionValues");
 
-// Action handlers
-const actions = {
-	"GET /users/permissions": require("./actions/getPermissions"),
-	"POST /users/permissions": require("./actions/grantPermission"), // todo: grant and revoke are different actions, we'll just send a full list
-	"GET /users": require("./actions/listUsers"),
-	//   'GET /users/{id}': require('./actions/getUser'), //? probably don't need
-	"GET /users/logs": null,
+const endpoints = {
+	"GET /users": {
+		action: require("./actions/listUsers"),
+		permRequired: PERMISSIONS.users.list,
+	},
+	"GET /users/logs": {
+		action: null,
+		permRequired: PERMISSIONS.users.logs.read,
+	},
+	"GET /users/permissions": {
+		action: require("./actions/readPermissions"),
+		permRequired: PERMISSIONS.users.permissions.read,
+	},
+	"POST /users/permissions": {
+		action: require("./actions/writePermissions"),
+		permRequired: PERMISSIONS.users.permissions.write,
+	},
+	"GET /users/permissions/getown": {
+		action: require("./actions/readOwnPermissions"),
+		permRequired: PERMISSIONS.access
+	}
 };
 
 exports.handler = errorHandler(async (event, context) => {
@@ -23,16 +38,23 @@ exports.handler = errorHandler(async (event, context) => {
 	const routeKey = `${httpMethod} ${resource}`;
 
 	// Find matching action
-	const action = actions[routeKey];
-	if (!action) {
+	const action = endpoints[routeKey];
+	if (!action || !action.action) {
 		return notFoundError("Route");
 	}
 
-	// Validate permissions (admin for grants/revokes, read for queries)
-	const requiresAdmin = httpMethod === "POST" && resource.includes("/permissions/");
-	const actionType = requiresAdmin ? "admin" : "read";
-	await validatePermission(event, "user", actionType);
+	// Do permission check
+	await validatePermission(event, action.permRequired);
+
+	if (event.body && typeof event.body === 'string' || event.body instanceof String) {
+		try {
+			event.parsedBody = JSON.parse(event.body);
+		} catch (e) {
+			console.warn("Failed to parse event body. Event body: ", event.body);
+			event.parsedBody = event.body;
+		}
+	}
 
 	// Execute action
-	return action.handle(event, context);
+	return action.action.handle(event, context);
 });

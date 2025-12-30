@@ -2,20 +2,19 @@
  * Get specific instance status
  */
 
-const { getInstanceStatus } = require('../../shared/utils/aws');
-const { successResponse, notFoundError } = require('../../shared/utils/response');
+const {getInstanceStatus} = require("../../shared/utils/aws");
+const {successResponse, notFoundError} = require("../../shared/utils/response");
 
 async function handle(event) {
-  const instanceId = event.pathParameters?.id;
-  
-  if (!instanceId) {
-    return notFoundError('Instance ID');
-  }
+	const instanceId = event.pathParameters?.id;
 
-  // TODO: Fetch instance status from EC2
-  const status = await getInstanceStatus(instanceId);
+	if (!instanceId) {
+		return notFoundError("Instance ID");
+	}
 
-  return successResponse({ instance: status });
+	const status = await getInstanceStatus(instanceId);
+
+	return successResponse({instance: status});
 }
 
-module.exports = { handle };
+module.exports = {handle};

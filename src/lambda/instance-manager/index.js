@@ -6,17 +6,41 @@
 const {validatePermission} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
+const {PERMISSIONS} = require("./shared/permissionValues");
 
-// Action handlers
-const actions = {
-	"GET /instances": require("./actions/list"),
-	"GET /instance/{id}/status": require("./actions/getStatus"),
-	"POST /instance/{id}/start": require("./actions/start"),
-	"POST /instance/{id}/stop": require("./actions/stop"),
-	"POST /instance/{id}/restart": require("./actions/restart"),
-	"GET /instance/{id}/metrics": null, //todo
-	"GET /instance/{id}/files": null,
-	"POST /instance/{id}/files": null
+const endpoints = {
+	"GET /instances": {
+		action: require("./actions/list"),
+		permRequired: PERMISSIONS.instance.list,
+	},
+	"GET /instance/{id}/status": {
+		action: require("./actions/getStatus"),
+		permRequired: PERMISSIONS.instance.status.read,
+	},
+	"POST /instance/{id}/start": {
+		action: require("./actions/start"),
+		permRequired: PERMISSIONS.instance.status.start,
+	},
+	"POST /instance/{id}/stop": {
+		action: require("./actions/stop"),
+		permRequired: PERMISSIONS.instance.status.stop,
+	},
+	"POST /instance/{id}/restart": {
+		action: require("./actions/restart"),
+		permRequired: PERMISSIONS.instance.status.restart,
+	},
+	"GET /instance/{id}/metrics": {
+		action: null,
+		permRequired: PERMISSIONS.instance.metrics.read,
+	},
+	"GET /instance/{id}/files": {
+		action: null,
+		permRequired: PERMISSIONS.instance.files.read,
+	},
+	"POST /instance/{id}/files": {
+		action: null,
+		permRequired: PERMISSIONS.instance.files.write,
+	},
 };
 
 exports.handler = errorHandler(async (event, context) => {
@@ -26,15 +50,14 @@ exports.handler = errorHandler(async (event, context) => {
 	const routeKey = `${httpMethod} ${resource}`;
 
 	// Find matching action
-	const action = actions[routeKey];
-	if (!action) {
+	const action = endpoints[routeKey];
+	if (!action || !action.action) {
 		return notFoundError("Route");
 	}
 
-	// Validate permissions (read for GET, write for POST/PUT/DELETE)
-	const actionType = httpMethod === "GET" ? "read" : "write";
-	await validatePermission(event, "instance", actionType);
+	// Do permission check
+	await validatePermission(event, action.permRequired);
 
-	// Execute action
-	return action.handle(event, context);
+	// Actual action
+	return action.action.handle(event, context);
 });

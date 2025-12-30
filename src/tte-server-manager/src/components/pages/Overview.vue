@@ -1,17 +1,13 @@
 <template>
 	<div class="w-full">
-		<div class="flex w-full">
-			<StatusTile class="grow mr-4 mb-8 gradient-tile" collapsible>
+		<div class="flex flex-col sm:flex-row w-full">
+			<StatusTile class="grow sm:mr-4 mb-4 sm:mb-8 gradient-tile-red" collapsible>
 				<template #header>
-					<div class="flex items-center px-4 pt-2 pb-4">
-						<Icon icon="power" color="text-gray-6" size="4" />
-						<p class="text-gray-6 ml-2 text-lg">Instance Status</p>
-					</div>
+					<Icon icon="power" color="text-gray-6" size="4" />
+					<p class="text-gray-6 ml-2 text-lg">Instance Status</p>
 				</template>
 				<template #summary>
-					<div class="px-4 pb-4">
-						<p class="text-2xl text-teal-4">ONLINE</p>
-					</div>
+					<p class="text-2xl text-teal-4">ONLINE</p>
 				</template>
 				<template #content>
 					<div>
@@ -22,17 +18,13 @@
 				</template>
 			</StatusTile>
 
-			<StatusTile class="grow ml-4 mb-8 gradient-tile" collapsible>
+			<StatusTile class="grow sm:ml-4 mb-8 gradient-tile">
 				<template #header>
-					<div class="flex items-center px-4 pt-2 pb-4">
-						<Icon icon="power" color="text-gray-6" size="4" />
-						<p class="text-gray-6 ml-2 text-lg">Server Status</p>
-					</div>
+					<Icon icon="power" color="text-gray-6" size="4" />
+					<p class="text-gray-6 ml-2 text-lg">Server Status</p>
 				</template>
 				<template #summary>
-					<div class="px-4 pb-4">
-						<p class="text-2xl text-teal-4">RUNNING</p>
-					</div>
+					<p class="text-2xl text-teal-4">RUNNING</p>
 				</template>
 				<template #content>
 					<div class="bg-red-0 h-40"></div>
@@ -46,6 +38,7 @@
 import { BTN_VARIANT } from '../../util/constants';
 import FlexButton from '../common/FlexButton.vue';
 import Icon from '../common/Icon.vue';
+import Spinner from '../common/Spinner.vue';
 import StatusTile from '../common/StatusTile.vue';
 
 
@@ -54,6 +47,7 @@ export default {
 		StatusTile,
 		Icon,
 		FlexButton,
+		Spinner,
 	},
 	props: {
 
@@ -69,14 +63,20 @@ export default {
 <style scoped>
 @reference "../../theme.css";
 
-.gradient-tile {
+.gradient-tile-green {
 	@apply bg-linear-to-b from-gray-3 to-green-2 from-50%;
 	background-size: 100% 200%;
-	background-position: 0% 0%;
-	transition: background-position 200ms ease;
+	background-position: 0% 100%;
+	/* transition: background-position 200ms ease; */
 }
 
-.gradient-tile:hover {
+.gradient-tile-red {
+	@apply bg-linear-to-b from-gray-3 to-red-900 from-50%;
+	background-size: 100% 200%;
 	background-position: 0% 100%;
 }
+
+/* .gradient-tile:hover {
+	background-position: 0% 100%;
+} */
 </style>

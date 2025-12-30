@@ -4,7 +4,7 @@
  */
 
 const {DynamoDBClient} = require("@aws-sdk/client-dynamodb");
-const {DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand} = require("@aws-sdk/lib-dynamodb");
+const {DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, ScanCommand} = require("@aws-sdk/lib-dynamodb");
 const { logError } = require("../middleware/errorHandler");
 const { assertIsTruthyString, assertObjectHasTruthyKey, assertSome, assertObjectHasTruthyKeys } = require("../middleware/assert");
 
@@ -143,10 +143,32 @@ function buildUpdateExpression(updates) {
     };
 }
 
+/**
+ * Scan entire DynamoDB table
+ * @param {string} tableName
+ * @returns {Promise<Array>} All items in the table
+ */
+async function scanDynamoTable(tableName) {
+	assertIsTruthyString(tableName, "Table name required for scan");
+
+	const cmd = new ScanCommand({
+		TableName: tableName
+	});
+
+	try {
+		const response = await docClient.send(cmd);
+		return response.Items || [];
+	} catch (e) {
+		logError(e);
+		return [];
+	}
+}
+
 module.exports = {
 	docClient,
 	getDynamoItem,
 	putDynamoItem,
 	queryDynamo,
 	updateDynamoItem,
+	scanDynamoTable,
 };

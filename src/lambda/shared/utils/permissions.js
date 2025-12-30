@@ -32,7 +32,7 @@ async function validatePermission(event, permission) {
  * Check if user has specific permission
  */
 async function checkPermission(userSub, permission) {
-	const item = await getDynamoItem(PERM_TABLE, userSub);
+	const item = await getDynamoItem(PERM_TABLE, `user#${userSub}`);
 
 	if (!item || !item.permissions) return false;
 

@@ -1,6 +1,6 @@
 <template>
 	<div 
-		:class="['cursor-pointer rounded-lg flex items-center', btnStyle]" 
+		:class="['cursor-pointer rounded-lg flex items-center gradientbg', btnStyle]" 
 		@click="$emit('input')"
 	>
 		<slot></slot>
@@ -15,11 +15,13 @@ export default {
 		variant: {
 			type: String,
 			default: BTN_VARIANT.SUBTLE,
-			validator: (val) => [BTN_VARIANT.PRIMARY, BTN_VARIANT.DANGER].includes(val)
+			validator: (val) => [BTN_VARIANT.PRIMARY, BTN_VARIANT.DANGER, BTN_VARIANT.SUBTLE].includes(val)
 		}
 	},
 	data() {
+		return {
 
+		}
 	},
 	computed: {
 		btnStyle() {
@@ -40,13 +42,24 @@ export default {
 </script>
 
 <style scoped>
-	@reference "../../theme.css";
+@reference "../../theme.css";
 
-	.btn-primary-style {
-		@apply text-cream font-main font-bold w-max bg-linear-to-r from-teal-4 to-teal-1;
-	}
+.btn-primary-style {
+	@apply text-cream font-main font-bold w-max bg-linear-to-r from-teal-4 to-teal-1;
+}
 
-	.btn-danger-style {
-		@apply text-cream font-main font-bold w-max bg-linear-to-r from-red-5 to-red-1;
-	}
+.btn-danger-style {
+	@apply text-cream font-main font-bold w-max bg-linear-to-r from-red-5 to-red-1;
+}
+
+.gradientbg {
+	@apply to-50%;
+	background-size: 200% 100%;
+	background-position: 0% 0%;
+	transition: background-position 200ms ease;
+}
+
+.gradientbg:hover {
+	background-position: 50% 0%;
+}
 </style>
