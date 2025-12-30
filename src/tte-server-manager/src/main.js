@@ -17,6 +17,11 @@ if (outputs?.auth?.oauth?.domain) {
 } else {
 	console.warn("OAuth domain does not exist");
 }
+if (outputs?.auth?.oauth) {
+	outputs.auth.oauth.scopes = ["email", "openid", "profile"];
+} else {
+	console.warn("Could not set OAuth scopes");
+}
 
 Amplify.configure(outputs);
 
