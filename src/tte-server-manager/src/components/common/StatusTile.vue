@@ -27,7 +27,7 @@
 			@leave="leave"
 			@after-leave="afterLeave"
 		>
-			<div v-show="!collapsed">
+			<div v-show="!collapsible || !collapsed">
 				<slot name="content"></slot>
 			</div>
 		</Transition>

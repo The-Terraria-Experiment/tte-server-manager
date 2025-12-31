@@ -9,7 +9,13 @@ const { scanDynamoTable } = require("../shared/utils/dynamo");
 async function handle(event) {
 	const allEntries = await scanDynamoTable(PERM_TABLE);
 
-	return successResponse({entries: allEntries});
+	const filteredEntries = (allEntries || []).map(e => ({
+		permissions: e.permissions,
+		userID: e.uid,
+		username: e.username
+	}));
+
+	return successResponse({entries: filteredEntries});
 }
 
 module.exports = {handle};

@@ -3,17 +3,24 @@ import { useUserStore } from '@/stores/userStore';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
 
 /**
+ * Get the user store instance (lazy evaluation)
+ */
+function getUserStore() {
+	return useUserStore();
+}
+
+/**
  * Make an authenticated API request
  * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
  * @param {string} endpoint - API endpoint path (e.g., '/instances')
+ * @param {string} permission - Permission required to call this endpoint
  * @param {object} options - Request options
  * @param {object} options.body - Request body for POST/PUT
- * @param {string} options.permission - Required permission to check (e.g., 'instance.list')
  * @returns {Promise<any>} Response data
  * @throws {Error} If not authenticated, lacks permission, or request fails
  */
-export async function apiRequest(method, endpoint, options = {}) {
-	const userStore = useUserStore();
+export async function apiRequest(method, endpoint, permission, options = {}) {
+	const userStore = getUserStore();
 	
 	// Check authentication
 	if (!userStore.isAuthenticated) {
@@ -27,10 +34,10 @@ export async function apiRequest(method, endpoint, options = {}) {
 	}
 	
 	// Check permissions if required
-	if (options.permission) {
-		const hasPermission = userStore.hasPermission(options.permission);
+	if (permission) {
+		const hasPermission = userStore.hasPermission(permission);
 		if (!hasPermission) {
-			throw new Error(`Insufficient permissions: ${options.permission}`);
+			throw new Error(`Insufficient permissions:`, permission);
 		}
 	}
 	
@@ -61,28 +68,46 @@ export async function apiRequest(method, endpoint, options = {}) {
 
 /**
  * GET request
+ * @param {string} endpoint
+ * @param {string} permission
+ * @param {object} options
+ * @return {Promise}
  */
-export function get(endpoint, options = {}) {
-	return apiRequest('GET', endpoint, options);
+export function get(endpoint, permission, options = {}) {
+	return apiRequest('GET', endpoint, permission, options);
 }
 
 /**
  * POST request
+ * @param {string} endpoint
+ * @param {string} permission
+ * @param {object} body
+ * @param {object} options
+ * @return {Promise}
  */
-export function post(endpoint, body, options = {}) {
-	return apiRequest('POST', endpoint, { body, ...options });
+export function post(endpoint, permission, body, options = {}) {
+	return apiRequest('POST', endpoint, permission, { body, ...options });
 }
 
 /**
  * PUT request
+ * @param {string} endpoint
+ * @param {string} permission
+ * @param {object} body
+ * @param {object} options
+ * @return {Promise}
  */
-export function put(endpoint, body, options = {}) {
-	return apiRequest('PUT', endpoint, { body, ...options });
+export function put(endpoint, body, permission, options = {}) {
+	return apiRequest('PUT', endpoint, permission, { body, ...options });
 }
 
 /**
  * DELETE request
+ * @param {string} endpoint
+ * @param {string} permission
+ * @param {object} options
+ * @return {object}
  */
-export function deleteRequest(endpoint, options = {}) {
-	return apiRequest('DELETE', endpoint, options);
+export function deleteRequest(endpoint, permission, options = {}) {
+	return apiRequest('DELETE', endpoint, permission, options);
 }
