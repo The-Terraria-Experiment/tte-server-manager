@@ -51,9 +51,6 @@ export default {
 		const userStore = useUserStore();
 		const router = useRouter();
 		
-		// Load user on component mount
-		userStore.loadUser();
-		
 		return { userStore, router };
 	},
 	methods: {

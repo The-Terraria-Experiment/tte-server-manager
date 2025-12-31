@@ -27,6 +27,7 @@ import MobileNav from './components/shared/MobileNav.vue';
 import StickyHeader from './components/shared/StickyHeader.vue';
 import AlertStack from './components/common/AlertStack.vue';
 import screen from './mixins/screen';
+import { useUserStore } from './stores/userStore';
 
 export default {
 	mixins: [ screen ],
@@ -34,6 +35,15 @@ export default {
 		DesktopNav,
 		StickyHeader,
 		MobileNav,
+		AlertStack,
+	},
+	computed: {
+		userStore() {
+			return useUserStore();
+		},
+	},
+	created() {
+		this.userStore.loadUser();
 	}
 }
 </script>
