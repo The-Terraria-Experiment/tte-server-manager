@@ -2,8 +2,8 @@
  * Restart EC2 instance (stop then start)
  */
 
-const {executeSSMCommand, getInstanceStatus} = require("../../shared/utils/aws");
-const {successResponse, validationError} = require("../../shared/utils/response");
+const {executeSSMCommand, getInstanceStatus} = require("../shared/utils/aws");
+const {successResponse, validationError} = require("../shared/utils/response");
 
 /**
  * Poll for instance to reach target state with timeout

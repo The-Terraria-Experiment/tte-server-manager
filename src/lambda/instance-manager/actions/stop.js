@@ -2,8 +2,8 @@
  * Stop EC2 instance
  */
 
-const {stopInstance} = require("../../shared/utils/aws");
-const {successResponse, validationError} = require("../../shared/utils/response");
+const {stopInstance} = require("../shared/utils/aws");
+const {successResponse, validationError} = require("../shared/utils/response");
 
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;

@@ -3,7 +3,7 @@
  */
 
 const { callTShockAPI } = require('./tshockApi');
-const { successResponse, notFoundError } = require('../../shared/utils/response');
+const { successResponse, notFoundError } = require('../shared/utils/response');
 
 async function handle(event) {
   const serverId = event.pathParameters?.id;
