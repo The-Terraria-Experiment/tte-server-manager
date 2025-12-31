@@ -1,4 +1,5 @@
 <template>
+	<AlertStack />
 	<div v-if="$route.path === '/login'">
 		<RouterView />
 	</div>
@@ -24,6 +25,7 @@
 import DesktopNav from './components/shared/DesktopNav.vue';
 import MobileNav from './components/shared/MobileNav.vue';
 import StickyHeader from './components/shared/StickyHeader.vue';
+import AlertStack from './components/common/AlertStack.vue';
 import screen from './mixins/screen';
 
 export default {

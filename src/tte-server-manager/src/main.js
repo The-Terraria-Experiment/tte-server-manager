@@ -4,6 +4,8 @@ import './theme.css'
 import App from './App.vue'
 import { router } from './router'
 import { createPinia } from 'pinia'
+import alertsPlugin from './plugins/alerts'
+import permissionsPlugin from './plugins/permissions'
 import { VERSION } from './util/version'
 import { Amplify } from 'aws-amplify'
 import outputs from "../amplify_outputs.json"
@@ -25,7 +27,11 @@ if (outputs?.auth?.oauth) {
 
 Amplify.configure(outputs);
 
-createApp(App)
+const app = createApp(App);
+
+app
 	.use(router)
 	.use(pinia)
+	.use(alertsPlugin)
+	.use(permissionsPlugin)
 	.mount('#app');
