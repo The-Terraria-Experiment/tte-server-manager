@@ -1,6 +1,6 @@
 <template>
 	<div>
-		<StatusTile>
+		<StatusTile v-if="$checkPermissions(PERMISSIONS.users.permissions.read)">
 			<template #header>
 				<Icon icon="key" color="text-gray-6" size="4" />
 				<p class="text-gray-6 ml-2 text-lg">User Permissions</p>
@@ -78,7 +78,6 @@ import FlexButton from '../common/FlexButton.vue';
 import Icon from '../common/Icon.vue';
 import Spinner from '../common/Spinner.vue';
 import StatusTile from '../common/StatusTile.vue';
-import validatePermissions from "../../util/validatePermissions";
 import { BTN_VARIANT } from '../../util/constants';
 
 export default {
@@ -137,14 +136,21 @@ export default {
 	},
 	methods: {
 		async fetchUserPermissions() {
+			this.$validatePermissions(PERMISSIONS.users.permissions.read);
+
 			if (this.loading.permissions) return;
 			this.loading.permissions = true;
 
 			await this.userStore.ensureUserFetched();
-			const allPermissions = await get("/users/permissions", PERMISSIONS.users.permissions.read);
 
-			this.permissionsData =
-				Object.fromEntries((allPermissions.entries || []).map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }]));
+			try {
+				const allPermissions = await get("/users/permissions", PERMISSIONS.users.permissions.read);
+
+				this.permissionsData =
+					Object.fromEntries((allPermissions.entries || []).map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }]));
+			} catch (e) {
+				this.$alert.error("Error fetching permissions");
+			}
 
 			this.loading.permissions = false;
 		},
@@ -152,7 +158,7 @@ export default {
 			this.userTableScroll = event.currentTarget.scrollLeft;
 		},
 		setUserPerm(userID, permission, value) {
-			validatePermissions(PERMISSIONS.users.permissions.write);
+			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
 			let permAtPath = PERMISSIONS;
 			for (const pathItem of permission.split(".")) {
@@ -192,8 +198,9 @@ export default {
 						userID,
 						permissions: Array.from(updatedPerms)
 					});
-					console.log(response);
+					this.$alert.success("Permissions saved");
 				} catch (e) {
+					this.$alert.error("Error saving permissions");
 					console.error(e);
 				}
 			}
