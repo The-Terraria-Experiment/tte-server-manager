@@ -2,7 +2,7 @@
  * Overwrite a user's effective permissions
  */
 
-const {successResponse} = require("../../shared/utils/response");
+const {successResponse} = require("../shared/utils/response");
 const {PERM_TABLE} = require("../shared/constants");
 const {logError} = require("../shared/middleware/errorHandler");
 const {updateDynamoItem} = require("../shared/utils/dynamo");

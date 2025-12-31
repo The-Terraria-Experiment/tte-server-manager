@@ -2,8 +2,8 @@
  * List all instances with status
  */
 
-const {getInstanceStatus} = require("../../shared/utils/aws");
-const {successResponse} = require("../../shared/utils/response");
+const {getInstanceStatus} = require("../shared/utils/aws");
+const {successResponse} = require("../shared/utils/response");
 
 async function handle(event) {
 	const instanceIds = (process.env.EC2_INSTANCE_IDS || "").split(",").filter(Boolean);

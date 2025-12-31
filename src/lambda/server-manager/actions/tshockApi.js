@@ -2,7 +2,7 @@
  * TShock REST API helper
  */
 
-const { getSecret } = require('../../shared/utils/aws');
+const { getSecret } = require('../shared/utils/aws');
 
 /**
  * Call TShock REST API with authentication

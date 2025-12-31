@@ -2,7 +2,7 @@
  * List all game servers with status
  */
 
-const { successResponse } = require('../../shared/utils/response');
+const { successResponse } = require('../shared/utils/response');
 
 async function handle(event) {
   // TODO: Get list of server configs from DynamoDB or env
