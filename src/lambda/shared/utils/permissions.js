@@ -36,7 +36,8 @@ async function checkPermission(userSub, permission) {
 
 	if (!item || !item.permissions) return false;
 
-	if (item.permissions.has(permission)) {
+	const existingPerms = new Set(item.permissions || []);
+	if (existingPerms.has(permission)) {
 		return true;
 	}
 

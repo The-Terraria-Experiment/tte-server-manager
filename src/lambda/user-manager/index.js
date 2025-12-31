@@ -10,7 +10,7 @@ const {PERMISSIONS} = require("./shared/permissionValues");
 
 const endpoints = {
 	"GET /users": {
-		action: require("./actions/listUsers"),
+		action: null,
 		permRequired: PERMISSIONS.users.list,
 	},
 	"GET /users/logs": {
