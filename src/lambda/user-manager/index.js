@@ -6,7 +6,7 @@
 const {validatePermission} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
-const {PERMISSIONS} = require("../instance-manager/shared/permissionValues");
+const {PERMISSIONS} = require("./shared/permissionValues");
 
 const endpoints = {
 	"GET /users": {
