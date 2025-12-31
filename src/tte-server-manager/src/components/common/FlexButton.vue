@@ -1,7 +1,7 @@
 <template>
 	<div 
-		:class="['cursor-pointer rounded-lg flex items-center gradientbg', btnStyle]" 
-		@click="$emit('input')"
+		:class="['cursor-pointer rounded-lg flex items-center gradientbg select-none', btnStyle]" 
+		@click="input"
 	>
 		<slot></slot>
 	</div>
@@ -16,6 +16,10 @@ export default {
 			type: String,
 			default: BTN_VARIANT.SUBTLE,
 			validator: (val) => [BTN_VARIANT.PRIMARY, BTN_VARIANT.DANGER, BTN_VARIANT.SUBTLE].includes(val)
+		},
+		disabled: {
+			type: Boolean,
+			default: false
 		}
 	},
 	data() {
@@ -25,6 +29,10 @@ export default {
 	},
 	computed: {
 		btnStyle() {
+			if (this.disabled) {
+				return 'btn-disabled-style';
+			}
+
 			switch (this.variant) {
 				case BTN_VARIANT.PRIMARY:
 					return 'btn-primary-style';
@@ -36,7 +44,9 @@ export default {
 		}
 	},
 	methods: {
-
+		input() {
+			if (!this.disabled) this.$emit('input');
+		}
 	}
 }
 </script>
@@ -50,6 +60,10 @@ export default {
 
 .btn-danger-style {
 	@apply text-cream font-main font-bold w-max bg-linear-to-r from-red-5 to-red-1;
+}
+
+.btn-disabled-style {
+	@apply bg-transparent;
 }
 
 .gradientbg {

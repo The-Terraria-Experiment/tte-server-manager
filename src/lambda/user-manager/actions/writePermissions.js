@@ -15,7 +15,7 @@ async function handle(event) {
 	const deduplicated = Array.from(new Set(event.parsedBody.permissions || []));
 	const updateUser = event.parsedBody.userID;
 
-	const updated = await updateDynamoItem(PERM_TABLE, `user#${updateUser}`, {
+	const updated = await updateDynamoItem(PERM_TABLE, updateUser, {
 		updates: {
 			permissions: deduplicated,
 		},

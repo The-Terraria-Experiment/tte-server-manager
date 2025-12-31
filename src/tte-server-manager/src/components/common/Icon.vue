@@ -16,7 +16,7 @@ export default {
 			default: "",
 		},
 		size: {
-			type: String,
+			type: [String, null],
 			default: "8",
 		},
 		color: {
@@ -27,6 +27,10 @@ export default {
 			type: String,
 			default: "",
 		},
+		svgStyle: {
+			type: String,
+			default: ""
+		}
 	},
 	data() {
 		return {
@@ -39,7 +43,8 @@ export default {
 		},
 		iconClasses() {
 			const col = this.color ?? '';
-			return `h-${this.size} w-${this.size} ${col}`;
+			const size = this.size ? `h-${this.size} w-${this.size} ` : '';
+			return `${size}${col} ${this.svgStyle}`;
 		},
 		rawStyle() {
 			if (!this.color) {

@@ -6,6 +6,8 @@ export const useUserStore = defineStore("userstore", {
 		user: null,
 		idToken: null,
 		permissions: [],
+		accountData: null,
+		__userFetchedCallbacks: []
 	}),
 	getters: {
 		isAuthenticated: (state) => !!state.user,
@@ -31,6 +33,8 @@ export const useUserStore = defineStore("userstore", {
 				this.idToken = session.tokens?.idToken?.toString() || null;
 				// Load permissions after successful login
 				await this.loadPermissions();
+				this.__userFetchedCallbacks.forEach(cb => cb());
+				this.__userFetchedCallbacks = [];
 			} catch (error) {
 				this.user = null;
 				this.idToken = null;
@@ -51,7 +55,8 @@ export const useUserStore = defineStore("userstore", {
 				
 				if (response.ok) {
 					const data = await response.json();
-					this.permissions = data.permissions || [];
+					this.accountData = data?.entries || null;
+					this.permissions = data?.entries?.permissions || [];
 				}
 			} catch (error) {
 				console.error('Failed to load permissions:', error);
@@ -73,6 +78,18 @@ export const useUserStore = defineStore("userstore", {
 				await this.loadUser();
 			}
 			return this.idToken;
+		},
+		async ensureUserFetched() {
+			if (!!this.user) return true;
+			
+			let waiterResolve;
+			const waiter = new Promise((resolve) => {
+				waiterResolve = resolve;
+			});
+
+			this.__userFetchedCallbacks.push(waiterResolve);
+
+			return waiter;
 		}
 	}
 });
