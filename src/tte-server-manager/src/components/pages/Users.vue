@@ -55,7 +55,7 @@
 						<FlexButton :variant="BTN_VARIANT.DANGER" class="ml-4" @click="discardPermChanges">
 							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">DISCARD</p>
 						</FlexButton>
-						<FlexButton :variant="BTN_VARIANT.PRIMARY" class="ml-4">
+						<FlexButton :variant="BTN_VARIANT.PRIMARY" class="ml-4" @click="savePermChanges">
 							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">SAVE</p>
 						</FlexButton>
 					</div>
@@ -186,7 +186,7 @@ export default {
 		},
 		async savePermChanges() {
 			this.loading.save = true;
-			for (const [userID, updatedPerms] in this.updatedPermissions) {
+			for (const [userID, updatedPerms] of Object.entries(this.updatedPermissions)) {
 				try {
 					const response = await post("/users/permissions", PERMISSIONS.users.permissions.write, {
 						userID,
