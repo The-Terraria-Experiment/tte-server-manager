@@ -21,7 +21,7 @@ exports.handler = async (event, context) => {
 			uid: `user#${sub}`,
 			sub,
 			username,
-			displayName: `User_${Math.floor(Math.random() * 9999).toString().padStart(4, "0")}`,
+			displayName: "", // user_xxxx: `User_${Math.floor(Math.random() * 9999).toString().padStart(4, "0")}`
 			email,
 			permissions: [PERMISSIONS.access], // Default role; admins can grant additional roles later
 			createdAt: new Date().toISOString(),

@@ -25,8 +25,8 @@ export const useUserStore = defineStore("userstore", {
 		},
 	},
 	actions: {
-		async loadUser() {
-			if (this.user) return;
+		async loadUser(forceReload = false) {
+			if (this.user && !forceReload) return;
 
 			try {
 				const user = await getCurrentUser();

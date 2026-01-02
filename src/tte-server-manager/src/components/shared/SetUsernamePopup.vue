@@ -68,6 +68,9 @@ export default {
 		},
 	},
 	methods: {
+		openPopup() {
+			this.setUsernamePopupOpen = true;
+		},
 		async saveUsername() {
 			if (!this.updatedUsername) {
 				this.$alert.error("Please enter a display name");
@@ -80,6 +83,8 @@ export default {
 				});
 				this.setUsernamePopupOpen = false;
 				this.$alert.success("Display name saved");
+				await this.userStore.loadUser(true);
+				this.updatedUsername = this.userStore.user.displayName;
 			} catch (e) {
 				this.$alert.error("Error saving display name. Please try again.");
 			}
@@ -89,7 +94,6 @@ export default {
 		}
 	},
 	async mounted() {
-		this.setUsernamePopupOpen = true;
 		await this.userStore.ensureUserFetched();
 		this.updatedUsername = this.userStore.user.displayName;
 		await this.$nextTick();
