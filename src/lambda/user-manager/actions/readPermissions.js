@@ -12,7 +12,8 @@ async function handle(event) {
 	const filteredEntries = (allEntries || []).map(e => ({
 		permissions: e.permissions,
 		userID: e.uid,
-		username: e.username
+		username: e.username,
+		displayName: e.displayName
 	}));
 
 	return successResponse({entries: filteredEntries});
