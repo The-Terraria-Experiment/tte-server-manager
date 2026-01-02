@@ -1,6 +1,6 @@
 <template>
 	<div>
-		<StatusTile>
+		<StatusTile v-if="$checkPermissions(PERMISSIONS.users.permissions.read)">
 			<template #header>
 				<Icon icon="key" color="text-gray-6" size="4" />
 				<p class="text-gray-6 ml-2 text-lg">User Permissions</p>
@@ -32,7 +32,7 @@
 
 					<template v-for="(user, idx) in Object.values(permissionsData)">
 						<div :class="['sticky left-0 p-2 flex items-center z-10 overflow-x-auto', stickyShadow, idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
-							<p class="font-mono font-semibold text-cream">{{ user.username }}</p>
+							<p class="font-mono font-semibold text-cream">{{ user.displayName || user.username }}</p>
 						</div>
 						<template v-for="permValue in allPerms">
 							<div :class="['px-2 flex items-center w-20 relative justify-center border-r-2 border-gray-2', idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
@@ -55,7 +55,7 @@
 						<FlexButton :variant="BTN_VARIANT.DANGER" class="ml-4" @click="discardPermChanges">
 							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">DISCARD</p>
 						</FlexButton>
-						<FlexButton :variant="BTN_VARIANT.PRIMARY" class="ml-4">
+						<FlexButton :variant="BTN_VARIANT.PRIMARY" class="ml-4" @click="savePermChanges">
 							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">SAVE</p>
 						</FlexButton>
 					</div>
@@ -78,7 +78,6 @@ import FlexButton from '../common/FlexButton.vue';
 import Icon from '../common/Icon.vue';
 import Spinner from '../common/Spinner.vue';
 import StatusTile from '../common/StatusTile.vue';
-import validatePermissions from "../../util/validatePermissions";
 import { BTN_VARIANT } from '../../util/constants';
 
 export default {
@@ -137,14 +136,21 @@ export default {
 	},
 	methods: {
 		async fetchUserPermissions() {
+			this.$validatePermissions(PERMISSIONS.users.permissions.read);
+
 			if (this.loading.permissions) return;
 			this.loading.permissions = true;
 
 			await this.userStore.ensureUserFetched();
-			const allPermissions = await get("/users/permissions", PERMISSIONS.users.permissions.read);
 
-			this.permissionsData =
-				Object.fromEntries((allPermissions.entries || []).map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }]));
+			try {
+				const allPermissions = await get("/users/permissions", PERMISSIONS.users.permissions.read);
+
+				this.permissionsData =
+					Object.fromEntries((allPermissions.entries || []).map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }]));
+			} catch (e) {
+				this.$alert.error("Error fetching permissions");
+			}
 
 			this.loading.permissions = false;
 		},
@@ -152,7 +158,7 @@ export default {
 			this.userTableScroll = event.currentTarget.scrollLeft;
 		},
 		setUserPerm(userID, permission, value) {
-			validatePermissions(PERMISSIONS.users.permissions.write);
+			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
 			let permAtPath = PERMISSIONS;
 			for (const pathItem of permission.split(".")) {
@@ -186,14 +192,15 @@ export default {
 		},
 		async savePermChanges() {
 			this.loading.save = true;
-			for (const [userID, updatedPerms] in this.updatedPermissions) {
+			for (const [userID, updatedPerms] of Object.entries(this.updatedPermissions)) {
 				try {
 					const response = await post("/users/permissions", PERMISSIONS.users.permissions.write, {
 						userID,
 						permissions: Array.from(updatedPerms)
 					});
-					console.log(response);
+					this.$alert.success("Permissions saved");
 				} catch (e) {
+					this.$alert.error("Error saving permissions");
 					console.error(e);
 				}
 			}
@@ -203,7 +210,9 @@ export default {
 		}
 	},
 	mounted() {
-		this.fetchUserPermissions();
+		if (this.$checkPermissions(PERMISSIONS.users.permissions.read)) {
+			this.fetchUserPermissions();
+		}
 	}
 }
 </script>

@@ -28,6 +28,10 @@ const endpoints = {
 	"GET /users/permissions/getown": {
 		action: require("./actions/readOwnPermissions"),
 		permRequired: PERMISSIONS.access
+	},
+	"POST /users/username": {
+		action: require("./actions/setUsername"),
+		permRequired: PERMISSIONS.access
 	}
 };
 

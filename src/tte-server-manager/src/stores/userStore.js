@@ -26,6 +26,8 @@ export const useUserStore = defineStore("userstore", {
 	},
 	actions: {
 		async loadUser() {
+			if (this.user) return;
+
 			try {
 				const user = await getCurrentUser();
 				const session = await fetchAuthSession();
@@ -57,6 +59,8 @@ export const useUserStore = defineStore("userstore", {
 					const data = await response.json();
 					this.accountData = data?.entries || null;
 					this.permissions = data?.entries?.permissions || [];
+					this.user.displayName = data?.entries?.displayName || "";
+					this.user.username = data?.entries?.username || "";
 				}
 			} catch (error) {
 				console.error('Failed to load permissions:', error);

@@ -26,9 +26,6 @@
 				<template #summary>
 					<p class="text-2xl text-teal-4">RUNNING</p>
 				</template>
-				<template #content>
-					<div class="bg-red-0 h-40"></div>
-				</template>
 			</StatusTile>
 		</div>
 	</div>

@@ -7,7 +7,7 @@
 
 		<BevelCurve v-if="!isMobile" color="text-gray-5" size="6" />
 
-		<div class="bg-gray-3 md:bg-transparent flex items-center md:items-start">
+		<div class="bg-gray-3 md:bg-transparent flex items-center md:items-start" title="Profile">
 			<FlexButton 
 				v-if="!userStore.isAuthenticated"
 				class="mr-2 md:mr-6 md:mt-4" 
@@ -16,15 +16,49 @@
 			>
 				<p class="font-main font-bold py-2 px-4 md:px-14">LOG IN</p>
 			</FlexButton>
-			<FlexButton 
+			<div 
 				v-else
-				class="mr-2 md:mr-6 md:mt-4" 
-				:variant="BTN_VARIANT.DANGER"
-				@click="handleSignOut"
+				class="h-10 w-10 rounded-full bg-linear-to-br from-teal-4 to-red-1 mt-4 mr-4 flex justify-center items-center cursor-pointer"
+				@click="profilePopupOpen = true"
 			>
-				<p class="font-main font-bold py-2 px-4 md:px-14">LOG OUT</p>
-			</FlexButton>
+				<p class="font-main font-black text-cream">
+					{{ profileLetter }}
+				</p>
+			</div>
 		</div>
+
+		<Popup
+			:open="profilePopupOpen"
+			@xClicked="profilePopupOpen = false"
+			headerText="Profile"
+			bodyClass="w-full md:w-1/3 h-1/4"
+		>
+			<div class="w-full h-full flex justify-between items-center p-4">
+				<div>
+					<p class="text-gray-6 font-main font-bold">Display Name</p>
+					<div 
+						class="rounded-lg bg-gray-4 py-2 px-4 font-main font-bold text-cream min-w-50 cursor-pointer"
+						@click="setUsernamePopupOpen = true"
+					>
+						{{ userStore.user.displayName }}
+					</div>
+				</div>
+				<FlexButton 
+					class="my-4" 
+					:variant="BTN_VARIANT.DANGER"
+					@input="handleSignOut"
+					:disabled="logoutClicked"
+				>
+					<p v-if="!logoutClicked" class="font-main font-bold py-2 px-4 md:px-8">LOG OUT</p>
+					<div v-else class="flex items-center">
+						<Spinner class="h-6 w-6 m-2 text-cream" thickness="4" />
+						<p class="font-main font-bold text-cream">Please wait...</p>
+					</div>
+				</FlexButton>
+			</div>
+		</Popup>
+
+		<SetUsernamePopup :open="setUsernamePopupOpen" @xClicked="setUsernamePopupOpen = false" />
 	</div>
 </template>
 
@@ -35,32 +69,46 @@ import FlexButton from '../common/FlexButton.vue';
 import { useUserStore } from '../../stores/userStore';
 import { useRouter } from 'vue-router';
 import { BTN_VARIANT } from '../../util/constants';
+import Popup from '../common/Popup.vue';
+import SetUsernamePopup from './SetUsernamePopup.vue';
+import Spinner from '../common/Spinner.vue';
 	
 export default {
 	mixins: [screen],
 	components: {
 		BevelCurve,
 		FlexButton,
+		Popup,
+		SetUsernamePopup,
+		Spinner,
 	},
 	data() {
 		return {
-			BTN_VARIANT
+			BTN_VARIANT,
+			profilePopupOpen: false,
+			setUsernamePopupOpen: false,
+			logoutClicked: false,
 		}
 	},
 	setup() {
-		const userStore = useUserStore();
 		const router = useRouter();
-		
-		// Load user on component mount
-		userStore.loadUser();
-		
-		return { userStore, router };
+
+		return { router };
+	},
+	computed: {
+		userStore() {
+			return useUserStore();
+		},
+		profileLetter() {
+			return (this.userStore.user.displayName || this.userStore.username || "TTE_USER").split("")[0];
+		}
 	},
 	methods: {
 		goToLogin() {
 			this.router.push('/login');
 		},
 		async handleSignOut() {
+			this.logoutClicked = true;
 			await this.userStore.signOut();
 			this.router.push('/');
 		}
