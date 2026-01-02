@@ -30,7 +30,7 @@
 						</div>
 					</template>
 
-					<template v-for="(user, idx) in Object.values(permissionsData)">
+					<template v-for="(user, idx) of sortedPermissionsData">
 						<div :class="['sticky left-0 p-2 flex items-center z-10 overflow-x-auto', stickyShadow, idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
 							<p class="font-mono font-semibold text-cream">{{ user.displayName || user.username }}</p>
 						</div>
@@ -132,6 +132,10 @@ export default {
 			if (this.userTableScroll >= 2) {
 				return 'tableStickyShadow';
 			}
+		},
+		sortedPermissionsData() {
+			return Object.values(this.permissionsData)
+				.sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '', undefined, { numeric: true }));
 		}
 	},
 	methods: {
@@ -147,7 +151,9 @@ export default {
 				const allPermissions = await get("/users/permissions", PERMISSIONS.users.permissions.read);
 
 				this.permissionsData =
-					Object.fromEntries((allPermissions.entries || []).map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }]));
+					Object.fromEntries((allPermissions.entries || [])
+						.map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }])
+						.sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '', undefined, { numeric: true })));
 			} catch (e) {
 				this.$alert.error("Error fetching permissions");
 			}

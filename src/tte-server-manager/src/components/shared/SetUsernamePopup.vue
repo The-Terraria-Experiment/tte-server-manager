@@ -19,7 +19,7 @@
 				Your profile does not have a display name associated with it, please add one:
 			</h2>
 			<h2 v-else class="text-teal-4 font-main font-semibold w-full text-center p-4">
-				Edit your username:
+				Edit your display name:
 			</h2>
 			<p class="italic font-sub text-gray-7 w-full text-center px-4 text-sm">
 				(Note: This name will only be seen by admins{{ mustCreate ? ', and you can change it at any time by clicking on your profile in the upper right.' : '' }})
