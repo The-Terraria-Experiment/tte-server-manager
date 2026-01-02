@@ -32,7 +32,7 @@
 
 					<template v-for="(user, idx) in Object.values(permissionsData)">
 						<div :class="['sticky left-0 p-2 flex items-center z-10 overflow-x-auto', stickyShadow, idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
-							<p class="font-mono font-semibold text-cream">{{ user.username }}</p>
+							<p class="font-mono font-semibold text-cream">{{ user.displayName || user.username }}</p>
 						</div>
 						<template v-for="permValue in allPerms">
 							<div :class="['px-2 flex items-center w-20 relative justify-center border-r-2 border-gray-2', idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
@@ -210,7 +210,9 @@ export default {
 		}
 	},
 	mounted() {
-		this.fetchUserPermissions();
+		if (this.$checkPermissions(PERMISSIONS.users.permissions.read)) {
+			this.fetchUserPermissions();
+		}
 	}
 }
 </script>

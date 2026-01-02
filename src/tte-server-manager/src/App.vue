@@ -1,5 +1,6 @@
 <template>
 	<AlertStack />
+
 	<div v-if="$route.path === '/login'">
 		<RouterView />
 	</div>
@@ -18,6 +19,8 @@
 				<RouterView />	
 			</div>
 		</div>
+
+		<SetUsernamePopup v-if="setUsernameRequired" mustCreate />
 	</div>
 </template>
 
@@ -27,6 +30,7 @@ import MobileNav from './components/shared/MobileNav.vue';
 import StickyHeader from './components/shared/StickyHeader.vue';
 import AlertStack from './components/common/AlertStack.vue';
 import screen from './mixins/screen';
+import SetUsernamePopup from './components/shared/SetUsernamePopup.vue';
 import { useUserStore } from './stores/userStore';
 
 export default {
@@ -36,14 +40,28 @@ export default {
 		StickyHeader,
 		MobileNav,
 		AlertStack,
+		SetUsernamePopup,
+	},
+	data() {
+		return {
+			setUsernameRequired: false,
+		}
 	},
 	computed: {
 		userStore() {
 			return useUserStore();
 		},
 	},
-	created() {
+	methods: {
+		
+	},
+	async created() {
 		this.userStore.loadUser();
+
+		await this.userStore.ensureUserFetched();
+		if (!this.userStore.user.displayName) {
+			this.setUsernameRequired = true;
+		}
 	}
 }
 </script>
