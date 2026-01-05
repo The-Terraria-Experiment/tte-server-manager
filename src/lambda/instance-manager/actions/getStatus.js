@@ -14,7 +14,7 @@ async function handle(event) {
 
 	const status = await getInstanceStatus(instanceId);
 
-	return successResponse({instance: status});
+	return successResponse({ instance: status });
 }
 
 module.exports = {handle};

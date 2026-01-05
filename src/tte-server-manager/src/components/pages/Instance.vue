@@ -1,12 +1,28 @@
 <template>
 	<Dropdown 
+		v-if="$checkPermissions(PERMISSIONS.instance.list) && !loading.list && instanceOptions?.length"
 		:options="instanceOptions"
 		v-model="selectedInstance"
 		inputClass="bg-teal-3 text-white-1"
 		iconColor="text-white-1"
 	/>
+	<StatusTile v-else-if="!loading.list && !instanceOptions.length">
+		<template #header>
+			<Icon icon="warning" color="text-yellow-2" size="4" />
+			<p class="text-yellow-2 ml-2 text-lg">No Data</p>
+		</template>
+		<template #summary>
+			<p class="text-2xl text-teal-4">No instances to show</p>
+		</template>
+	</StatusTile>
 
-	<template v-if="selectedInstance">
+	<template v-if="loading.list || loading.status">
+		<div class="flex items-center py-4">
+			<Spinner class="h-4 w-4 text-white-0" thickness="4" />
+			<p class="font-main font-semibold text-white-0 ml-2">Loading...</p>
+		</div>
+	</template>
+	<template v-else-if="$checkPermissions(PERMISSIONS.instance.status.read) && selectedInstanceData && instanceOptions">
 		<div class="flex flex-col sm:grid sm:grid-cols-4">
 			<StatusTile 
 				:class="['grow mt-4 sm:mt-8 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
@@ -74,13 +90,7 @@
 			</StatusTile>
 		</div>
 	</template>
-	<template v-else>
-		<div class="flex">
-			<Spinner class="h-6 w-6 text-white-0" thickness="4" />
-			<p class="font-main font-semibold">Loading...</p>
-		</div>
-		
-	</template>
+	<NotAllowed v-else-if="!$checkPermissions(PERMISSIONS.instance.status.read)" />
 	
 </template>
 
@@ -92,6 +102,9 @@ import Icon from '../common/Icon.vue';
 import StatusTile from '../common/StatusTile.vue';
 import Spinner from "../common/Spinner.vue";
 import ActiveDate from '../common/ActiveDate.vue';
+import { PERMISSIONS } from '../../util/permissionValues';
+import { get } from '../../util/api';
+import NotAllowed from '../common/NotAllowed.vue';
 
 export default {
 	mixins: [],
@@ -102,6 +115,7 @@ export default {
 		Icon,
 		Spinner,
 		ActiveDate,
+		NotAllowed,
 	},
 	props: {
 		
@@ -109,32 +123,21 @@ export default {
 	data() {
 		return {
 			BTN_VARIANT,
+			PERMISSIONS,
 			selectedInstance: null,
-			instanceData: {
-				"instance-1": {
-					state: "running",
-					publicIp: "192.168.0.0",
-					launchTime: "2024-09-29T11:04:43.305Z",
-					instanceType: "m6a.large",
-				},
-				"instance-2": {
-					state: "stopped",
-					publicIp: "192.168.1.2",
-					launchTime: "2021-09-29T11:04:43.305Z",
-					instanceType: "t2.micro",
-				}
-			}
+			loading: {
+				list: false,
+				status: false,
+			},
+			instanceData: {},
+			instanceOptions: [],
 		}
 	},
 	computed: {
-		instanceOptions() {
-			return [
-				{ id: "instance-1", text: "Instance 1" },
-				{ id: "instance-2", text: "Instance 2" },
-			]
-		},
 		selectedInstanceData() {
 			const rawData = this.instanceData[this.selectedInstance];
+			if (!rawData) return null;
+
 			const stateMap = {
 				"pending": "STATE PENDING",
 				"running": "ONLINE",
@@ -153,10 +156,44 @@ export default {
 		}
 	},
 	methods: {
-		
+		async fetchInstanceList() {
+			this.$validatePermissions(PERMISSIONS.instance.list);
+
+			if (this.loading.list) return;
+			this.loading.list = true;
+
+			try {
+				const instanceList = await get("/instances", PERMISSIONS.instance.list);
+				this.instanceOptions = instanceList.instances.map?.(i => ({ id: i.id, text: i.name }));
+				this.selectedInstance = instanceList.instances[0]?.id || undefined;
+			} catch (e) {
+				this.$alert.error("Error fetching instance list");
+				console.error(e);
+			} finally {
+				this.loading.list = false;
+			}
+		},
+		async fetchInstanceStatus(instanceID) {
+			this.$validatePermissions(PERMISSIONS.instance.status.read);
+
+			if (this.loading.status) return;
+			this.loading.status = true;
+
+			try {
+				const instanceStatus = await get(`/instance/${instanceID}/status`, PERMISSIONS.instance.status.read);
+				this.instanceData[instanceID] = instanceStatus.instance;
+			} catch (e) {
+				this.$alert.error("Error fetching instance status");
+				console.error(e);
+			} finally {
+				this.loading.status = false;
+			}
+		}
 	},
-	mounted() {
-		this.selectedInstance = "instance-2";
+	beforeMount() {
+		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
+			this.fetchInstanceList();
+		}
 	}
 }
 </script>
