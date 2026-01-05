@@ -20,8 +20,14 @@ export const router = createRouter({
 	]
 });
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
 	const user = useUserStore();
+	
+	// Always try to load/restore user state on navigation
+	if (!user.isAuthenticated) {
+		await user.loadUser();
+	}
+	
 	if (to.meta.requiresAuth && !user.isAuthenticated) {
 		return { path: "/login", query: { redirect: to.fullPath } };
 	}

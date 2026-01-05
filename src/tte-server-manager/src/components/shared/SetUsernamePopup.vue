@@ -19,7 +19,7 @@
 				Your profile does not have a display name associated with it, please add one:
 			</h2>
 			<h2 v-else class="text-teal-4 font-main font-semibold w-full text-center p-4">
-				Edit your username:
+				Edit your display name:
 			</h2>
 			<p class="italic font-sub text-gray-7 w-full text-center px-4 text-sm">
 				(Note: This name will only be seen by admins{{ mustCreate ? ', and you can change it at any time by clicking on your profile in the upper right.' : '' }})
@@ -68,6 +68,9 @@ export default {
 		},
 	},
 	methods: {
+		openPopup() {
+			this.setUsernamePopupOpen = true;
+		},
 		async saveUsername() {
 			if (!this.updatedUsername) {
 				this.$alert.error("Please enter a display name");
@@ -80,6 +83,8 @@ export default {
 				});
 				this.setUsernamePopupOpen = false;
 				this.$alert.success("Display name saved");
+				await this.userStore.loadUser(true);
+				this.updatedUsername = this.userStore.user.displayName;
 			} catch (e) {
 				this.$alert.error("Error saving display name. Please try again.");
 			}
@@ -89,7 +94,6 @@ export default {
 		}
 	},
 	async mounted() {
-		this.setUsernamePopupOpen = true;
 		await this.userStore.ensureUserFetched();
 		this.updatedUsername = this.userStore.user.displayName;
 		await this.$nextTick();

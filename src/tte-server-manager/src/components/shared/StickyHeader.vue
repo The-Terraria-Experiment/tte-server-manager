@@ -18,7 +18,7 @@
 			</FlexButton>
 			<div 
 				v-else
-				class="h-10 w-10 rounded-full bg-linear-to-br from-teal-4 to-red-1 mt-4 mr-4 flex justify-center items-center cursor-pointer"
+				class="h-10 w-10 rounded-full bg-linear-to-br from-teal-4 to-red-1 sm:mt-4 mr-4 flex justify-center items-center cursor-pointer"
 				@click="profilePopupOpen = true"
 			>
 				<p class="font-main font-black text-cream">
@@ -38,9 +38,9 @@
 					<p class="text-gray-6 font-main font-bold">Display Name</p>
 					<div 
 						class="rounded-lg bg-gray-4 py-2 px-4 font-main font-bold text-cream min-w-50 cursor-pointer"
-						@click="setUsernamePopupOpen = true"
+						@click="$refs.namepopup.openPopup"
 					>
-						{{ userStore.user.displayName }}
+						{{ userStore.user?.displayName || '<No username>' }}
 					</div>
 				</div>
 				<FlexButton 
@@ -58,7 +58,7 @@
 			</div>
 		</Popup>
 
-		<SetUsernamePopup :open="setUsernamePopupOpen" @xClicked="setUsernamePopupOpen = false" />
+		<SetUsernamePopup ref="namepopup" />
 	</div>
 </template>
 
@@ -86,7 +86,6 @@ export default {
 		return {
 			BTN_VARIANT,
 			profilePopupOpen: false,
-			setUsernamePopupOpen: false,
 			logoutClicked: false,
 		}
 	},

@@ -2,20 +2,23 @@
  * List all instances with status
  */
 
-const {getInstanceStatus} = require("../shared/utils/aws");
+const {getMultipleInstanceStatus} = require("../shared/utils/aws");
 const {successResponse} = require("../shared/utils/response");
 
 async function handle(event) {
 	const instanceIds = (process.env.EC2_INSTANCE_IDS || "").split(",").filter(Boolean);
 
-	const instances = [];
+	// Batch fetch all instances in a single API call
+	const instancesData = await getMultipleInstanceStatus(instanceIds);
 
-	for (const instanceId of instanceIds) {
-		const idata = await getInstanceStatus(instanceId);
-		instances.push(idata);
-	}
+	// Map to simplified response format
+	const instances = instancesData.map(idata => ({
+		id: idata.id,
+		state: idata.state,
+		name: idata.name
+	}));
 
-	return successResponse({instances});
+	return successResponse({ instances });
 }
 
 module.exports = {handle};

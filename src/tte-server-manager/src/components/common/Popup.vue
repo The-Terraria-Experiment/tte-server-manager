@@ -138,6 +138,9 @@ export default {
 			if (!this.getOriginalStateUntil) {
 				this.setPreModifiedState();
 			}
+		},
+		open(value) {
+			this.setPreModifiedState();
 		}
 	}
 }

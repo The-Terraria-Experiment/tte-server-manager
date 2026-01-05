@@ -14,6 +14,9 @@
 import { Authenticator } from "@aws-amplify/ui-vue";
 import { I18n } from "aws-amplify/utils";
 import "@aws-amplify/ui-vue/styles.css";
+import { onMounted } from "vue";
+import { useUserStore } from "../../stores/userStore";
+import { useRouter } from "vue-router";
 
 I18n.putVocabulariesForLanguage('en', {
 	'Sign In': "LOGIN",
@@ -44,6 +47,17 @@ const formFields = {
 		},
 	},
 };
+
+onMounted(async () => {
+	const userStore = useUserStore();
+	const router = useRouter();
+
+	await userStore.loadUser();
+
+	if (userStore.isAuthenticated) {
+		router.push("/");
+	}
+});
 </script>
 
 <style scoped>
@@ -104,5 +118,17 @@ const formFields = {
 
 :deep(.amplify-label) {
 	@apply font-main font-bold;
+}
+
+:deep(.amplify-text--error) {
+	@apply text-red-4
+}
+
+:deep(.amplify-authenticator__subtitle) {
+	@apply text-gray-8;
+}
+
+:deep(.amplify-heading) {
+	@apply text-teal-4;
 }
 </style>

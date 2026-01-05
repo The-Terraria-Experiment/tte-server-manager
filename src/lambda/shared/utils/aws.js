@@ -16,7 +16,7 @@ const s3Client = new S3Client({region: process.env.AWS_REGION});
 /**
  * Get EC2 instance status
  * @param {string} instanceId
- * @returns {Promise<{state: string, publicIp: string, launchTime: string, instanceType: string}>}
+ * @returns {Promise<{state: string, publicIp: string, launchTime: string, instanceType: string, name: string}>}
  */
 async function getInstanceStatus(instanceId) {
 	const command = new DescribeInstancesCommand({
@@ -29,13 +29,47 @@ async function getInstanceStatus(instanceId) {
 	}
 
 	const instance = response.Reservations[0].Instances[0];
+	const nameTag = instance.Tags?.find(tag => tag.Key === 'Name');
 	return {
-		state: instance.State.Name,
-		publicIp: instance.PublicIpAddress || "pending",
-		launchTime: instance.LaunchTime?.toISOString(),
+		state: instance.State.Name, // pending | running | shutting-down | terminated | stopping | stopped
+		publicIp: instance.PublicIpAddress || "PENDING",
+		launchTime: instance.LaunchTime,
 		instanceType: instance.InstanceType,
-		availabilityZone: instance.Placement.AvailabilityZone,
+		name: nameTag?.Value || '(Unnamed)',
 	};
+}
+
+/**
+ * Get status for multiple EC2 instances in a single API call (optimized for listing)
+ * @param {string[]} instanceIds
+ * @returns {Promise<Array<{id: string, state: string, publicIp: string, launchTime: string, instanceType: string, name: string}>>}
+ */
+async function getMultipleInstanceStatus(instanceIds) {
+	if (!instanceIds || instanceIds.length === 0) {
+		return [];
+	}
+
+	const command = new DescribeInstancesCommand({
+		InstanceIds: instanceIds,
+	});
+	const response = await ec2Client.send(command);
+
+	const instances = [];
+	for (const reservation of response.Reservations || []) {
+		for (const instance of reservation.Instances || []) {
+			const nameTag = instance.Tags?.find(tag => tag.Key === 'Name');
+			instances.push({
+				id: instance.InstanceId,
+				state: instance.State.Name,
+				publicIp: instance.PublicIpAddress || "PENDING",
+				launchTime: instance.LaunchTime,
+				instanceType: instance.InstanceType,
+				name: nameTag?.Value || '(Unnamed)',
+			});
+		}
+	}
+
+	return instances;
 }
 
 /**
@@ -109,6 +143,7 @@ module.exports = {
 	secretsClient,
 	s3Client,
 	getInstanceStatus,
+	getMultipleInstanceStatus,
 	startInstance,
 	stopInstance,
 	executeSSMCommand,

@@ -20,7 +20,7 @@
 			</div>
 		</div>
 
-		<SetUsernamePopup v-if="setUsernameRequired" mustCreate />
+		<SetUsernamePopup ref="namepopup" mustCreate />
 	</div>
 </template>
 
@@ -44,7 +44,7 @@ export default {
 	},
 	data() {
 		return {
-			setUsernameRequired: false,
+
 		}
 	},
 	computed: {
@@ -60,7 +60,7 @@ export default {
 
 		await this.userStore.ensureUserFetched();
 		if (!this.userStore.user.displayName) {
-			this.setUsernameRequired = true;
+			this.$refs.namepopup.openPopup();
 		}
 	}
 }
