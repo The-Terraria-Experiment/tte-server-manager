@@ -166,6 +166,9 @@ export default {
 				const instanceList = await get("/instances", PERMISSIONS.instance.list);
 				this.instanceOptions = instanceList.instances.map?.(i => ({ id: i.id, text: i.name }));
 				this.selectedInstance = instanceList.instances[0]?.id || undefined;
+				if (this.selectedInstance) {
+					this.fetchInstanceStatus(this.selectedInstance);
+				}
 			} catch (e) {
 				this.$alert.error("Error fetching instance list");
 				console.error(e);
@@ -190,9 +193,16 @@ export default {
 			}
 		}
 	},
-	beforeMount() {
+	mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			this.fetchInstanceList();
+		}
+	},
+	watch: {
+		selectedInstance(value) {
+			if (!this.instanceData[value] && !this.loading.status) {
+				this.fetchInstanceStatus(value);
+			}
 		}
 	}
 }
