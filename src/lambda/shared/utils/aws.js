@@ -30,11 +30,11 @@ async function getInstanceStatus(instanceId) {
 
 	const instance = response.Reservations[0].Instances[0];
 	return {
-		state: instance.State.Name,
+		state: instance.State.Name, // pending | running | shutting-down | terminated | stopping | stopped
 		publicIp: instance.PublicIpAddress || "pending",
 		launchTime: instance.LaunchTime,
 		instanceType: instance.InstanceType,
-		availabilityZone: instance.Placement.AvailabilityZone,
+		// availabilityZone: instance.Placement.AvailabilityZone,
 	};
 }
 
