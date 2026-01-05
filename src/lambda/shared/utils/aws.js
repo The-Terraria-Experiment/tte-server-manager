@@ -32,7 +32,7 @@ async function getInstanceStatus(instanceId) {
 	return {
 		state: instance.State.Name,
 		publicIp: instance.PublicIpAddress || "pending",
-		launchTime: instance.LaunchTime?.toISOString(),
+		launchTime: instance.LaunchTime,
 		instanceType: instance.InstanceType,
 		availabilityZone: instance.Placement.AvailabilityZone,
 	};
