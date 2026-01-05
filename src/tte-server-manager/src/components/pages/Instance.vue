@@ -16,17 +16,23 @@
 		</template>
 	</StatusTile>
 
-	<template v-if="loading.list || loading.status">
-		<div class="flex items-center py-4">
-			<Spinner class="h-4 w-4 text-white-0" thickness="4" />
-			<p class="font-main font-semibold text-white-0 ml-2">Loading...</p>
+	<FlexButton 
+		class="bg-gray-4 hover:bg-gray-3 w-max pl-4 pr-6 py-2 mt-4" 
+		@input="fetchInstanceStatus(selectedInstance)"
+		:disabled="loading.status"
+	>
+		<div class="flex items-center">
+			<Spinner v-if="loading.status" class="h-4 w-4 text-teal-3" thickness="4" />
+			<Icon v-else icon="arrow-rotate-right" color="text-teal-3" size="4" />
+			<p class="text-teal-3 ml-2 font-main font-bold">REFRESH</p>
 		</div>
-	</template>
-	<template v-else-if="$checkPermissions(PERMISSIONS.instance.status.read) && selectedInstanceData && instanceOptions">
+	</FlexButton>
+
+	<template v-if="$checkPermissions(PERMISSIONS.instance.status.read)">
 		<div class="flex flex-col sm:grid sm:grid-cols-4">
 			<StatusTile 
 				:class="['grow mt-4 sm:mt-8 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
-				collapsible
+				:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
 			>
 				<template #header>
 					<Icon icon="power" color="text-gray-6" size="4" />
@@ -136,10 +142,15 @@ export default {
 	computed: {
 		selectedInstanceData() {
 			const rawData = this.instanceData[this.selectedInstance];
-			if (!rawData) return null;
+			if (!rawData) return {
+				state: "UNKNOWN",
+				publicIp: null,
+				timeOnline: null,
+				instanceType: null
+			};
 
 			const stateMap = {
-				"pending": "STATE PENDING",
+				"pending": "STARTING",
 				"running": "ONLINE",
 				"shutting-down": "SHUTTING DOWN",
 				"terminated": "TERMINATED",
@@ -150,7 +161,7 @@ export default {
 			return {
 				state: stateMap[rawData.state],
 				publicIp: rawData.publicIp,
-				timeOnline: rawData.launchTime ? new Date(rawData.launchTime) : null,
+				timeOnline: (rawData.launchTime && rawData.state === 'running') ? new Date(rawData.launchTime) : null,
 				instanceType: rawData.instanceType
 			};
 		}
@@ -166,9 +177,6 @@ export default {
 				const instanceList = await get("/instances", PERMISSIONS.instance.list);
 				this.instanceOptions = instanceList.instances.map?.(i => ({ id: i.id, text: i.name }));
 				this.selectedInstance = instanceList.instances[0]?.id || undefined;
-				if (this.selectedInstance) {
-					this.fetchInstanceStatus(this.selectedInstance);
-				}
 			} catch (e) {
 				this.$alert.error("Error fetching instance list");
 				console.error(e);
