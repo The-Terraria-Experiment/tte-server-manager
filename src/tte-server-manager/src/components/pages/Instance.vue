@@ -69,7 +69,7 @@
 
 			<StatusTile class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile">
 				<template #header>
-					<Icon icon="clock" color="text-gray-6" size="4" />
+					<Icon icon="network" color="text-gray-6" size="5" />
 					<p class="text-gray-6 ml-2 text-lg">IP Address</p>
 				</template>
 				<template #summary>
@@ -80,7 +80,7 @@
 
 			<StatusTile class="grow mt-4 sm:mt-8 sm:ml-1 gradient-tile">
 				<template #header>
-					<Icon icon="clock" color="text-gray-6" size="4" />
+					<Icon icon="microchip" color="text-gray-6" size="5" />
 					<p class="text-gray-6 ml-2 text-lg">Instance Type</p>
 				</template>
 				<template #summary>
