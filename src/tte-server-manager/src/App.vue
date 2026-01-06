@@ -8,7 +8,7 @@
 		<StickyHeader />
 
 		<div v-if="isMobile">
-			<div class="p-4 w-full">
+			<div class="p-4 w-full pb-20">
 				<RouterView />
 			</div>
 			<MobileNav />
