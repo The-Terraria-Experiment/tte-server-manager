@@ -98,106 +98,104 @@
 		</StatusTile>
 	</div>
 
-	<div class="flex flex-col sm:grid">
-		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-			collapsible
-			:perm-required="PERMISSIONS.server.world.select"
-		>
-			<template #header>
-				<Icon icon="rocket" color="text-gray-6" size="5" />
-				<p class="text-gray-6 ml-2 text-lg">Launch World</p>
-			</template>
-			<template #summary>
-				<div class="flex items-center">
-					<p class="text-2xl text-teal-4">6 worlds available</p>
-					<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
+	<StatusTile 
+		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+		collapsible
+		:perm-required="PERMISSIONS.server.world.select"
+	>
+		<template #header>
+			<Icon icon="rocket" color="text-gray-6" size="5" />
+			<p class="text-gray-6 ml-2 text-lg">Launch World</p>
+		</template>
+		<template #summary>
+			<div class="flex items-center">
+				<p class="text-2xl text-teal-4">6 worlds available</p>
+				<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
+			</div>
+		</template>
+		<template #content>
+			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
+			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
+				<div class="grid world-select-grid px-2 py-2">
+					<div></div>
+					<div class="font-main font-semibold text-teal-6 pb-2">World File Name</div>
+					<div class="font-main font-semibold text-teal-6">File Size</div>
+					
+					<template v-for="(world, idx) in serverStore.servers">
+						<div :class="['p-2 rounded-l', { 'bg-gray-4': !(idx%2)}]">
+							<Checkbox class="h-4 w-4" />
+						</div>
+						<div :class="['flex items-center', { 'bg-gray-4': !(idx%2)}]">
+							<p class="font-mono text-white-0 font-semibold">{{ world.name }}</p>
+						</div>
+						<div :class="['flex items-center rounded-r pr-2', { 'bg-gray-4': !(idx%2)}]">
+							<p class="font-mono text-white-0 font-semibold">{{ formatFileSize(world.size) }}</p>
+						</div>
+					</template>
 				</div>
-			</template>
-			<template #content>
-				<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
-				<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
-					<div class="grid world-select-grid px-2 py-2">
-						<div></div>
-						<div class="font-main font-semibold text-teal-6 pb-2">World File Name</div>
-						<div class="font-main font-semibold text-teal-6">File Size</div>
-						
-						<template v-for="(world, idx) in serverStore.servers">
-							<div :class="['p-2 rounded-l', { 'bg-gray-4': !(idx%2)}]">
-								<Checkbox class="h-4 w-4" />
-							</div>
-							<div :class="['flex items-center', { 'bg-gray-4': !(idx%2)}]">
-								<p class="font-mono text-white-0 font-semibold">{{ world.name }}</p>
-							</div>
-							<div :class="['flex items-center rounded-r pr-2', { 'bg-gray-4': !(idx%2)}]">
-								<p class="font-mono text-white-0 font-semibold">{{ formatFileSize(world.size) }}</p>
-							</div>
-						</template>
-					</div>
-				</div>
+			</div>
 
-				<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
-				<div class="mx-4 mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
-						<ValueInput
-							type="number"
-							max="9999"
-							min="1000"
-							placeholder="Value between 1000 and 9999"
-						/>
-					</div>
-
-					<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 sm:mx-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
-						<ValueInput
-							type="number"
-							max="500"
-							min="1"
-							placeholder="Value between 1 and 500"
-						/>
-					</div>
-
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
-						<ValueInput
-							maxlength="25"
-							placeholder="Leave blank for none"
-						/>
-					</div>
+			<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
+			<div class="mx-4 mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
+				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+					<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
+					<ValueInput
+						type="number"
+						max="9999"
+						min="1000"
+						placeholder="Value between 1000 and 9999"
+					/>
 				</div>
 
-				<div class="flex justify-end p-4">
-					<FlexButton 
-						:variant="BTN_VARIANT.PRIMARY"
-					>
-						<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
-					</FlexButton>
+				<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 sm:mx-4 flex flex-col">
+					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
+					<ValueInput
+						type="number"
+						max="500"
+						min="1"
+						placeholder="Value between 1 and 500"
+					/>
 				</div>
-				
-			</template>
-		</StatusTile>
 
-		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-			collapsible
-			:perm-required="PERMISSIONS.server.world.select"
-		>
-			<template #header>
-				<Icon icon="rocket" color="text-gray-6" size="5" />
-				<p class="text-gray-6 ml-2 text-lg">Create World</p>
-			</template>
-			<template #summary>
-				<div class="flex items-center">
-					<p class="text-2xl text-teal-4">6 worlds available</p>
-					<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
+				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+					<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
+					<ValueInput
+						maxlength="25"
+						placeholder="Leave blank for none"
+					/>
 				</div>
-			</template>
-			<template #content>
-				
-			</template>
-		</StatusTile>
-	</div>
+			</div>
+
+			<div class="flex justify-end p-4">
+				<FlexButton 
+					:variant="BTN_VARIANT.PRIMARY"
+				>
+					<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
+				</FlexButton>
+			</div>
+			
+		</template>
+	</StatusTile>
+
+	<StatusTile 
+		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+		collapsible
+		:perm-required="PERMISSIONS.server.world.select"
+	>
+		<template #header>
+			<Icon icon="rocket" color="text-gray-6" size="5" />
+			<p class="text-gray-6 ml-2 text-lg">Create World</p>
+		</template>
+		<template #summary>
+			<div class="flex items-center">
+				<p class="text-2xl text-teal-4">6 worlds available</p>
+				<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
+			</div>
+		</template>
+		<template #content>
+			
+		</template>
+	</StatusTile>
 
 	<Popup
 		body-class="h-1/4 w-full sm:w-1/2 lg:w-1/4"
