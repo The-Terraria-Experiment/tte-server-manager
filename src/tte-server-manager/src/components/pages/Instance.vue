@@ -1,11 +1,19 @@
 <template>
-	<Dropdown 
+	<div 
 		v-if="$checkPermissions(PERMISSIONS.instance.list) && !loading.list && instanceOptions?.length"
-		:options="instanceOptions"
-		v-model="selectedInstance"
-		inputClass="bg-teal-3 text-white-1"
-		iconColor="text-white-1"
-	/>
+		class="bg-gray-3 p-4 rounded-xl"
+	>
+		<p class="font-main font-bold text-gray-7 mb-2">VIEW INSTANCE</p>
+		<Dropdown 
+			:options="instanceOptions"
+			v-model="selectedInstance"
+			inputClass="bg-teal-3 text-white-1"
+			iconColor="text-white-1"
+		/>
+
+		<RefreshButton :loading="loading.status" @input="fetchInstanceStatus(selectedInstance)" />
+	</div>
+	
 	<StatusTile v-else-if="!loading.list && !instanceOptions.length">
 		<template #header>
 			<Icon icon="warning" color="text-yellow-2" size="4" />
@@ -15,18 +23,6 @@
 			<p class="text-2xl text-teal-4">No instances to show</p>
 		</template>
 	</StatusTile>
-
-	<FlexButton 
-		class="bg-gray-4 hover:bg-gray-3 w-max pl-4 pr-6 py-2 mt-4" 
-		@input="fetchInstanceStatus(selectedInstance)"
-		:disabled="loading.status"
-	>
-		<div class="flex items-center">
-			<Spinner v-if="loading.status" class="h-4 w-4 text-teal-3" thickness="4" />
-			<Icon v-else icon="arrow-rotate-right" color="text-teal-3" size="4" />
-			<p class="text-teal-3 ml-2 font-main font-bold">REFRESH</p>
-		</div>
-	</FlexButton>
 
 	<template v-if="$checkPermissions(PERMISSIONS.instance.status.read)">
 		<div class="flex flex-col sm:grid sm:grid-cols-4">
