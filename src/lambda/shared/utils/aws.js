@@ -3,7 +3,7 @@
  * Centralized AWS service interactions (EC2, S3, SSM, Secrets Manager, etc.)
  */
 
-const {EC2Client, StartInstancesCommand, StopInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
+const {EC2Client, StartInstancesCommand, StopInstancesCommand, RebootInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
 const {SSMClient, SendCommandCommand} = require("@aws-sdk/client-ssm");
 const {SecretsManagerClient, GetSecretValueCommand} = require("@aws-sdk/client-secrets-manager");
 const {S3Client} = require("@aws-sdk/client-s3");
@@ -105,6 +105,18 @@ async function stopInstance(instanceId) {
 }
 
 /**
+ * Reboot EC2 instance
+ * @param {string} instanceId
+ * @returns {Promise<void>}
+ */
+async function rebootInstance(instanceId) {
+	const command = new RebootInstancesCommand({
+		InstanceIds: [instanceId],
+	});
+	await ec2Client.send(command);
+}
+
+/**
  * Execute SSM command on instance
  * @param {string} instanceId
  * @param {string[]} commands
@@ -146,6 +158,7 @@ module.exports = {
 	getMultipleInstanceStatus,
 	startInstance,
 	stopInstance,
+	rebootInstance,
 	executeSSMCommand,
 	getSecret,
 };

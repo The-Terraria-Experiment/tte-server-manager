@@ -35,19 +35,37 @@
 					<p class="text-gray-6 ml-2 text-lg">Instance Status</p>
 				</template>
 				<template #summary>
-					<p class="text-2xl text-teal-4">{{ selectedInstanceData.state }}</p>
+					<div class="flex items-center">
+						<p class="text-2xl text-teal-4">{{ selectedInstanceData.state }}</p>
+						<Spinner v-if="loading.stateChange" class="h-6 w-6 text-teal-3 ml-2"/>
+					</div>
 				</template>
 				<template #content>
 					<div v-if="selectedInstanceData.state === 'ONLINE'">
-						<FlexButton class="mx-4 mb-4" :variant="BTN_VARIANT.DANGER">
+						<FlexButton 
+							v-if="$checkPermissions(PERMISSIONS.instance.status.stop) && !loading.stateChange"
+							class="mx-4 mb-4" 
+							:variant="BTN_VARIANT.DANGER"
+							@input="stopInstance"
+						>
 							<p class="py-2 px-12">STOP</p>
 						</FlexButton>
-						<FlexButton class="mx-4 mb-4" :variant="BTN_VARIANT.DANGER">
+						<FlexButton 
+							v-if="$checkPermissions(PERMISSIONS.instance.status.restart) && !loading.stateChange"
+							class="mx-4 mb-4" 
+							:variant="BTN_VARIANT.DANGER"
+							@input="restartInstance"
+						>
 							<p class="py-2 px-12">RESTART</p>
 						</FlexButton>
 					</div>
 					<div v-if="selectedInstanceData.state === 'OFFLINE'">
-						<FlexButton class="mx-4 mb-4" :variant="BTN_VARIANT.PRIMARY">
+						<FlexButton 
+							v-if="$checkPermissions(PERMISSIONS.instance.status.start) && !loading.stateChange"
+							class="mx-4 mb-4" 
+							:variant="BTN_VARIANT.PRIMARY"
+							@input="startInstance"
+						>
 							<p class="py-2 px-12">START</p>
 						</FlexButton>
 					</div>
@@ -105,8 +123,10 @@ import StatusTile from '../common/StatusTile.vue';
 import Spinner from "../common/Spinner.vue";
 import ActiveDate from '../common/ActiveDate.vue';
 import { PERMISSIONS } from '../../util/permissionValues';
-import { get } from '../../util/api';
+import { get, post } from '../../util/api';
 import NotAllowed from '../common/NotAllowed.vue';
+import RefreshButton from '../common/RefreshButton.vue';
+import delay from '../../util/delay';
 
 export default {
 	mixins: [],
@@ -118,6 +138,7 @@ export default {
 		Spinner,
 		ActiveDate,
 		NotAllowed,
+		RefreshButton,
 	},
 	props: {
 		
@@ -130,6 +151,7 @@ export default {
 			loading: {
 				list: false,
 				status: false,
+				stateChange: false,
 			},
 			instanceData: {},
 			instanceOptions: [],
@@ -195,7 +217,61 @@ export default {
 			} finally {
 				this.loading.status = false;
 			}
-		}
+		},
+		async stopInstance() {
+			this.$validatePermissions(PERMISSIONS.instance.status.stop);
+
+			if (this.loading.stateChange) return;
+			this.loading.stateChange = true;
+
+			try {
+				const response = await post(`/instance/${this.selectedInstance}/stop`, PERMISSIONS.instance.status.stop);
+				await delay(2000);
+				this.$alert.info("Successfully initiated instance shutdown");
+				this.fetchInstanceStatus(this.selectedInstance);
+			} catch (e) {
+				this.$alert.error("Error initiating instance shutdown");
+				console.error(e);
+			} finally {
+				this.loading.stateChange = false;
+			}
+		},
+		async startInstance() {
+			this.$validatePermissions(PERMISSIONS.instance.status.start);
+
+			if (this.loading.stateChange) return;
+			this.loading.stateChange = true;
+
+			try {
+				const response = await post(`/instance/${this.selectedInstance}/start`, PERMISSIONS.instance.status.start);
+				await delay(2000);
+				this.$alert.info("Successfully initiated instance startup");
+				this.fetchInstanceStatus(this.selectedInstance);
+			} catch (e) {
+				this.$alert.error("Error initiating instance startup");
+				console.error(e);
+			} finally {
+				this.loading.stateChange = false;
+			}
+		},
+		async restartInstance() {
+			this.$validatePermissions(PERMISSIONS.instance.status.restart);
+
+			if (this.loading.stateChange) return;
+			this.loading.stateChange = true;
+
+			try {
+				const response = await post(`/instance/${this.selectedInstance}/stop`, PERMISSIONS.instance.status.restart);
+				await delay(2000);
+				this.$alert.info("Successfully initiated instance restart");
+				this.fetchInstanceStatus(this.selectedInstance);
+			} catch (e) {
+				this.$alert.error("Error initiating instance restart");
+				console.error(e);
+			} finally {
+				this.loading.stateChange = false;
+			}
+		},
 	},
 	mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
