@@ -119,6 +119,61 @@
 			</template>
 		</StatusTile>
 	</div>
+
+	<StatusTile 
+		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
+		collapsible
+		class="mt-4 sm:mt-8"
+	>
+		<template #header>
+			<Icon icon="folder-open" color="text-gray-6" size="5" />
+			<p class="text-gray-6 ml-2 text-lg">Files</p>
+		</template>
+		<template #summary>
+			<p class="text-2xl text-teal-4">2 folders</p>
+		</template>
+		<template #content>
+			<div class="flex flex-col sm:grid grid-cols-2 m-4">
+				
+
+				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
+					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
+						<p class="text-sm">/terraria/tshock/ServerPlugins/</p>
+					</div>
+
+					<FileHierarchy 
+						class="mt-4 -ml-4"
+						:files="[
+							'plugin1/plugin1-runtime.dll',
+							'plugin1/plugin1-config.json',
+							'plugin1/resources/image.png',
+							'plugin2/plugin2-config.json',
+							'default-config.json'
+						]"
+						@deleteClicked="(data) => { }"
+						@addClicked="(data) => {}"
+					/>
+				</div>
+
+				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
+					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
+						<p class="text-sm">/terraria/worlds/</p>
+					</div>
+
+					<FileHierarchy 
+						class="mt-4 -ml-4"
+						:files="[
+							'world1.zip',
+							'world2.zip'
+						]"
+						@deleteClicked="(data) => { }"
+						@addClicked="(data) => {}"
+					/>
+				</div>
+
+			</div>
+		</template>
+	</StatusTile>
 	
 </template>
 
@@ -136,6 +191,7 @@ import NotAllowed from '../common/NotAllowed.vue';
 import RefreshButton from '../common/RefreshButton.vue';
 import delay from '../../util/delay';
 import { useServerStore } from '../../stores/serverStore';
+import FileHierarchy from '../common/FileHierarchy.vue';
 
 export default {
 	mixins: [],
@@ -148,6 +204,7 @@ export default {
 		ActiveDate,
 		NotAllowed,
 		RefreshButton,
+		FileHierarchy,
 	},
 	props: {
 		

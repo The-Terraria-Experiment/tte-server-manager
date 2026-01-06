@@ -67,7 +67,7 @@ export default {
 			default: false
 		},
 		permRequired: {
-			type: [String, null],
+			type: [String, Array, null],
 			default: null
 		},
 		displayIfNotAllowed: {

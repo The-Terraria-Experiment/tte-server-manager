@@ -18,7 +18,7 @@ const endpoints = {
 		permRequired: PERMISSIONS.server.status.read,
 	},
 	"POST /server/{id}/start": {
-		action: null,
+		action: require("./actions/start"),
 		permRequired: PERMISSIONS.server.status.start,
 	},
 	"POST /server/{id}/stop": {
