@@ -1,20 +1,20 @@
 <template>
 	<div 
-		v-if="$checkPermissions(PERMISSIONS.instance.list) && !loading.list && instanceOptions?.length"
+		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && serverStore.instanceOptions?.length"
 		class="bg-gray-3 p-4 rounded-xl"
 	>
 		<p class="font-main font-bold text-gray-7 mb-2">VIEW INSTANCE</p>
 		<Dropdown 
-			:options="instanceOptions"
+			:options="serverStore.instanceOptions"
 			v-model="selectedInstance"
 			inputClass="bg-teal-3 text-white-1"
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="loading.status" @input="fetchInstanceStatus(selectedInstance)" />
+		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="fetchInstanceStatus(selectedInstance)" />
 	</div>
 	
-	<StatusTile v-else-if="!loading.list && !instanceOptions.length">
+	<StatusTile v-else-if="!serverStore.isLoadingList && !serverStore.instanceOptions.length">
 		<template #header>
 			<Icon icon="warning" color="text-yellow-2" size="4" />
 			<p class="text-yellow-2 ml-2 text-lg">No Data</p>
@@ -24,93 +24,101 @@
 		</template>
 	</StatusTile>
 
-	<template v-if="$checkPermissions(PERMISSIONS.instance.status.read)">
-		<div class="flex flex-col sm:grid sm:grid-cols-4">
-			<StatusTile 
-				:class="['grow mt-4 sm:mt-8 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
-				:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
-			>
-				<template #header>
-					<Icon icon="power" color="text-gray-6" size="4" />
-					<p class="text-gray-6 ml-2 text-lg">Instance Status</p>
-				</template>
-				<template #summary>
-					<div class="flex items-center">
-						<p class="text-2xl text-teal-4">{{ selectedInstanceData.state }}</p>
-						<Spinner v-if="loading.stateChange" class="h-6 w-6 text-teal-3 ml-2"/>
-					</div>
-				</template>
-				<template #content>
-					<div v-if="selectedInstanceData.state === 'ONLINE'">
-						<FlexButton 
-							v-if="$checkPermissions(PERMISSIONS.instance.status.stop) && !loading.stateChange"
-							class="mx-4 mb-4" 
-							:variant="BTN_VARIANT.DANGER"
-							@input="stopInstance"
-						>
-							<p class="py-2 px-12">STOP</p>
-						</FlexButton>
-						<FlexButton 
-							v-if="$checkPermissions(PERMISSIONS.instance.status.restart) && !loading.stateChange"
-							class="mx-4 mb-4" 
-							:variant="BTN_VARIANT.DANGER"
-							@input="restartInstance"
-						>
-							<p class="py-2 px-12">RESTART</p>
-						</FlexButton>
-					</div>
-					<div v-if="selectedInstanceData.state === 'OFFLINE'">
-						<FlexButton 
-							v-if="$checkPermissions(PERMISSIONS.instance.status.start) && !loading.stateChange"
-							class="mx-4 mb-4" 
-							:variant="BTN_VARIANT.PRIMARY"
-							@input="startInstance"
-						>
-							<p class="py-2 px-12">START</p>
-						</FlexButton>
-					</div>
-				</template>
-			</StatusTile>
+	<div class="flex flex-col sm:grid sm:grid-cols-4">
+		<StatusTile 
+			:class="['grow mt-4 sm:mt-8 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
+			:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
+			:perm-required="PERMISSIONS.instance.status.read"
+			display-if-not-allowed
+		>
+			<template #header>
+				<Icon icon="power" color="text-gray-6" size="4" />
+				<p class="text-gray-6 ml-2 text-lg">Instance Status</p>
+			</template>
+			<template #summary>
+				<div class="flex items-center">
+					<p class="text-2xl text-teal-4">{{ selectedInstanceData.state }}</p>
+					<Spinner v-if="loading.stateChange" class="h-6 w-6 text-teal-3 ml-2"/>
+				</div>
+			</template>
+			<template #content>
+				<div v-if="selectedInstanceData.state === 'ONLINE'">
+					<FlexButton 
+						v-if="$checkPermissions(PERMISSIONS.instance.status.stop) && !loading.stateChange"
+						class="mx-4 mb-4" 
+						:variant="BTN_VARIANT.DANGER"
+						@input="stopInstance"
+					>
+						<p class="py-2 px-12">STOP</p>
+					</FlexButton>
+					<FlexButton 
+						v-if="$checkPermissions(PERMISSIONS.instance.status.restart) && !loading.stateChange"
+						class="mx-4 mb-4" 
+						:variant="BTN_VARIANT.DANGER"
+						@input="restartInstance"
+					>
+						<p class="py-2 px-12">RESTART</p>
+					</FlexButton>
+				</div>
+				<div v-if="selectedInstanceData.state === 'OFFLINE'">
+					<FlexButton 
+						v-if="$checkPermissions(PERMISSIONS.instance.status.start) && !loading.stateChange"
+						class="mx-4 mb-4" 
+						:variant="BTN_VARIANT.PRIMARY"
+						@input="startInstance"
+					>
+						<p class="py-2 px-12">START</p>
+					</FlexButton>
+				</div>
+			</template>
+		</StatusTile>
 
-			<StatusTile class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile">
-				<template #header>
-					<Icon icon="clock" color="text-gray-6" size="4" />
-					<p class="text-gray-6 ml-2 text-lg">Instance Uptime</p>
-				</template>
-				<template #summary>
-					<ActiveDate 
-						v-if="selectedInstanceData.timeOnline" 
-						:date="selectedInstanceData.timeOnline"
-						class-name="font-main font-bold text-teal-4 text-2xl"
-					/>
-					<p v-else class="text-2xl text-teal-4">Unknown</p>
-				</template>
-			</StatusTile>
+		<StatusTile 
+			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			:perm-required="PERMISSIONS.instance.status.read"
+		>
+			<template #header>
+				<Icon icon="clock" color="text-gray-6" size="4" />
+				<p class="text-gray-6 ml-2 text-lg">Instance Uptime</p>
+			</template>
+			<template #summary>
+				<ActiveDate 
+					v-if="selectedInstanceData.timeOnline" 
+					:date="selectedInstanceData.timeOnline"
+					class-name="font-main font-bold text-teal-4 text-2xl"
+				/>
+				<p v-else class="text-2xl text-teal-4">Unknown</p>
+			</template>
+		</StatusTile>
 
-			<StatusTile class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile">
-				<template #header>
-					<Icon icon="network" color="text-gray-6" size="5" />
-					<p class="text-gray-6 ml-2 text-lg">IP Address</p>
-				</template>
-				<template #summary>
-					<p v-if="selectedInstanceData.publicIp" class="text-2xl text-teal-4">{{ selectedInstanceData.publicIp }}</p>
-					<p v-else class="text-2xl text-teal-4">Unknown</p>
-				</template>
-			</StatusTile>
+		<StatusTile 
+			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			:perm-required="PERMISSIONS.instance.status.read"
+		>
+			<template #header>
+				<Icon icon="network" color="text-gray-6" size="5" />
+				<p class="text-gray-6 ml-2 text-lg">IP Address</p>
+			</template>
+			<template #summary>
+				<p v-if="selectedInstanceData.publicIp" class="text-2xl text-teal-4">{{ selectedInstanceData.publicIp }}</p>
+				<p v-else class="text-2xl text-teal-4">Unknown</p>
+			</template>
+		</StatusTile>
 
-			<StatusTile class="grow mt-4 sm:mt-8 sm:ml-1 gradient-tile">
-				<template #header>
-					<Icon icon="microchip" color="text-gray-6" size="5" />
-					<p class="text-gray-6 ml-2 text-lg">Instance Type</p>
-				</template>
-				<template #summary>
-					<p v-if="selectedInstanceData.instanceType" class="text-2xl text-teal-4">{{ selectedInstanceData.instanceType }}</p>
-					<p v-else class="text-2xl text-teal-4">Unknown</p>
-				</template>
-			</StatusTile>
-		</div>
-	</template>
-	<NotAllowed v-else-if="!$checkPermissions(PERMISSIONS.instance.status.read)" />
+		<StatusTile 
+			class="grow mt-4 sm:mt-8 sm:ml-1 gradient-tile"
+			:perm-required="PERMISSIONS.instance.status.read"
+		>
+			<template #header>
+				<Icon icon="microchip" color="text-gray-6" size="5" />
+				<p class="text-gray-6 ml-2 text-lg">Instance Type</p>
+			</template>
+			<template #summary>
+				<p v-if="selectedInstanceData.instanceType" class="text-2xl text-teal-4">{{ selectedInstanceData.instanceType }}</p>
+				<p v-else class="text-2xl text-teal-4">Unknown</p>
+			</template>
+		</StatusTile>
+	</div>
 	
 </template>
 
@@ -123,10 +131,11 @@ import StatusTile from '../common/StatusTile.vue';
 import Spinner from "../common/Spinner.vue";
 import ActiveDate from '../common/ActiveDate.vue';
 import { PERMISSIONS } from '../../util/permissionValues';
-import { get, post } from '../../util/api';
+import { post } from '../../util/api';
 import NotAllowed from '../common/NotAllowed.vue';
 import RefreshButton from '../common/RefreshButton.vue';
 import delay from '../../util/delay';
+import { useServerStore } from '../../stores/serverStore';
 
 export default {
 	mixins: [],
@@ -148,18 +157,15 @@ export default {
 			BTN_VARIANT,
 			PERMISSIONS,
 			selectedInstance: null,
+			serverStore: useServerStore(),
 			loading: {
-				list: false,
-				status: false,
 				stateChange: false,
 			},
-			instanceData: {},
-			instanceOptions: [],
 		}
 	},
 	computed: {
 		selectedInstanceData() {
-			const rawData = this.instanceData[this.selectedInstance];
+			const rawData = this.serverStore.getInstanceData(this.selectedInstance);
 			if (!rawData) return {
 				state: "UNKNOWN",
 				publicIp: null,
@@ -188,34 +194,22 @@ export default {
 		async fetchInstanceList() {
 			this.$validatePermissions(PERMISSIONS.instance.list);
 
-			if (this.loading.list) return;
-			this.loading.list = true;
-
 			try {
-				const instanceList = await get("/instances", PERMISSIONS.instance.list);
-				this.instanceOptions = instanceList.instances.map?.(i => ({ id: i.id, text: i.name }));
-				this.selectedInstance = instanceList.instances[0]?.id || undefined;
+				const instances = await this.serverStore.fetchInstanceList();
+				this.selectedInstance = instances[0]?.id || undefined;
 			} catch (e) {
 				this.$alert.error("Error fetching instance list");
 				console.error(e);
-			} finally {
-				this.loading.list = false;
 			}
 		},
 		async fetchInstanceStatus(instanceID) {
 			this.$validatePermissions(PERMISSIONS.instance.status.read);
 
-			if (this.loading.status) return;
-			this.loading.status = true;
-
 			try {
-				const instanceStatus = await get(`/instance/${instanceID}/status`, PERMISSIONS.instance.status.read);
-				this.instanceData[instanceID] = instanceStatus.instance;
+				await this.serverStore.fetchInstanceStatus(instanceID);
 			} catch (e) {
 				this.$alert.error("Error fetching instance status");
 				console.error(e);
-			} finally {
-				this.loading.status = false;
 			}
 		},
 		async stopInstance() {
@@ -225,9 +219,10 @@ export default {
 			this.loading.stateChange = true;
 
 			try {
+				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstance).text;
 				const response = await post(`/instance/${this.selectedInstance}/stop`, PERMISSIONS.instance.status.stop);
 				await delay(2000);
-				this.$alert.info("Successfully initiated instance shutdown");
+				this.$alert.info(`Initiated shutdown of instance '${instanceName}'`);
 				this.fetchInstanceStatus(this.selectedInstance);
 			} catch (e) {
 				this.$alert.error("Error initiating instance shutdown");
@@ -243,9 +238,10 @@ export default {
 			this.loading.stateChange = true;
 
 			try {
+				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstance).text;
 				const response = await post(`/instance/${this.selectedInstance}/start`, PERMISSIONS.instance.status.start);
 				await delay(2000);
-				this.$alert.info("Successfully initiated instance startup");
+				this.$alert.info(`Initiated startup of instance '${instanceName}'`);
 				this.fetchInstanceStatus(this.selectedInstance);
 			} catch (e) {
 				this.$alert.error("Error initiating instance startup");
@@ -261,9 +257,10 @@ export default {
 			this.loading.stateChange = true;
 
 			try {
-				const response = await post(`/instance/${this.selectedInstance}/stop`, PERMISSIONS.instance.status.restart);
+				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstance).text;
+				const response = await post(`/instance/${this.selectedInstance}/restart`, PERMISSIONS.instance.status.restart);
 				await delay(2000);
-				this.$alert.info("Successfully initiated instance restart");
+				this.$alert.info(`Initiated restart of instance '${instanceName}'`);
 				this.fetchInstanceStatus(this.selectedInstance);
 			} catch (e) {
 				this.$alert.error("Error initiating instance restart");
@@ -280,7 +277,7 @@ export default {
 	},
 	watch: {
 		selectedInstance(value) {
-			if (!this.instanceData[value] && !this.loading.status) {
+			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value)) {
 				this.fetchInstanceStatus(value);
 			}
 		}
@@ -295,7 +292,6 @@ export default {
 	@apply bg-linear-to-b from-gray-3 to-green-2 from-50%;
 	background-size: 100% 200%;
 	background-position: 0% 100%;
-	/* transition: background-position 200ms ease; */
 }
 
 .gradient-tile-red {

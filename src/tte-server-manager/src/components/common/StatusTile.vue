@@ -1,5 +1,8 @@
 <template>
-	<div class="bg-gray-3 rounded-xl overflow-hidden h-max">
+	<div 
+		:class="['bg-gray-3 rounded-xl overflow-hidden h-max', { 'not-allowed-tile': !validated }]"
+		v-if="validated"
+	>
 		<div class="flex w-full items-stretch" @click="toggle">
 			<div class="flex flex-col grow font-main font-bold">
 				<div class="flex items-center px-4 pt-2 pb-4">
@@ -32,6 +35,19 @@
 			</div>
 		</Transition>
 	</div>
+	<div v-else-if="!validated && displayIfNotAllowed">
+		<div class="flex w-full items-stretch">
+			<div class="flex flex-col grow font-main font-bold">
+				<div class="flex items-center px-4 pt-2 pb-4">
+					<Icon icon="warning" color="text-white-0" size="4" />
+					<p class="text-white-0 ml-2 text-lg">Insufficient Permissions</p>
+				</div>
+				<div class="px-4 pb-4">
+					<p class="text-2xl text-red-5">TOOL(S) UNAVAILABLE</p>
+				</div>
+			</div>
+		</div>
+	</div>
 </template>
 
 <script>
@@ -49,11 +65,20 @@ export default {
 		startOpen: {
 			type: Boolean,
 			default: false
+		},
+		permRequired: {
+			type: [String, null],
+			default: null
+		},
+		displayIfNotAllowed: {
+			type: Boolean,
+			default: false
 		}
 	},
 	data() {
 		return {
-			collapsed: !this.startOpen
+			collapsed: !this.startOpen,
+			validated: true
 		}
 	},
 	methods: {
@@ -91,14 +116,26 @@ export default {
 			el.style.height = '';
 			el.style.overflow = '';
 		}
+	},
+	created() {
+		if (this.permRequired && !this.$checkPermissions(this.permRequired)) {
+			this.validated = false;
+		}
 	}
 }
 </script>
 
 <style scoped>
+@reference "../../theme.css";
+
 .collapse-enter-active,
 .collapse-leave-active {
 	transition: height 200ms ease;
 }
 
+.not-allowed-tile {
+	@apply bg-linear-to-b from-gray-3 to-red-0 from-50%;
+	background-size: 100% 200%;
+	background-position: 0% 100%;
+}
 </style>

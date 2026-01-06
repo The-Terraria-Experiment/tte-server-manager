@@ -6,20 +6,53 @@
 const {validatePermission} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
+const {PERMISSIONS} = require("./shared/permissionValues");
 
-// Action handlers
-const actions = {
-	"GET /servers": require("./actions/list"),
-	"GET /server/{id}/status": require("./actions/getStatus"),
-	"POST /server/{id}/start": null,
-	"POST /server/{id}/stop": null,
-	"GET /server/{id}/config": null,
-	"POST /server/{id}/config": null,
-	"POST /server/{id}/tshock": null,
-	"GET /server/{id}/world/list": null, 
-	"POST /server/{id}/world/create": null, 
-	"POST /server/{id}/world/{worldId}/select": null, 
-	"DELETE /server/{id}/world/{worldId}/delete": null, 
+const endpoints = {
+	"GET /servers": {
+		action: require("./actions/list"),
+		permRequired: PERMISSIONS.server.list,
+	},
+	"GET /server/{id}/status": {
+		action: require("./actions/getStatus"),
+		permRequired: PERMISSIONS.server.status.read,
+	},
+	"POST /server/{id}/start": {
+		action: null,
+		permRequired: PERMISSIONS.server.status.start,
+	},
+	"POST /server/{id}/stop": {
+		action: null,
+		permRequired: PERMISSIONS.server.status.stop,
+	},
+	"GET /server/{id}/config": {
+		action: null,
+		permRequired: PERMISSIONS.server.config.read,
+	},
+	"POST /server/{id}/config": {
+		action: null,
+		permRequired: PERMISSIONS.server.config.write,
+	},
+	"POST /server/{id}/tshock": {
+		action: null,
+		permRequired: PERMISSIONS.server.tshock.execute,
+	},
+	"GET /server/{id}/world/list": {
+		action: null,
+		permRequired: PERMISSIONS.server.world.list,
+	},
+	"POST /server/{id}/world/create": {
+		action: null,
+		permRequired: PERMISSIONS.server.world.create,
+	},
+	"POST /server/{id}/world/{worldId}/select": {
+		action: null,
+		permRequired: PERMISSIONS.server.world.select,
+	},
+	"DELETE /server/{id}/world/{worldId}/delete": {
+		action: null,
+		permRequired: PERMISSIONS.server.world.delete,
+	},
 };
 
 exports.handler = errorHandler(async (event, context) => {
@@ -29,15 +62,14 @@ exports.handler = errorHandler(async (event, context) => {
 	const routeKey = `${httpMethod} ${resource}`;
 
 	// Find matching action
-	const action = actions[routeKey];
-	if (!action) {
+	const action = endpoints[routeKey];
+	if (!action || !action.action) {
 		return notFoundError("Route");
 	}
 
-	// Validate permissions
-	const actionType = httpMethod === "GET" ? "read" : "execute";
-	await validatePermission(event, "server", actionType);
+	// Do permission check
+	await validatePermission(event, action.permRequired);
 
-	// Execute action
-	return action.handle(event, context);
+	// Actual action
+	return action.action.handle(event, context);
 });
