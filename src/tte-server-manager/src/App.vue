@@ -13,7 +13,7 @@
 			</div>
 			<MobileNav />
 		</div>
-		<div v-else class="flex w-full h-max">
+		<div v-else class="flex w-full h-max pt-16">
 			<DesktopNav />
 			<div class="pl-30 p-8 w-full">
 				<RouterView />	
