@@ -77,7 +77,7 @@ async function syncFilesToInstance(instanceId, s3Bucket, baseLocalPath = '/opt/t
  * @param {string} event.pathParameters.id - Instance ID
  * @returns {Promise<Response>}
  */
-async function handler(event) {
+async function handle(event) {
 	try {
 		const instanceId = event.pathParameters?.id;
 		const baseLocalPath = process.env.BASE_ROOT;
@@ -106,6 +106,6 @@ async function handler(event) {
 }
 
 module.exports = {
-	handler,
+	handle,
 	syncFilesToInstance,
 };
