@@ -136,36 +136,27 @@
 			<div class="flex flex-col sm:grid grid-cols-2 m-4">
 				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
 					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
-						<p class="text-sm">/terraria/tshock/ServerPlugins/</p>
+						<p class="text-sm">{{ PLUGINS_PATH }}/</p>
 					</div>
 
 					<FileHierarchy 
 						class="mt-4 -ml-4"
-						:files="[
-							'plugin1/plugin1-runtime.dll',
-							'plugin1/plugin1-config.json',
-							'plugin1/resources/image.png',
-							'plugin2/plugin2-config.json',
-							'default-config.json'
-						]"
+						:files="instancePluginFiles"
 						@deleteClicked="(data) => { }"
-						@addClicked="($e) => openFileUploadPopup($e, '/terraria/tshock/ServerPlugins')"
+						@addClicked="($e) => openFileUploadPopup($e, PLUGINS_PATH)"
 					/>
 				</div>
 
 				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
 					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
-						<p class="text-sm">/terraria/worlds/</p>
+						<p class="text-sm">{{ WORLDS_PATH }}/</p>
 					</div>
 
 					<FileHierarchy 
 						class="mt-4 -ml-4"
-						:files="[
-							'world1.zip',
-							'world2.zip'
-						]"
+						:files="instanceWorldFiles"
 						@deleteClicked="(data) => { }"
-						@addClicked="($e) => openFileUploadPopup($e, '/terraria/worlds')"
+						@addClicked="($e) => openFileUploadPopup($e, WORLDS_PATH)"
 					/>
 				</div>
 
@@ -204,7 +195,7 @@
 </template>
 
 <script>
-import { BTN_VARIANT } from '../../util/constants';
+import { BTN_VARIANT, PLUGINS_PATH, WORLDS_PATH } from '../../util/constants';
 import Dropdown from '../common/Dropdown.vue';
 import FlexButton from '../common/FlexButton.vue';
 import Icon from '../common/Icon.vue';
@@ -243,6 +234,8 @@ export default {
 		return {
 			BTN_VARIANT,
 			PERMISSIONS,
+			PLUGINS_PATH,
+			WORLDS_PATH,
 			selectedInstance: null,
 			serverStore: useServerStore(),
 			loading: {
@@ -279,7 +272,13 @@ export default {
 				timeOnline: (rawData.launchTime && rawData.state === 'running') ? new Date(rawData.launchTime) : null,
 				instanceType: rawData.instanceType
 			};
-		}
+		},
+		instancePluginFiles() {
+			return (this.serverStore.instanceFiles[this.selectedInstance] || []).filter(p => p.startsWith(PLUGINS_PATH));
+		},
+		instanceWorldFiles() {
+			return (this.serverStore.instanceFiles[this.selectedInstance] || []).filter(p => p.startsWith(WORLDS_PATH));
+		},
 	},
 	methods: {
 		cancelFilePicker() {
@@ -291,6 +290,9 @@ export default {
 		onFileCleared() {
 			this.pickedFile = null;
 		},
+		/*=======================================================================================
+		                                          Fetch                                          
+		=======================================================================================*/
 		async fetchInstanceList() {
 			this.$validatePermissions(PERMISSIONS.instance.list);
 
@@ -312,6 +314,19 @@ export default {
 				console.error(e);
 			}
 		},
+		async fetchInstanceFiles(instanceID) {
+			this.$validatePermissions(PERMISSIONS.instance.files.read);
+
+			try {
+				await this.serverStore.fetchInstanceFiles(instanceID);
+			} catch (e) {
+				this.$alert.error("Error fetching instance files");
+				console.error(e);
+			}
+		},
+		/*=======================================================================================
+		                                  Start/Stop/Restart                                     
+		=======================================================================================*/
 		async stopInstance() {
 			this.$validatePermissions(PERMISSIONS.instance.status.stop);
 
@@ -369,6 +384,9 @@ export default {
 				this.loading.stateChange = false;
 			}
 		},
+		/*=======================================================================================
+		                                      File uploading                                      
+		=======================================================================================*/
 		openFileUploadPopup(atPath, pathRoot) {
 			this.addFilePath = atPath;
 			this.addFilePathRoot = pathRoot;
@@ -396,6 +414,9 @@ export default {
 	mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			this.fetchInstanceList();
+		}
+		if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+
 		}
 	},
 	watch: {
