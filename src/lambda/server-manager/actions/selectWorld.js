@@ -16,8 +16,8 @@ const {executeSSMCommand} = require("../shared/utils/aws");
  */
 function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 	// Validate and quote paths to handle spaces safely
-	const quotedTshockPath = `"${tshockPath}"`;
-	const quotedWorldPath = `"${process.env.WORLD_PATH_ROOT}${worldPath}"`;
+	const quotedTshockPath = `"${process.env.BASE_ROOT}${tshockPath}"`;
+	const quotedWorldPath = `"${process.env.BASE_ROOT}${process.env.WORLD_PATH_ROOT}${worldPath}"`;
 
 	// Build command with flags
 	let command = `${quotedTshockPath} -world ${quotedWorldPath}`;
