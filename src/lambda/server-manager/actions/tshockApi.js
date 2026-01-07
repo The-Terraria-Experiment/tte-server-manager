@@ -39,31 +39,20 @@ function httpJsonRequest(url, { method = 'GET', headers = {}, timeout = 5000 }, 
 
 /**
  * Create a temporary token from TShock using credentials.
- * Tries POST first, then falls back to GET with query params.
+ * Uses GET with query params as TShock expects.
  */
 async function createTemporaryToken(ipAddress, username, password) {
 	const base = `http://${ipAddress}:${process.env.TSHOCK_API_PORT}`;
 	const endpoint = `/v2/token/create`;
-	const postHeaders = { 'Content-Type': 'application/json', 'Accept': 'application/json' };
-	const body = JSON.stringify({ username, password });
-
-	// Try POST
-	try {
-		const { statusCode, json } = await httpJsonRequest(`${base}${endpoint}`, { method: 'POST', headers: postHeaders }, body);
-		if (statusCode >= 200 && statusCode < 300) {
-			return parseTokenResponse(json);
-		}
-	} catch (_) {
-		// fall through to GET
-	}
-
-	// Fallback: GET with query params (if server expects that form)
+	
+	// TShock expects query params
 	const qs = `?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 	const { statusCode, json } = await httpJsonRequest(`${base}${endpoint}${qs}`, { method: 'GET', headers: { 'Accept': 'application/json' } });
+	
 	if (statusCode >= 200 && statusCode < 300) {
 		return parseTokenResponse(json);
 	}
-	throw new Error(`Failed to create TShock token (HTTP ${statusCode})`);
+	throw new Error(`Failed to create TShock token (HTTP ${statusCode}): ${json?.error || json?.message || JSON.stringify(json)}`);
 }
 
 function parseTokenResponse(json) {
@@ -120,10 +109,11 @@ async function getAuthTokenForIp(ipAddress, secretName) {
  * Call TShock REST API with authentication
  * @param {string} ipAddress - EC2 public IP (or private IP if VPC-local)
  * @param {string} endpoint - TShock REST endpoint path, e.g. "/v2/server/status"
- * @param {object|null} data - Optional JSON body for POST requests
+ * @param {object|null} data - Optional data to send as query parameters
+ * @param {string} method - HTTP method ('GET' or 'POST'), defaults to 'GET'
  * @returns {Promise<any>} Parsed JSON response from TShock
  */
-async function callTShockAPI(ipAddress, endpoint, data = null) {
+async function callTShockAPI(ipAddress, endpoint, data = null, method = 'GET') {
 	if (!ipAddress) {
 		throw new Error("Missing IP address for TShock API call");
 	}
@@ -139,18 +129,24 @@ async function callTShockAPI(ipAddress, endpoint, data = null) {
 	const token = await getAuthTokenForIp(ipAddress, secretName);
 
 	const baseUrl = `http://${ipAddress}:${process.env.TSHOCK_API_PORT}`;
-	const url = `${baseUrl}${endpoint}`;
-
-	const method = data ? "POST" : "GET";
-	const body = data ? JSON.stringify(data) : null;
+	
+	// Build query parameters: start with token, then add data fields
+	const params = new URLSearchParams();
+	params.set('token', token);
+	if (data) {
+		for (const [key, value] of Object.entries(data)) {
+			params.set(key, value);
+		}
+	}
+	
+	const url = `${baseUrl}${endpoint}?${params.toString()}`;
 
 	const headers = {
-		"X-Token": token,
 		"Content-Type": "application/json",
 		Accept: "application/json",
 	};
 
-	const { statusCode, json } = await httpJsonRequest(url, { method, headers, timeout: 5000 }, body);
+	const { statusCode, json } = await httpJsonRequest(url, { method, headers, timeout: 5000 }, null);
 	if (statusCode < 200 || statusCode >= 300) {
 		const message = json?.message || 'TShock API error';
 		throw new Error(`TShock HTTP ${statusCode}: ${message}`);
