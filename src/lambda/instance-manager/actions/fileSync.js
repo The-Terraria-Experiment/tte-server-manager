@@ -6,8 +6,8 @@
  * Lists all files in S3 for the instance and syncs them, making S3 the source of truth
  */
 
-const {executeSSMCommand, listS3Objects} = require('../../shared/utils/aws');
-const {createResponse} = require('../../shared/utils/response');
+const {executeSSMCommand, listS3Objects} = require('../shared/utils/aws');
+const {createResponse} = require('../shared/utils/response');
 
 /**
  * Sync files from S3 to instance
