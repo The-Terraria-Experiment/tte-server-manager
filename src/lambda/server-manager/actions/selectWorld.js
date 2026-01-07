@@ -3,7 +3,7 @@
  */
 
 const {successResponse, validationError} = require("../shared/utils/response");
-const {executeSSMCommand} = require("../../shared/utils/aws");
+const {executeSSMCommand} = require("../shared/utils/aws");
 
 /**
  * Safely construct TShock command with flags

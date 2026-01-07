@@ -128,7 +128,7 @@ async function executeSSMCommand(instanceId, commands) {
 		InstanceIds: [instanceId],
 		DocumentName: "AWS-RunShellScript",
 		Parameters: {
-			command: commands,
+			commands: commands,
 		},
 	});
 	const response = await ssmClient.send(command);
