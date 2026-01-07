@@ -22,3 +22,7 @@ export function formatFileSize(bytes, fractionDigits = 1) {
     const decimals = value >= 100 ? 0 : value >= 10 ? Math.min(fractionDigits, 1) : fractionDigits;
     return `${value.toFixed(decimals)} ${units[unitIndex]}`;
 }
+
+export function plural(value) {
+	return value === 1 ? '' : 's';
+}

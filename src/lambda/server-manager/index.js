@@ -18,7 +18,7 @@ const endpoints = {
 		permRequired: PERMISSIONS.server.status.read,
 	},
 	"POST /server/{id}/start": {
-		action: require("./actions/start"),
+		action: require("./actions/selectWorld"),
 		permRequired: PERMISSIONS.server.status.start,
 	},
 	"POST /server/{id}/stop": {
@@ -46,7 +46,7 @@ const endpoints = {
 		permRequired: PERMISSIONS.server.world.create,
 	},
 	"POST /server/{id}/world/{worldId}/select": {
-		action: null,
+		action: require("./actions/selectWorld"),
 		permRequired: PERMISSIONS.server.world.select,
 	},
 	"DELETE /server/{id}/world/{worldId}/delete": {

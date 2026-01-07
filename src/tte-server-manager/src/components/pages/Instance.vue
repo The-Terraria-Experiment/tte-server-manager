@@ -195,9 +195,9 @@
 				@cleared="onFileCleared" 
 				:is-folder="uploadFolderMode"
 			/>
-			<div v-if="loading.fileUpload" class="flex items-center mt-4">
+			<div v-if="loading.fileUpload" class="flex items-center mt-4 justify-center">
 				<Spinner class="h-5 w-5 text-teal-3 mr-2"/>
-				<p class="text-sm text-gray-6">Uploading...</p>
+				<p class="font-main font-bold text-teal-4">Uploading...</p>
 			</div>
 		</div>
 	</Popup>
