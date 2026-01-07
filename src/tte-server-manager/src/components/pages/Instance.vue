@@ -149,7 +149,7 @@
 							'default-config.json'
 						]"
 						@deleteClicked="(data) => { }"
-						@addClicked="uploadFile"
+						@addClicked="($e) => openFileUploadPopup($e, '/terraria/tshock/ServerPlugins')"
 					/>
 				</div>
 
@@ -165,7 +165,7 @@
 							'world2.zip'
 						]"
 						@deleteClicked="(data) => { }"
-						@addClicked="uploadFile"
+						@addClicked="($e) => openFileUploadPopup($e, '/terraria/worlds')"
 					/>
 				</div>
 
@@ -178,17 +178,17 @@
 		:open="isFilePickerOpen"
 		header-text="UPLOAD FILE"
 		body-class="w-11/12 sm:w-1/4 h-max"
-		@xClicked="isFilePickerOpen = false"
+		@xClicked="cancelFilePicker"
 		:setState="onFileCleared"
 		:buttons="[
 			{ variant: BTN_VARIANT.DANGER, text: 'CANCEL', onClick: cancelFilePicker },
-			{ variant: BTN_VARIANT.PRIMARY, text: 'UPLOAD', onClick: () => {} },
+			{ variant: BTN_VARIANT.PRIMARY, text: 'UPLOAD', onClick: uploadFile },
 		]"
 	>
 		<div class="p-4">
 			<div class="flex items-center font-semibold text-white-0 flex-wrap">
 				<p class="font-main mr-1 mb-1">Upload file to</p>
-				<div class="bg-gray-2 rounded px-2 font-mono break-all">{{ "/" + addFilePath.join("/")}}</div>
+				<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm">{{ addFilePathRoot + "/" + addFilePath.join("/")}}</div>
 			</div>
 			<div>
 				<p class="font-main font-semibold text-white-0 my-2">Please choose a .zip file containing your file(s). It will be unzipped to the location shown.</p>
@@ -251,6 +251,7 @@ export default {
 			isFilePickerOpen: false,
 			pickedFile: null,
 			addFilePath: null,
+			addFilePathRoot: null,
 		}
 	},
 	computed: {
@@ -283,6 +284,8 @@ export default {
 	methods: {
 		cancelFilePicker() {
 			this.isFilePickerOpen = false;
+			this.addFilePath = null;
+			this.addFilePathRoot = null;
 			this.onFileCleared();
 		},
 		onFileCleared() {
@@ -366,9 +369,28 @@ export default {
 				this.loading.stateChange = false;
 			}
 		},
-		uploadFile(atPath) {
+		openFileUploadPopup(atPath, pathRoot) {
 			this.addFilePath = atPath;
+			this.addFilePathRoot = pathRoot;
 			this.isFilePickerOpen = true;
+		},
+		async uploadFile() {
+			this.$validatePermissions(PERMISSIONS.instance.files.write);
+
+			const data = new FormData();
+			data.append("zipData", this.pickedFile);
+			data.append("pathRoot", this.addFilePathRoot);
+			data.append("path", "/" + this.addFilePath.join("/"));
+
+			try {
+				await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, data);
+				this.$alert.success("File uploaded");
+			} catch (e) {
+				this.$alert.error("Error uploading file");
+				console.error(e);
+			} finally {
+
+			}
 		}
 	},
 	mounted() {
