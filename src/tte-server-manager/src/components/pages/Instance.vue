@@ -134,8 +134,6 @@
 		</template>
 		<template #content>
 			<div class="flex flex-col sm:grid grid-cols-2 m-4">
-				
-
 				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
 					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
 						<p class="text-sm">/terraria/tshock/ServerPlugins/</p>
@@ -151,7 +149,7 @@
 							'default-config.json'
 						]"
 						@deleteClicked="(data) => { }"
-						@addClicked="(data) => {}"
+						@addClicked="uploadFile"
 					/>
 				</div>
 
@@ -167,13 +165,41 @@
 							'world2.zip'
 						]"
 						@deleteClicked="(data) => { }"
-						@addClicked="(data) => {}"
+						@addClicked="uploadFile"
 					/>
 				</div>
 
 			</div>
 		</template>
 	</StatusTile>
+
+	<!-- File Picker Popup -->
+	<Popup
+		:open="isFilePickerOpen"
+		header-text="UPLOAD FILE"
+		body-class="w-11/12 sm:w-1/4 h-max"
+		@xClicked="isFilePickerOpen = false"
+		:setState="onFileCleared"
+		:buttons="[
+			{ variant: BTN_VARIANT.DANGER, text: 'CANCEL', onClick: cancelFilePicker },
+			{ variant: BTN_VARIANT.PRIMARY, text: 'UPLOAD', onClick: () => {} },
+		]"
+	>
+		<div class="p-4">
+			<div class="flex items-center font-semibold text-white-0 flex-wrap">
+				<p class="font-main mr-1 mb-1">Upload file to</p>
+				<div class="bg-gray-2 rounded px-2 font-mono break-all">{{ "/" + addFilePath.join("/")}}</div>
+			</div>
+			<div>
+				<p class="font-main font-semibold text-white-0 my-2">Please choose a .zip file containing your file(s). It will be unzipped to the location shown.</p>
+			</div>
+			<FilePicker 
+				v-model="pickedFile" 
+				@cleared="onFileCleared" 
+				accept=".zip"
+			/>
+		</div>
+	</Popup>
 	
 </template>
 
@@ -192,6 +218,8 @@ import RefreshButton from '../common/RefreshButton.vue';
 import delay from '../../util/delay';
 import { useServerStore } from '../../stores/serverStore';
 import FileHierarchy from '../common/FileHierarchy.vue';
+import Popup from '../common/Popup.vue';
+import FilePicker from '../common/FilePicker.vue';
 
 export default {
 	mixins: [],
@@ -205,6 +233,8 @@ export default {
 		NotAllowed,
 		RefreshButton,
 		FileHierarchy,
+		Popup,
+		FilePicker,
 	},
 	props: {
 		
@@ -218,6 +248,9 @@ export default {
 			loading: {
 				stateChange: false,
 			},
+			isFilePickerOpen: false,
+			pickedFile: null,
+			addFilePath: null,
 		}
 	},
 	computed: {
@@ -248,6 +281,13 @@ export default {
 		}
 	},
 	methods: {
+		cancelFilePicker() {
+			this.isFilePickerOpen = false;
+			this.onFileCleared();
+		},
+		onFileCleared() {
+			this.pickedFile = null;
+		},
 		async fetchInstanceList() {
 			this.$validatePermissions(PERMISSIONS.instance.list);
 
@@ -326,6 +366,10 @@ export default {
 				this.loading.stateChange = false;
 			}
 		},
+		uploadFile(atPath) {
+			this.addFilePath = atPath;
+			this.isFilePickerOpen = true;
+		}
 	},
 	mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
