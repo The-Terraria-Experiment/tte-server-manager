@@ -6,7 +6,7 @@
  * Lists all files in S3 for the instance and syncs them, making S3 the source of truth
  */
 
-const {executeSSMCommand, listS3Objects} = require('../shared/utils/aws');
+const {executeSSMCommand, listS3Objects, getSignedDownloadUrl} = require('../shared/utils/aws');
 const {successResponse} = require('../shared/utils/response');
 
 /**
@@ -51,10 +51,13 @@ async function syncFilesToInstance(instanceId, s3Bucket, baseLocalPath = '/opt/t
 		const localPath = `${baseLocalPath}/${filepath}`;
 		const dirPath = localPath.substring(0, localPath.lastIndexOf('/'));
 
-		// Create directory and download file
+		// Generate pre-signed URL for download (1 hour expiry)
+		const presignedUrl = await getSignedDownloadUrl(s3Bucket, s3Key, 3600);
+
+		// Create directory and download file using curl
 		commands.push(`echo "Downloading ${s3Key} to ${localPath}"`);
 		commands.push(`mkdir -p "${dirPath}"`);
-		commands.push(`aws s3 cp "s3://${s3Bucket}/${s3Key}" "${localPath}"`);
+		commands.push(`curl -o "${localPath}" "${presignedUrl}"`);
 		commands.push('');
 	}
 

@@ -6,7 +6,7 @@
 const {EC2Client, StartInstancesCommand, StopInstancesCommand, RebootInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
 const {SSMClient, SendCommandCommand} = require("@aws-sdk/client-ssm");
 const {SecretsManagerClient, GetSecretValueCommand} = require("@aws-sdk/client-secrets-manager");
-const {S3Client, ListObjectsV2Command, PutObjectCommand} = require("@aws-sdk/client-s3");
+const {S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand} = require("@aws-sdk/client-s3");
 const {getSignedUrl} = require("@aws-sdk/s3-request-presigner");
 
 const ec2Client = new EC2Client({region: process.env.AWS_REGION});
@@ -189,6 +189,21 @@ async function getSignedUploadUrl(bucketName, key, expiresIn = 3600) {
 	return getSignedUrl(s3Client, command, {expiresIn});
 }
 
+/**
+ * Generate a pre-signed GET URL for S3 download
+ * @param {string} bucketName
+ * @param {string} key - S3 object key/path
+ * @param {number} expiresIn - Seconds until URL expires (default: 1 hour)
+ * @returns {Promise<string>}
+ */
+async function getSignedDownloadUrl(bucketName, key, expiresIn = 3600) {
+	const command = new GetObjectCommand({
+		Bucket: bucketName,
+		Key: key,
+	});
+	return getSignedUrl(s3Client, command, {expiresIn});
+}
+
 module.exports = {
 	ec2Client,
 	ssmClient,
@@ -203,4 +218,5 @@ module.exports = {
 	getSecret,
 	listS3Objects,
 	getSignedUploadUrl,
+	getSignedDownloadUrl,
 };
