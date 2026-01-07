@@ -181,16 +181,23 @@
 				<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm">{{ addFilePathRoot + "/" + addFilePath.join("/")}}</div>
 			</div>
 			<div>
-				<p class="font-main font-semibold text-white-0 my-2">Please choose a .zip file containing your file(s). It will be unzipped to the location shown.</p>
+				<p class="font-main font-semibold text-white-0 my-2">Choose a file or folder to upload.</p>
 			</div>
+			
+			<!-- Toggle between file and folder mode -->
+			<div class="flex items-center mb-4 gap-2">
+				<Checkbox v-model="uploadFolderMode" class="h-5 w-5" />
+				<p class="font-main font-semibold text-teal-4 cursor-pointer" @click="uploadFolderMode = !uploadFolderMode">Folder upload</p>
+			</div>
+
 			<FilePicker 
 				v-model="pickedFile" 
 				@cleared="onFileCleared" 
-				accept=".zip"
+				:is-folder="uploadFolderMode"
 			/>
-			<div v-if="loading.fileUpload" class="flex items-center mt-4">
+			<div v-if="loading.fileUpload" class="flex items-center mt-4 justify-center">
 				<Spinner class="h-5 w-5 text-teal-3 mr-2"/>
-				<p class="text-sm text-gray-6">Uploading...</p>
+				<p class="font-main font-bold text-teal-4">Uploading...</p>
 			</div>
 		</div>
 	</Popup>
@@ -214,6 +221,7 @@ import { useServerStore } from '../../stores/serverStore';
 import FileHierarchy from '../common/FileHierarchy.vue';
 import Popup from '../common/Popup.vue';
 import FilePicker from '../common/FilePicker.vue';
+import Checkbox from "../common/Checkbox.vue"
 
 export default {
 	mixins: [],
@@ -229,6 +237,7 @@ export default {
 		FileHierarchy,
 		Popup,
 		FilePicker,
+		Checkbox
 	},
 	props: {
 		
@@ -246,9 +255,10 @@ export default {
 				fileUpload: false,
 			},
 			isFilePickerOpen: false,
-			pickedFile: null,
+			pickedFile: [],
 			addFilePath: null,
 			addFilePathRoot: null,
+			uploadFolderMode: false,
 		}
 	},
 	computed: {
@@ -278,10 +288,16 @@ export default {
 			};
 		},
 		instancePluginFiles() {
-			return (this.serverStore.instanceFiles[this.selectedInstance] || []).filter(p => p.startsWith(PLUGINS_PATH));
+			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+				.map(d => d.key)	
+				.filter(p => p.startsWith(this.selectedInstance + PLUGINS_PATH))
+				.map(s => s.replace(this.selectedInstance + PLUGINS_PATH + "/", ""));
 		},
 		instanceWorldFiles() {
-			return (this.serverStore.instanceFiles[this.selectedInstance] || []).filter(p => p.startsWith(WORLDS_PATH));
+			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+				.map(d => d.key)	
+				.filter(p => p.startsWith(this.selectedInstance + WORLDS_PATH))
+				.map(s => s.replace(this.selectedInstance + WORLDS_PATH + "/", ""));
 		},
 	},
 	methods: {
@@ -289,6 +305,7 @@ export default {
 			this.isFilePickerOpen = false;
 			this.addFilePath = null;
 			this.addFilePathRoot = null;
+			this.uploadFolderMode = false;
 			this.onFileCleared();
 		},
 		onFileCleared() {
@@ -399,36 +416,30 @@ export default {
 		async uploadFile() {
 			this.$validatePermissions(PERMISSIONS.instance.files.write);
 
-			if (!this.pickedFile || this.loading.fileUpload) return;
+			if (!this.pickedFile || this.pickedFile.length === 0 || this.loading.fileUpload) return;
 			this.loading.fileUpload = true;
 
 			try {
-				// Step 1: Request pre-signed URL from backend
-				const fileName = this.pickedFile.name;
-				const pathString = this.addFilePath.length > 0 ? this.addFilePath.join("/") : "";
+				const files = Array.isArray(this.pickedFile) ? this.pickedFile : [this.pickedFile];
+				const uploadPromises = [];
 
-				const response = await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, {
-					pathRoot: this.addFilePathRoot,
-					path: pathString,
-					fileName: fileName,
-				});
-
-				const {uploadUrl} = response;
-
-				// Step 2: Upload file directly to S3 using pre-signed URL
-				const uploadResponse = await fetch(uploadUrl, {
-					method: "PUT",
-					body: this.pickedFile,
-					headers: {
-						"Content-Type": this.pickedFile.type || "application/octet-stream",
-					},
-				});
-
-				if (!uploadResponse.ok) {
-					throw new Error(`S3 upload failed: ${uploadResponse.statusText}`);
+				// Upload each file concurrently
+				for (const file of files) {
+					uploadPromises.push(this.uploadSingleFile(file));
 				}
 
-				this.$alert.success("File uploaded successfully");
+				const results = await Promise.allSettled(uploadPromises);
+				
+				// Check for any failures
+				const failures = results.filter(r => r.status === 'rejected');
+				const successes = results.filter(r => r.status === 'fulfilled');
+
+				if (failures.length > 0) {
+					this.$alert.warning(`Uploaded ${successes.length}/${files.length} files. ${failures.length} failed.`);
+				} else {
+					this.$alert.success(`Successfully uploaded ${successes.length} file(s)`);
+				}
+
 				this.cancelFilePicker();
 
 				// Step 3: Refresh file list
@@ -436,19 +447,48 @@ export default {
 					await this.fetchInstanceFiles(this.selectedInstance);
 				}
 			} catch (e) {
-				this.$alert.error("Error uploading file");
+				this.$alert.error("Error uploading files");
 				console.error(e);
 			} finally {
 				this.loading.fileUpload = false;
 			}
+		},
+
+		async uploadSingleFile(file) {
+			// Get the relative path of the file (for files from folder picker)
+			const relativePath = file.webkitRelativePath || file.name;
+			
+			// Split path into components and construct final path
+			const pathParts = relativePath.split('/');
+			const fileName = pathParts.pop(); // Last part is filename
+			const pathString = pathParts.length > 0 ? pathParts.join("/") : "";
+
+			// Request pre-signed URL from backend
+			const response = await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, {
+				pathRoot: this.addFilePathRoot.substring(1),
+				path: pathString,
+				fileName: fileName,
+			});
+
+			const {uploadUrl} = response;
+
+			// Upload file directly to S3 using pre-signed URL
+			const uploadResponse = await fetch(uploadUrl, {
+				method: "PUT",
+				body: file,
+			});
+
+			if (!uploadResponse.ok) {
+				throw new Error(`S3 upload failed for ${relativePath}: ${uploadResponse.statusText}`);
+			}
 		}
 	},
-	mounted() {
+	async mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
-			this.fetchInstanceList();
-		}
-		if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
-
+			await this.fetchInstanceList();
+			if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+				this.fetchInstanceFiles(this.selectedInstance);
+			}
 		}
 	},
 	watch: {

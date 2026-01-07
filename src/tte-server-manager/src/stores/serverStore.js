@@ -6,16 +6,13 @@ export const useServerStore = defineStore("serverstore", {
 	state: () => ({
 		instances: [],
 		instanceData: {},
-		servers: [
-			{ id: "host-nfasi387y-world-sfbo8748", name: "world1", size: 702000 },
-			{ id: "host-nfasi387y-world-be5ebyesb", name: "world2", size: 6010000 },
-			{ id: "host-nfasi387y-world-svvsvs55v", name: "world3", size: 18000 },
-		],
 		instanceFiles: {},
+		serverStatusData: {},
 		loading: {
 			list: false,
 			status: {},
-			files: {}
+			files: {},
+			serverStatus: {}
 		},
 	}),
 	getters: {
@@ -69,6 +66,20 @@ export const useServerStore = defineStore("serverstore", {
 				throw error;
 			} finally {
 				this.loading.files[instanceId] = false;
+			}
+		},
+		async fetchServerStatus(instanceId) {
+			if (this.loading.serverStatus[instanceId]) return;
+			this.loading.serverStatus[instanceId] = true;
+
+			try {
+				const data = await get(`/server/${instanceId}/status`, PERMISSIONS.server.status.read);
+				this.serverStatusData[instanceId] = data.server;
+			} catch (error) {
+				console.error("Error fetching instance status:", error);
+				throw error;
+			} finally {
+				this.loading.serverStatus[instanceId] = false;
 			}
 		}
 	}
