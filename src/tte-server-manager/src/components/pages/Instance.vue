@@ -278,10 +278,16 @@ export default {
 			};
 		},
 		instancePluginFiles() {
-			return (this.serverStore.instanceFiles[this.selectedInstance] || []).filter(p => p.startsWith(PLUGINS_PATH));
+			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+				.map(d => d.key)	
+				.filter(p => p.startsWith(this.selectedInstance + PLUGINS_PATH))
+				.map(s => s.replace(this.selectedInstance + PLUGINS_PATH + "/", ""));
 		},
 		instanceWorldFiles() {
-			return (this.serverStore.instanceFiles[this.selectedInstance] || []).filter(p => p.startsWith(WORLDS_PATH));
+			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+				.map(d => d.key)	
+				.filter(p => p.startsWith(this.selectedInstance + WORLDS_PATH))
+				.map(s => s.replace(this.selectedInstance + WORLDS_PATH + "/", ""));
 		},
 	},
 	methods: {
@@ -408,7 +414,7 @@ export default {
 				const pathString = this.addFilePath.length > 0 ? this.addFilePath.join("/") : "";
 
 				const response = await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, {
-					pathRoot: this.addFilePathRoot,
+					pathRoot: this.addFilePathRoot.substring(1),
 					path: pathString,
 					fileName: fileName,
 				});
@@ -443,12 +449,12 @@ export default {
 			}
 		}
 	},
-	mounted() {
+	async mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
-			this.fetchInstanceList();
-		}
-		if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
-
+			await this.fetchInstanceList();
+			if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+				this.fetchInstanceFiles(this.selectedInstance);
+			}
 		}
 	},
 	watch: {

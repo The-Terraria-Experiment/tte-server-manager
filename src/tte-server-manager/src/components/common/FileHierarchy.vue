@@ -132,6 +132,13 @@ export default {
 		if (this.__isRoot) {
 			this.buildFileStructure();
 		}
+	},
+	watch: {
+		files() {
+			if (this.__isRoot) {
+				this.buildFileStructure();
+			}
+		}
 	}
 }
 </script>
