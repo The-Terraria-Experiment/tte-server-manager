@@ -7,7 +7,7 @@
  */
 
 const {executeSSMCommand, listS3Objects} = require('../shared/utils/aws');
-const {createResponse} = require('../shared/utils/response');
+const {successResponse} = require('../shared/utils/response');
 
 /**
  * Sync files from S3 to instance
@@ -94,7 +94,7 @@ async function handle(event) {
 
 		const result = await syncFilesToInstance(instanceId, bucket, baseLocalPath);
 
-		return createResponse(200, {
+		return successResponse({
 			message: 'File sync initiated successfully',
 			commandId: result.commandId,
 			filesProcessed: result.filesProcessed,
