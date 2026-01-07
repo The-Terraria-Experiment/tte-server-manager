@@ -213,7 +213,7 @@ import StatusTile from '../common/StatusTile.vue';
 import Spinner from "../common/Spinner.vue";
 import ActiveDate from '../common/ActiveDate.vue';
 import { PERMISSIONS } from '../../util/permissionValues';
-import { post } from '../../util/api';
+import { post, put } from '../../util/api';
 import NotAllowed from '../common/NotAllowed.vue';
 import RefreshButton from '../common/RefreshButton.vue';
 import delay from '../../util/delay';
@@ -416,6 +416,8 @@ export default {
 		async uploadFile() {
 			this.$validatePermissions(PERMISSIONS.instance.files.write);
 
+			const instanceID = this.selectedInstance;
+
 			if (!this.pickedFile || this.pickedFile.length === 0 || this.loading.fileUpload) return;
 			this.loading.fileUpload = true;
 
@@ -444,13 +446,14 @@ export default {
 
 				// Step 3: Refresh file list
 				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
-					await this.fetchInstanceFiles(this.selectedInstance);
+					await this.fetchInstanceFiles(instanceID);
 				}
+
+				this.syncInstanceFiles(instanceID);
 			} catch (e) {
 				this.$alert.error("Error uploading files");
-				console.error(e);
-			} finally {
 				this.loading.fileUpload = false;
+				console.error(e);
 			}
 		},
 
@@ -480,6 +483,20 @@ export default {
 
 			if (!uploadResponse.ok) {
 				throw new Error(`S3 upload failed for ${relativePath}: ${uploadResponse.statusText}`);
+			}
+		},
+
+		async syncInstanceFiles(instanceID) {
+			this.$validatePermissions(PERMISSIONS.instance.files.write);
+
+			try {
+				await put(`/instance/${instanceID}/files`, PERMISSIONS.instance.files.write);
+				this.$alert.success("File sync complete");
+			} catch (e) {
+				this.$alert.error("Error syncing instance files. Files may be in an invalid state. Please alert @havoc immediately.", { duration: 30000 });
+				console.error(e);
+			} finally {
+				this.loading.fileUpload = false;
 			}
 		}
 	},
