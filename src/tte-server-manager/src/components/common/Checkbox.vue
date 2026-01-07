@@ -4,7 +4,7 @@
 		@click="input"
 	>
 		<Icon 
-			v-show="value"
+			v-show="value || modelValue"
 			icon="checkmark" 
 			color="text-teal-4" 
 			class="h-full w-full relative"
@@ -29,6 +29,10 @@ export default {
 		value: {
 			type: Boolean,
 			default: false
+		},
+		modelValue: {
+			type: Boolean,
+			default: false
 		}
 	},
 	data() {
@@ -40,6 +44,7 @@ export default {
 		input() {
 			if (this.disabled) return;
 			this.$emit('input', !this.value);
+			this.$emit("update:modelValue", !this.modelValue);
 		}
 	}
 }
