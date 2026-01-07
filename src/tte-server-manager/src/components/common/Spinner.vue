@@ -36,7 +36,7 @@ export default {
 		},
 		thickness: {
 			type: String,
-			default: '2',
+			default: '4',
 			validator: (val) => !Number.isNaN(parseFloat(val))
 		}
 	}

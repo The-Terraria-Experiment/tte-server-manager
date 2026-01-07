@@ -66,6 +66,11 @@ export default {
 	},
 	beforeUnmount() {
 		clearInterval(this.updateIntervalRef);
+	},
+	watch: {
+		date() {
+			this.updateElapsedTime();
+		}
 	}
 }
 </script>

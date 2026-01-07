@@ -3,10 +3,10 @@
  * Centralized AWS service interactions (EC2, S3, SSM, Secrets Manager, etc.)
  */
 
-const {EC2Client, StartInstancesCommand, StopInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
+const {EC2Client, StartInstancesCommand, StopInstancesCommand, RebootInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
 const {SSMClient, SendCommandCommand} = require("@aws-sdk/client-ssm");
 const {SecretsManagerClient, GetSecretValueCommand} = require("@aws-sdk/client-secrets-manager");
-const {S3Client} = require("@aws-sdk/client-s3");
+const {S3Client, ListObjectsV2Command} = require("@aws-sdk/client-s3");
 
 const ec2Client = new EC2Client({region: process.env.AWS_REGION});
 const ssmClient = new SSMClient({region: process.env.AWS_REGION});
@@ -105,6 +105,18 @@ async function stopInstance(instanceId) {
 }
 
 /**
+ * Reboot EC2 instance
+ * @param {string} instanceId
+ * @returns {Promise<void>}
+ */
+async function rebootInstance(instanceId) {
+	const command = new RebootInstancesCommand({
+		InstanceIds: [instanceId],
+	});
+	await ec2Client.send(command);
+}
+
+/**
  * Execute SSM command on instance
  * @param {string} instanceId
  * @param {string[]} commands
@@ -137,6 +149,30 @@ async function getSecret(secretName) {
 	return response.SecretString;
 }
 
+/**
+ * List objects in S3 bucket with optional prefix
+ * @param {string} bucketName
+ * @param {string} prefix
+ * @returns {Promise<Array<{key: string, size: number, lastModified: Date}>>}
+ */
+async function listS3Objects(bucketName, prefix = "") {
+	const command = new ListObjectsV2Command({
+		Bucket: bucketName,
+		Prefix: prefix,
+	});
+	const response = await s3Client.send(command);
+	
+	if (!response.Contents || response.Contents.length === 0) {
+		return [];
+	}
+	
+	return response.Contents.map(obj => ({
+		key: obj.Key,
+		size: obj.Size,
+		lastModified: obj.LastModified,
+	}));
+}
+
 module.exports = {
 	ec2Client,
 	ssmClient,
@@ -146,6 +182,8 @@ module.exports = {
 	getMultipleInstanceStatus,
 	startInstance,
 	stopInstance,
+	rebootInstance,
 	executeSSMCommand,
 	getSecret,
+	listS3Objects,
 };

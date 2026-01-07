@@ -1,5 +1,5 @@
 <template>
-	<div class="bg-gray-3 fixed bottom-0 h-16 w-full rounded-t-2xl flex justify-around px-4 font-main font-semibold text-cream text-xs">
+	<div class="bg-gray-3 fixed bottom-0 h-16 w-full rounded-t-2xl flex justify-around px-4 font-main font-semibold text-cream text-xs mobile-nav-shadow">
 		<RouterLink to="/overview" class="w-1/5">
 			<FlexButton :class="['flex-col justify-end h-full p-2', selectedClass('/overview')]">
 				<Icon icon="gauge" size="5" :color="selectedClass(['', '/', '/overview'])"/>
@@ -52,4 +52,8 @@ export default {
 
 <style scoped>
 	@reference "../../theme.css";
+
+.mobile-nav-shadow {
+	box-shadow: 0px -5px 15px var(--color-gray-0);
+}
 </style>

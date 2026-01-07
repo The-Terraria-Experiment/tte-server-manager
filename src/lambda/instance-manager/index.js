@@ -34,11 +34,11 @@ const endpoints = {
 		permRequired: PERMISSIONS.instance.metrics.read,
 	},
 	"GET /instance/{id}/files": {
-		action: null,
+		action: require("./actions/readFiles"),
 		permRequired: PERMISSIONS.instance.files.read,
 	},
 	"POST /instance/{id}/files": {
-		action: null,
+		action: require("./actions/uploadFiles"),
 		permRequired: PERMISSIONS.instance.files.write,
 	},
 };

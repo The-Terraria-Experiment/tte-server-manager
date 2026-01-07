@@ -40,18 +40,25 @@ export async function apiRequest(method, endpoint, permission, options = {}) {
 			throw new Error(`Insufficient permissions:`, permission);
 		}
 	}
+
+	const isFormData = options && options.body && options.body instanceof FormData;
 	
 	// Build request
 	const requestInit = {
 		method,
 		headers: {
 			'Authorization': `Bearer ${idToken}`,
-			'Content-Type': 'application/json',
+			...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+			...options.headers
 		},
 	};
 	
 	if (options.body && (method === 'POST' || method === 'PUT')) {
-		requestInit.body = JSON.stringify(options.body);
+		if (isFormData) {
+			requestInit.body = options.body;
+		} else {
+			requestInit.body = JSON.stringify(options.body);
+		}
 	}
 	
 	// Make request

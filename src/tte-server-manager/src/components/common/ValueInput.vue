@@ -1,13 +1,11 @@
 <template>
-	<div>
-		<input 
-			:type="type"
-			:placeholder="placeholder"
-			:disabled="disabled"
-			@input.stop="emitInput"
-			:value="modelValue"
-		/>
-	</div>
+	<input 
+		:type="type"
+		:placeholder="placeholder"
+		:disabled="disabled"
+		@input.stop="emitInput"
+		:value="modelValue"
+	/>
 </template>
 
 <script>

@@ -1,5 +1,5 @@
 <template>
-	<div class="fixed h-full bg-gray-3 flex flex-col justify-center text-cream font-main font-semibold text-xs px-1 w-22">
+	<div class="fixed h-full bg-gray-3 flex flex-col justify-center text-cream font-main font-semibold text-xs px-1 w-22 z-10 shadow-lg shadow-gray-0">
 		<BevelCurve class="absolute -right-8 top-0" color="text-gray-3"/>
 		<RouterLink to="/overview" class="-mt-12">
 			<FlexButton :class="['flex-col justify-end h-full px-2 py-4', { navBtnSelected: routeActive(['', '/', '/overview']) }]">

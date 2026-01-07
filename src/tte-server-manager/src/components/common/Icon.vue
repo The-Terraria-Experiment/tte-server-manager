@@ -1,5 +1,5 @@
 <template>
-	<div :title="hoverText">
+	<div class="custom-icon" :title="hoverText">
 		<svg v-if="color" :class="iconClasses" :style="rawStyle">
 			<use :xlink:href="iconPath"></use>
 		</svg>
