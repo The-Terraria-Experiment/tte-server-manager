@@ -164,7 +164,6 @@
 		</template>
 	</StatusTile>
 
-	<!-- File Picker Popup -->
 	<Popup
 		:open="isFilePickerOpen"
 		header-text="UPLOAD FILE"
@@ -173,7 +172,7 @@
 		:setState="onFileCleared"
 		:buttons="[
 			{ variant: BTN_VARIANT.DANGER, text: 'CANCEL', onClick: cancelFilePicker },
-			{ variant: BTN_VARIANT.PRIMARY, text: 'UPLOAD', onClick: uploadFile },
+			{ variant: BTN_VARIANT.PRIMARY, text: 'UPLOAD', onClick: uploadFile, disabled: loading.fileUpload },
 		]"
 	>
 		<div class="p-4">
@@ -189,6 +188,10 @@
 				@cleared="onFileCleared" 
 				accept=".zip"
 			/>
+			<div v-if="loading.fileUpload" class="flex items-center mt-4">
+				<Spinner class="h-5 w-5 text-teal-3 mr-2"/>
+				<p class="text-sm text-gray-6">Uploading...</p>
+			</div>
 		</div>
 	</Popup>
 	
@@ -240,6 +243,7 @@ export default {
 			serverStore: useServerStore(),
 			loading: {
 				stateChange: false,
+				fileUpload: false,
 			},
 			isFilePickerOpen: false,
 			pickedFile: null,
@@ -395,19 +399,47 @@ export default {
 		async uploadFile() {
 			this.$validatePermissions(PERMISSIONS.instance.files.write);
 
-			const data = new FormData();
-			data.append("zipData", this.pickedFile);
-			data.append("pathRoot", this.addFilePathRoot);
-			data.append("path", "/" + this.addFilePath.join("/"));
+			if (!this.pickedFile || this.loading.fileUpload) return;
+			this.loading.fileUpload = true;
 
 			try {
-				await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, data);
-				this.$alert.success("File uploaded");
+				// Step 1: Request pre-signed URL from backend
+				const fileName = this.pickedFile.name;
+				const pathString = this.addFilePath.length > 0 ? this.addFilePath.join("/") : "";
+
+				const response = await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, {
+					pathRoot: this.addFilePathRoot,
+					path: pathString,
+					fileName: fileName,
+				});
+
+				const {uploadUrl} = response;
+
+				// Step 2: Upload file directly to S3 using pre-signed URL
+				const uploadResponse = await fetch(uploadUrl, {
+					method: "PUT",
+					body: this.pickedFile,
+					headers: {
+						"Content-Type": this.pickedFile.type || "application/octet-stream",
+					},
+				});
+
+				if (!uploadResponse.ok) {
+					throw new Error(`S3 upload failed: ${uploadResponse.statusText}`);
+				}
+
+				this.$alert.success("File uploaded successfully");
+				this.cancelFilePicker();
+
+				// Step 3: Refresh file list
+				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+					await this.fetchInstanceFiles(this.selectedInstance);
+				}
 			} catch (e) {
 				this.$alert.error("Error uploading file");
 				console.error(e);
 			} finally {
-
+				this.loading.fileUpload = false;
 			}
 		}
 	},
