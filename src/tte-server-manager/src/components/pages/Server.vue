@@ -11,12 +11,12 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="fetchInstanceStatus(selectedInstance)" />
+		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="fetchServerStatus" />
 	</div>
 
 	<div class="flex flex-col sm:grid sm:grid-cols-3">
 		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			:class="['grow mt-4 sm:mt-8 sm:mx-1 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			collapsible
 			:perm-required="PERMISSIONS.server.status.read"
 		>
@@ -26,12 +26,12 @@
 			</template>
 			<template #summary>
 				<div class="flex items-center">
-					<p class="text-2xl text-teal-4">RUNNING</p>
+					<p class="text-2xl text-teal-4">{{ selectedServerData.state ? 'RUNNING' : 'OFFLINE' }}</p>
 					<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
 				</div>
 			</template>
 			<template #content>
-				<div v-if="true">
+				<div v-if="selectedServerData.state">
 					<FlexButton 
 						v-if="$checkPermissions(PERMISSIONS.server.status.stop)"
 						class="mx-4 mb-4" 
@@ -41,7 +41,7 @@
 						<p class="py-2 px-12">STOP</p>
 					</FlexButton>
 				</div>
-				<div v-if="true">
+				<div v-if="!selectedServerData.state">
 					<FlexButton 
 						v-if="$checkPermissions(PERMISSIONS.server.status.start)"
 						class="mx-4 mb-4" 
@@ -56,7 +56,7 @@
 
 		<StatusTile 
 			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-			collapsible
+			:collapsible="false"
 			:perm-required="PERMISSIONS.server.status.read"
 		>
 			<template #header>
@@ -65,19 +65,19 @@
 			</template>
 			<template #summary>
 				<div class="flex items-center">
-					<p class="text-2xl text-teal-4">15</p>
+					<p class="text-2xl text-teal-4">{{ selectedServerData.players?.length || 'Unknown' }}</p>
 					<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
 				</div>
 			</template>
 			<template #content>
-				<div class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap">
+				<!-- <div class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap">
 					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">havoc</div>
 					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">exception</div>
 					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">havoc</div>
 					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">exception</div>
 					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">havoc</div>
 					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">exception</div>
-				</div>
+				</div> -->
 			</template>
 		</StatusTile>
 
@@ -91,7 +91,7 @@
 			</template>
 			<template #summary>
 				<div class="flex items-center">
-					<p class="text-2xl text-teal-4">worldfile</p>
+					<p class="text-2xl text-teal-4">{{ selectedServerData.world || 'Unknown' }}</p>
 					<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
 				</div>
 			</template>
@@ -110,7 +110,7 @@
 		<template #summary>
 			<div class="flex items-center">
 				<p class="text-2xl text-teal-4">{{ instanceWorldFiles.length }} world{{ plural(instanceWorldFiles.length) }} available</p>
-				<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
+				<Spinner v-if="serverStore.loading.files[selectedInstance]" class="h-6 w-6 text-teal-3 ml-2"/>
 			</div>
 		</template>
 		<template #content>
@@ -189,7 +189,7 @@
 	<StatusTile 
 		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
 		collapsible
-		:perm-required="PERMISSIONS.server.world.select"
+		:perm-required="'SUPERPERM'"
 	>
 		<template #header>
 			<Icon icon="rocket" color="text-gray-6" size="5" />
@@ -234,7 +234,7 @@ import Popup from "../common/Popup.vue"
 import Checkbox from "../common/Checkbox.vue";
 import { formatFileSize, plural } from "../../util/format"
 import ValueInput from "../common/ValueInput.vue"
-import { post } from '../../util/api';
+import { get, post } from '../../util/api';
 
 
 export default {
@@ -270,7 +270,7 @@ export default {
 				...Array.from({ length: 26 }).map((_, i) => String.fromCharCode(65 + i)),
 				...Array.from({ length: 10 }).map((_, i) => i.toString()),
 				'_'
-			]
+			],
 		}
 	},
 	computed: {
@@ -279,6 +279,13 @@ export default {
 				.filter(p => p.key.startsWith(this.selectedInstance + WORLDS_PATH))
 				.map(d => ({ name: d.key.replace(this.selectedInstance + WORLDS_PATH + "/", ""), size: d.size }));
 		},
+		selectedServerData() {
+			return {
+				state: Boolean(this.serverStore.serverStatusData[this.selectedInstance]?.name),
+				players: this.serverStore.serverStatusData[this.selectedInstance]?.players,
+				world: this.serverStore.serverStatusData[this.selectedInstance]?.world
+			}
+		}
 	},
 	methods: {
 		formatFileSize,
@@ -347,6 +354,16 @@ export default {
 				this.$alert.error("Error launching server");
 				console.error(e);
 			}
+		},
+		async fetchServerStatus() {
+			this.$validatePermissions(PERMISSIONS.server.status.read);
+
+			try {
+				await this.serverStore.fetchServerStatus(this.selectedInstance);
+			} catch (e) {
+				this.$alert.error("Error getting server status");
+				console.error(e);
+			}
 		}
 	},
 	async mounted() {
@@ -354,6 +371,9 @@ export default {
 			await this.fetchInstanceList();
 			if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
 				this.fetchInstanceFiles(this.selectedInstance);
+			}
+			if (this.$checkPermissions(PERMISSIONS.server.status.read)) {
+				this.fetchServerStatus();
 			}
 		}
 	},
@@ -368,6 +388,20 @@ export default {
 </script>
 
 <style scoped>
+@reference "../../theme.css";
+
+.gradient-tile-green {
+	@apply bg-linear-to-b from-gray-3 to-green-2 from-50%;
+	background-size: 100% 200%;
+	background-position: 0% 100%;
+}
+
+.gradient-tile-red {
+	@apply bg-linear-to-b from-gray-3 to-red-900 from-50%;
+	background-size: 100% 200%;
+	background-position: 0% 100%;
+}
+
 .world-select-grid {
 	grid-template-columns: auto 1fr auto;
 }

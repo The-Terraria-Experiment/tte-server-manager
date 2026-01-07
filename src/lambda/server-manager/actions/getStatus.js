@@ -2,21 +2,33 @@
  * Get specific server status via TShock REST API
  */
 
-const { callTShockAPI } = require('./tshockApi');
-const { successResponse, notFoundError } = require('../shared/utils/response');
+const {callTShockAPI} = require("./tshockApi");
+const {successResponse, notFoundError, errorResponse} = require("../shared/utils/response");
+const {getInstanceStatus} = require("../shared/utils/aws");
 
 async function handle(event) {
-  const serverId = event.pathParameters?.id;
-  
-  if (!serverId) {
-    return notFoundError('Server ID');
-  }
+	const serverId = event.pathParameters?.id;
 
-  // TODO: Get server config/endpoint from DynamoDB
-  // TODO: Call TShock API /v2/server/status or similar
-  const status = await callTShockAPI(serverId, '/v2/server/status');
+	if (!serverId) {
+		return notFoundError("Server ID");
+	}
 
-  return successResponse({ server: status });
+	try {
+		// For now, treat serverId as the EC2 instance ID to obtain IP
+		const instance = await getInstanceStatus(serverId);
+		const ip = instance.publicIp;
+
+		if (!ip || ip === 'PENDING') {
+			return errorResponse(`Instance ${serverId} has no reachable public IP`, 503, 'INSTANCE_IP_UNAVAILABLE');
+		}
+
+		// Call TShock API /v2/server/status on port 3891
+		const status = await callTShockAPI(ip, "/v2/server/status");
+
+		return successResponse({server: status});
+	} catch (err) {
+		return errorResponse(err.message || 'Failed to fetch server status');
+	}
 }
 
-module.exports = { handle };
+module.exports = {handle};
