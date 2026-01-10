@@ -8,6 +8,7 @@ export const useServerStore = defineStore("serverstore", {
 		instanceData: {},
 		instanceFiles: {},
 		instanceFileRoots: {},
+		instanceWorldPaths: {},
 		serverStatusData: {},
 		loading: {
 			list: false,
@@ -63,6 +64,7 @@ export const useServerStore = defineStore("serverstore", {
 				const data = await get(`/instance/${instanceId}/files`, PERMISSIONS.instance.files.read);
 				this.instanceFiles[instanceId] = data.files;
 				this.instanceFileRoots[instanceId] = data.pathRoots;
+				this.instanceWorldPaths[instanceId] = data.worldPaths;
 			} catch (error) {
 				console.error("Error fetching instance status:", error);
 				throw error;

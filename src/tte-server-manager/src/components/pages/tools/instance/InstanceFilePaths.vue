@@ -15,15 +15,30 @@
 		</template>
 		<template #content>
 			<div class="p-4">
-				<div class="grid instance-file-roots-grid w-max">
+				<div class="grid instance-file-roots-grid w-max gap-4">
+					<div>
+						<p class="font-main font-bold text-teal-5">Path Nickname</p>
+					</div>
+					<div>
+						<p class="font-main font-bold text-teal-5">Path Value</p>
+					</div>
+					<div>
+						<p class="font-main font-bold text-teal-5">Is Worlds Folder</p>
+					</div>
+					<div>
+						<p class="font-main font-bold text-teal-5">Delete Path</p>
+					</div>
 					<template v-for="(entry, i) in updatedPaths">
-						<div class="py-2">
+						<div class="">
 							<ValueInput placeholder="Path nickname" v-model="entry[0]" />
 						</div>
-						<div class="py-2 px-4">
+						<div class="">
 							<ValueInput placeholder="Path value" v-model="entry[1]" class="w-100"/>
 						</div>
-						<div class="flex items-center cursor-pointer">
+						<div class="flex justify-center items-center">
+							<Checkbox class="h-5 w-5" :value="updatedWorldPaths.has(entry[1])" @input="toggleWorldPath(entry[1])" />
+						</div>
+						<div class="flex justify-center items-center cursor-pointer">
 							<Icon icon="xmark" size="5" color="text-red-4" :title="`Delete path '${entry[1]}'`" @click="deletePath(i)" />
 						</div>
 					</template>
@@ -37,7 +52,7 @@
 				<div class="flex justify-end w-full">
 					<FlexButton
 						:variant="BTN_VARIANT.DANGER"
-						@input="initUpdatedPaths"
+						@input="initDataHolders"
 						class="mr-4"
 					>
 						<p class="font-main font-bold py-2 px-8 md:px-12">DISCARD</p>
@@ -59,12 +74,13 @@ import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
+import Checkbox from '../../../common/Checkbox.vue';
 
 
 export default {
 	mixins: [],
 	components: {
-		
+		Checkbox,
 	},
 	props: {
 		selectedInstanceData: {
@@ -78,6 +94,7 @@ export default {
 			BTN_VARIANT,
 			serverStore: useServerStore(),
 			updatedPaths: null,
+			updatedWorldPaths: null,
 			saveLoading: false,
 		}
 	},
@@ -90,14 +107,22 @@ export default {
 		}
 	},
 	methods: {
-		initUpdatedPaths() {
+		initDataHolders() {
 			this.updatedPaths = Object.entries(this.instancePaths || {});
+			this.updatedWorldPaths = new Set(this.serverStore.instanceWorldPaths[this.selectedInstanceData.id]);
 		},
 		addNewPath() {
 			this.updatedPaths.push(["", ""]);
 		},
 		deletePath(index) {
 			this.updatedPaths.splice(index, 1);
+		},
+		toggleWorldPath(path) {
+			if (this.updatedWorldPaths.has(path)) {
+				this.updatedWorldPaths.delete(path);
+			} else {
+				this.updatedWorldPaths.add(path);
+			}
 		},
 		async savePaths() {
 			this.$validatePermissions(PERMISSIONS.instance.files.paths.write);
@@ -107,7 +132,8 @@ export default {
 
 			try {
 				const response = await post(`/instance/${this.selectedInstanceData.id}/paths`, PERMISSIONS.instance.files.paths.write, {
-					paths: Object.fromEntries(this.updatedPaths)
+					paths: Object.fromEntries(this.updatedPaths),
+					worldPaths: Array.from(this.updatedWorldPaths.values()),
 				});
 				this.$alert.success(`File paths saved`);
 				this.fetchInstanceFiles(this.selectedInstanceData.id);
@@ -132,7 +158,7 @@ export default {
 	},
 	watch: {
 		instancePaths() {
-			this.initUpdatedPaths();
+			this.initDataHolders();
 		}
 	}
 }
@@ -140,6 +166,6 @@ export default {
 
 <style scoped>
 .instance-file-roots-grid {
-	grid-template-columns: auto auto auto;
+	grid-template-columns: auto auto auto auto;
 }
 </style>

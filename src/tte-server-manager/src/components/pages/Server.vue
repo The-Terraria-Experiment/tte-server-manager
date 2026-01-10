@@ -222,7 +222,7 @@
 
 <script>
 import { useServerStore } from '../../stores/serverStore';
-import { BTN_VARIANT, WORLDS_PATH } from '../../util/constants';
+import { BTN_VARIANT } from '../../util/constants';
 import { PERMISSIONS } from '../../util/permissionValues';
 import Dropdown from '../common/Dropdown.vue';
 import FlexButton from '../common/FlexButton.vue';

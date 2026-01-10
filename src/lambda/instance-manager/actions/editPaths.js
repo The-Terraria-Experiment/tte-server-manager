@@ -80,14 +80,23 @@ async function handle(event) {
 	}
 
 	const paths = body?.paths;
+	const worldPaths = body?.worldPaths;
 
 	if (!paths) {
 		return validationError("paths are required");
 	}
+	if (!worldPaths) {
+		return validationError("worldPaths are required");
+	}
 
-	const { valid, errors } = validatePaths(paths);
-	if (!valid) {
+	const { pathsValid, pathErrors } = validatePaths(paths);
+	if (!pathsValid) {
 		return validationError("Invalid paths", { errors });
+	}
+
+	const { worldPathsValid, worldPathErrors } = validatePaths(worldPaths);
+	if (!worldPathsValid) {
+		return validationError("Invalid world paths", { errors });
 	}
 
 	const key = `inst#${instanceId}`;
@@ -96,6 +105,7 @@ async function handle(event) {
 	const updatedItem = await updateDynamoItem(tableName, key, {
 		updates: {
 			validRoots: paths,
+			worldPaths: worldPaths,
 			updatedAt: timestamp
 		}
 	});
