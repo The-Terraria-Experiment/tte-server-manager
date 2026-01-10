@@ -102,12 +102,12 @@ async function handle(event) {
 		return validationError("worldPaths are required");
 	}
 
-	const { pathsValid, errors: pathErrors } = validatePaths(paths);
+	const { valid: pathsValid, errors: pathErrors } = validatePaths(paths);
 	if (!pathsValid) {
 		return validationError("Invalid paths", { pathErrors });
 	}
 
-	const { worldPathsValid, errors: worldPathErrors } = validateWorldPaths(worldPaths);
+	const { valid: worldPathsValid, errors: worldPathErrors } = validateWorldPaths(worldPaths);
 	if (!worldPathsValid) {
 		return validationError("Invalid world paths", { worldPathErrors });
 	}
