@@ -35,6 +35,10 @@ const PERMISSIONS = {
 		files: {
 			read: "instance.files.read",
 			write: "instance.files.write",
+			paths: {
+				read: "instance.files.paths.read",
+				write: "instance.files.paths.write",
+			},
 		},
 	},
 	users: {

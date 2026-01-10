@@ -1,0 +1,263 @@
+<template>
+	<StatusTile 
+		v-if="false && selectedInstanceData.state === 'ONLINE'"
+		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
+		collapsible
+		class="mt-4 sm:mt-8"
+	>
+		<template #header>
+			<Icon icon="folder-open" color="text-gray-6" size="5" />
+			<p class="text-gray-6 ml-2 text-lg">Files</p>
+		</template>
+		<template #summary>
+			<p class="text-2xl text-teal-4">2 folders</p>
+		</template>
+		<template #content>
+			<FlexButton 
+				class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 mt-4 ml-4" 
+				@input="syncInstanceFiles(selectedInstance)"
+				:disabled="loading.fileUpload"
+			>
+				<div class="flex items-center">
+					<Spinner v-if="loading.fileUpload" class="h-4 w-4 text-teal-3" thickness="4" />
+					<Icon v-else icon="arrow-rotate-right" color="text-teal-3" size="4" />
+					<p class="text-teal-3 ml-2 font-main font-bold">FORCE SYNC</p>
+				</div>
+			</FlexButton>
+
+			<div class="flex flex-col sm:grid grid-cols-2 m-4">
+				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
+					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
+						<p class="text-sm">{{ PLUGINS_PATH }}/</p>
+					</div>
+
+					<FileHierarchy 
+						class="mt-4 -ml-4"
+						:files="instancePluginFiles"
+						@deleteClicked="(data) => { }"
+						@addClicked="($e) => openFileUploadPopup($e, PLUGINS_PATH)"
+					/>
+				</div>
+
+				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
+					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
+						<p class="text-sm">{{ WORLDS_PATH }}/</p>
+					</div>
+
+					<FileHierarchy 
+						class="mt-4 -ml-4"
+						:files="instanceWorldFiles"
+						@deleteClicked="(data) => { }"
+						@addClicked="($e) => openFileUploadPopup($e, WORLDS_PATH)"
+					/>
+				</div>
+
+			</div>
+		</template>
+	</StatusTile>
+
+	<Popup
+		:open="isFilePickerOpen"
+		header-text="UPLOAD FILE"
+		body-class="w-11/12 sm:w-1/4 h-max"
+		@xClicked="cancelFilePicker"
+		:setState="onFileCleared"
+		:buttons="[
+			{ variant: BTN_VARIANT.DANGER, text: 'CANCEL', onClick: cancelFilePicker },
+			{ variant: BTN_VARIANT.PRIMARY, text: 'UPLOAD', onClick: uploadFile, disabled: loading.fileUpload },
+		]"
+	>
+		<div class="p-4">
+			<div class="flex items-center font-semibold text-white-0 flex-wrap">
+				<p class="font-main mr-1 mb-1">Upload file to</p>
+				<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm">{{ addFilePathRoot + "/" + addFilePath.join("/")}}</div>
+			</div>
+			<div>
+				<p class="font-main font-semibold text-white-0 my-2">Choose a file or folder to upload.</p>
+			</div>
+			
+			<!-- Toggle between file and folder mode -->
+			<div class="flex items-center mb-4 gap-2">
+				<Checkbox v-model="uploadFolderMode" class="h-5 w-5" />
+				<p class="font-main font-semibold text-teal-4 cursor-pointer" @click="uploadFolderMode = !uploadFolderMode">Folder upload</p>
+			</div>
+
+			<FilePicker 
+				v-model="pickedFile" 
+				@cleared="onFileCleared" 
+				:is-folder="uploadFolderMode"
+			/>
+			<div v-if="loading.fileUpload" class="flex items-center mt-4 justify-center">
+				<Spinner class="h-5 w-5 text-teal-3 mr-2"/>
+				<p class="font-main font-bold text-teal-4">Uploading...</p>
+			</div>
+		</div>
+	</Popup>
+</template>
+
+<script>
+import { useServerStore } from '../../../../stores/serverStore';
+import { BTN_VARIANT } from '../../../../util/constants';
+import { PERMISSIONS } from '../../../../util/permissionValues';
+import Checkbox from '../../../common/Checkbox.vue';
+import FileHierarchy from '../../../common/FileHierarchy.vue';
+import FilePicker from '../../../common/FilePicker.vue';
+import Popup from '../../../common/Popup.vue';
+
+
+export default {
+	mixins: [],
+	components: {
+		FileHierarchy,
+		Popup,
+		FilePicker,
+		Checkbox,
+	},
+	props: {
+		selectedInstanceData: {
+			type: Object,
+			required: true
+		},
+		loading: {
+			type: Object,
+			required: true,
+		}
+	},
+	data() {
+		return {
+			PERMISSIONS,
+			BTN_VARIANT,
+			serverStore: useServerStore(),
+			isFilePickerOpen: false,
+			pickedFile: [],
+			addFilePath: null,
+			addFilePathRoot: null,
+			uploadFolderMode: false,
+		}
+	},
+	computed: {
+		instancePluginFiles() {
+			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+				.map(d => d.key)	
+				.filter(p => p.startsWith(this.selectedInstance + PLUGINS_PATH))
+				.map(s => s.replace(this.selectedInstance + PLUGINS_PATH + "/", ""));
+		},
+		instanceWorldFiles() {
+			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+				.map(d => d.key)	
+				.filter(p => p.startsWith(this.selectedInstance + WORLDS_PATH))
+				.map(s => s.replace(this.selectedInstance + WORLDS_PATH + "/", ""));
+		},
+	},
+	methods: {
+		cancelFilePicker() {
+			this.isFilePickerOpen = false;
+			this.addFilePath = null;
+			this.addFilePathRoot = null;
+			this.uploadFolderMode = false;
+			this.onFileCleared();
+		},
+
+		onFileCleared() {
+			this.pickedFile = null;
+		},
+
+		openFileUploadPopup(atPath, pathRoot) {
+			this.addFilePath = atPath;
+			this.addFilePathRoot = pathRoot;
+			this.isFilePickerOpen = true;
+		},
+
+		async uploadFile() {
+			this.$validatePermissions(PERMISSIONS.instance.files.write);
+
+			const instanceID = this.selectedInstance;
+
+			if (!this.pickedFile || this.pickedFile.length === 0 || this.loading.fileUpload) return;
+			this.loading.fileUpload = true;
+
+			try {
+				const files = Array.isArray(this.pickedFile) ? this.pickedFile : [this.pickedFile];
+				const uploadPromises = [];
+
+				// Upload each file concurrently
+				for (const file of files) {
+					uploadPromises.push(this.uploadSingleFile(file));
+				}
+
+				const results = await Promise.allSettled(uploadPromises);
+				
+				// Check for any failures
+				const failures = results.filter(r => r.status === 'rejected');
+				const successes = results.filter(r => r.status === 'fulfilled');
+
+				if (failures.length > 0) {
+					this.$alert.warning(`Uploaded ${successes.length}/${files.length} files. ${failures.length} failed.`);
+				} else {
+					this.$alert.success(`Successfully uploaded ${successes.length} file(s)`);
+				}
+
+				this.cancelFilePicker();
+
+				// Step 3: Refresh file list
+				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+					await this.fetchInstanceFiles(instanceID);
+				}
+
+				this.syncInstanceFiles(instanceID);
+			} catch (e) {
+				this.$alert.error("Error uploading files");
+				this.loading.fileUpload = false;
+				console.error(e);
+			}
+		},
+
+		async uploadSingleFile(file) {
+			// Get the relative path of the file (for files from folder picker)
+			const relativePath = file.webkitRelativePath || file.name;
+			
+			// Split path into components and construct final path
+			const pathParts = relativePath.split('/');
+			const fileName = pathParts.pop(); // Last part is filename
+			const pathString = pathParts.length > 0 ? pathParts.join("/") : "";
+
+			// Request pre-signed URL from backend
+			const response = await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, {
+				pathRoot: this.addFilePathRoot.substring(1),
+				path: pathString,
+				fileName: fileName,
+			});
+
+			const {uploadUrl} = response;
+
+			// Upload file directly to S3 using pre-signed URL
+			const uploadResponse = await fetch(uploadUrl, {
+				method: "PUT",
+				body: file,
+			});
+
+			if (!uploadResponse.ok) {
+				throw new Error(`S3 upload failed for ${relativePath}: ${uploadResponse.statusText}`);
+			}
+		},
+
+		async syncInstanceFiles(instanceID) {
+			this.$validatePermissions(PERMISSIONS.instance.files.write);
+
+			try {
+				await put(`/instance/${instanceID}/files`, PERMISSIONS.instance.files.write);
+				this.$alert.success("File sync complete");
+			} catch (e) {
+				this.$alert.error("Error syncing instance files. Files may be in an invalid state. Please alert @havoc immediately.", { duration: 30000 });
+				console.error(e);
+			} finally {
+				this.loading.fileUpload = false;
+			}
+		}
+	},
+}
+</script>
+
+<style scoped>
+
+</style>

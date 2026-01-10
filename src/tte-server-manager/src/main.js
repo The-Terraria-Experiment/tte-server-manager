@@ -9,6 +9,12 @@ import permissionsPlugin from './plugins/permissions'
 import { VERSION } from './util/version'
 import { Amplify } from 'aws-amplify'
 import outputs from "../amplify_outputs.json"
+import StatusTile from './components/common/StatusTile.vue'
+import Spinner from './components/common/Spinner.vue'
+import Icon from './components/common/Icon.vue'
+import FlexButton from './components/common/FlexButton.vue'
+import NotAllowed from './components/common/NotAllowed.vue'
+import ValueInput from './components/common/ValueInput.vue'
 
 const pinia = createPinia();
 
@@ -34,4 +40,10 @@ app
 	.use(pinia)
 	.use(alertsPlugin)
 	.use(permissionsPlugin)
+	.component('StatusTile', StatusTile)
+	.component('Spinner', Spinner)
+	.component('Icon', Icon)
+	.component('FlexButton', FlexButton)
+	.component('NotAllowed', NotAllowed)
+	.component('ValueInput', ValueInput)
 	.mount('#app');

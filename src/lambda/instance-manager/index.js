@@ -44,6 +44,10 @@ const endpoints = {
 	"PUT /instance/{id}/files": {
 		action: require("./actions/fileSync"),
 		permRequired: PERMISSIONS.instance.files.write,
+	},
+	"POST /instance/{id}/paths": {
+		action: require("./actions/editPaths"),
+		permRequired: PERMISSIONS.instance.files.paths.write,
 	}
 };
 

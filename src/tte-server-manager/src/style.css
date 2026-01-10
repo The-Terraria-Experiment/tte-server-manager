@@ -1,3 +1,5 @@
+@reference "./theme.css";
+
 input[type="text"], input[type="number"], input[type="password"] {
 	border: none;
 	padding-top: 0.5rem;
@@ -13,4 +15,37 @@ input[type="text"], input[type="number"], input[type="password"] {
 
 body {
 	background: var(--color-gray-2);
+}
+
+.ghost-loader {
+	animation-duration: 2s;
+	animation-fill-mode: forwards;
+	animation-iteration-count: infinite;
+	animation-name: placeHolderShimmer;
+	animation-timing-function: linear;
+	background: hsl(0, 0%, 19%);
+	background: linear-gradient(to right, hsl(0, 0%, 19%) 8%, hsl(0, 0%, 30%) 18%, hsl(0, 0%, 19%) 33%);
+	background-size: 500% 100%;
+}
+
+@keyframes placeHolderShimmer {
+	0% {
+		background-position: 150% 0;
+	}
+
+	100% {
+		background-position: -100% 0;
+	}
+}
+
+.gradient-tile-green {
+	@apply bg-linear-to-b from-gray-3 to-green-2 from-50%;
+	background-size: 100% 200%;
+	background-position: 0% 100%;
+}
+
+.gradient-tile-red {
+	@apply bg-linear-to-b from-gray-3 to-red-900 from-50%;
+	background-size: 100% 200%;
+	background-position: 0% 100%;
 }

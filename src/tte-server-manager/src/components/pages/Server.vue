@@ -11,7 +11,7 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="fetchServerStatus" />
+		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" />
 	</div>
 
 	<div class="flex flex-col sm:grid sm:grid-cols-3">
@@ -281,15 +281,33 @@ export default {
 		},
 		selectedServerData() {
 			return {
-				state: Boolean(this.serverStore.serverStatusData[this.selectedInstance]?.name),
+				state: Boolean(this.serverStore.serverStatusData[this.selectedInstance]?.status),
 				players: this.serverStore.serverStatusData[this.selectedInstance]?.players,
 				world: this.serverStore.serverStatusData[this.selectedInstance]?.world
 			}
+			/**
+			 * {
+				"status": "200",
+				"name": "",
+				"serverversion": "v1.4.4.9",
+				"tshockversion": "5.2.4.0",
+				"port": 7777,
+				"playercount": 0,
+				"maxplayers": 8,
+				"world": "test1",
+				"uptime": "0.00:25:30",
+				"serverpassword": false
+			}
+			 */
 		}
 	},
 	methods: {
 		formatFileSize,
 		plural,
+		refresh() {
+			this.fetchServerStatus();
+			this.fetchInstanceFiles(this.selectedInstance);
+		},
 		async fetchInstanceList() {
 			this.$validatePermissions(PERMISSIONS.instance.list);
 
@@ -350,6 +368,7 @@ export default {
 					port: this.selectWorld.port,
 					maxPlayers: this.selectWorld.maxplayers
 				});
+				this.$alert.success("Server starting");
 			} catch (e) {
 				this.$alert.error("Error launching server");
 				console.error(e);
@@ -381,6 +400,9 @@ export default {
 		selectedInstance(value) {
 			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value)) {
 				this.fetchInstanceStatus(value);
+				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+					this.fetchInstanceFiles(this.selectedInstance);
+				}
 			}
 		}
 	}

@@ -6,5 +6,5 @@ export const BTN_VARIANT = {
 export const ACTIVE_DATE_VARIANT = {
 	ELAPSED_COMPACT: "active_date_elapsed_compact",
 };
-export const PLUGINS_PATH = "/terraria/tshock/ServerPlugins";
-export const WORLDS_PATH = "/terraria/worlds";
+export const PLUGINS_PATH = "/tshock/ServerPlugins";
+export const WORLDS_PATH = "/worlds";

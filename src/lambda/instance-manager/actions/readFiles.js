@@ -3,6 +3,7 @@
  */
 
 const {listS3Objects} = require("../shared/utils/aws");
+const { getDynamoItem } = require("../shared/utils/dynamo");
 const {successResponse, notFoundError} = require("../shared/utils/response");
 
 async function handle(event) {
@@ -22,7 +23,10 @@ async function handle(event) {
 	const prefix = `${instanceId}/`;
 	const files = await listS3Objects(bucketName, prefix);
 
-	return successResponse({ files });
+	const instanceData = await getDynamoItem(process.env.INSTANCE_TABLE_NAME, `inst#${instanceId}`);
+	const pathRoots = instanceData?.validRoots || [];
+
+	return successResponse({ files, pathRoots });
 }
 
 module.exports = {handle};
