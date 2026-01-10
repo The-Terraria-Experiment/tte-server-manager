@@ -3,7 +3,8 @@
  * S3 object keys are formatted as: <instanceId>/<filepath>
  * Example: i-0123456789abcdef/config/serverconfig.txt
  * 
- * Lists all files in S3 for the instance and syncs them, making S3 the source of truth
+ * Lists all files in S3 for the instance and syncs only those that don't already exist
+ * on the instance, avoiding unnecessary re-downloads
  */
 
 const {executeSSMCommand, listS3Objects, getSignedDownloadUrl} = require('../shared/utils/aws');
@@ -54,14 +55,19 @@ async function syncFilesToInstance(instanceId, s3Bucket, baseLocalPath = '/opt/t
 		// Generate pre-signed URL for download (1 hour expiry)
 		const presignedUrl = await getSignedDownloadUrl(s3Bucket, s3Key, 3600);
 
-		// Create directory and download file using curl
-		commands.push(`echo "Downloading ${s3Key} to ${localPath}"`);
-		commands.push(`mkdir -p "${dirPath}"`);
-		commands.push(`curl -o "${localPath}" "${presignedUrl}"`);
+		// Create directory and download file using curl only if it doesn't exist
+		commands.push(`echo "Checking ${s3Key}"`);
+		commands.push(`if [ ! -f "${localPath}" ]; then`);
+		commands.push(`  echo "Downloading ${s3Key} to ${localPath}"`);
+		commands.push(`  mkdir -p "${dirPath}"`);
+		commands.push(`  curl -o "${localPath}" "${presignedUrl}"`);
+		commands.push(`else`);
+		commands.push(`  echo "File already exists, skipping: ${localPath}"`);
+		commands.push(`fi`);
 		commands.push('');
 	}
 
-	commands.push(`echo "Successfully synced ${s3Keys.length} file(s)"`);
+	commands.push(`echo "Completed file sync (${s3Keys.length} file(s) checked)"`);
 
 	// Execute SSM command
 	const {commandId} = await executeSSMCommand(instanceId, commands);
