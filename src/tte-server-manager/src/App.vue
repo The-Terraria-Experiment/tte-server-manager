@@ -9,7 +9,7 @@
 
 		<div v-if="isMobile">
 			<div class="p-4 w-full pb-20">
-				<LoadingUser v-if="userDataIsLoading" />
+				<MajorLoader v-if="userDataIsLoading" text="Loading user data..." />
 				<RouterView />
 			</div>
 			<MobileNav />
@@ -17,7 +17,7 @@
 		<div v-else class="flex w-full h-max pt-16">
 			<DesktopNav />
 			<div class="pl-30 p-8 w-full">
-				<LoadingUser v-if="userDataIsLoading" />
+				<MajorLoader v-if="userDataIsLoading" text="Loading user data..." />
 				<RouterView />	
 			</div>
 		</div>
@@ -34,7 +34,7 @@ import AlertStack from './components/common/AlertStack.vue';
 import screen from './mixins/screen';
 import SetUsernamePopup from './components/shared/SetUsernamePopup.vue';
 import { useUserStore } from './stores/userStore';
-import LoadingUser from './components/shared/LoadingUser.vue';
+import MajorLoader from './components/shared/MajorLoader.vue';
 
 export default {
 	mixins: [ screen ],
@@ -44,7 +44,7 @@ export default {
 		MobileNav,
 		AlertStack,
 		SetUsernamePopup,
-		LoadingUser,
+		MajorLoader,
 	},
 	data() {
 		return {

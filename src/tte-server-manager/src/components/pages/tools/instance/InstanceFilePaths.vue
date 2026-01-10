@@ -106,7 +106,9 @@ export default {
 			this.saveLoading = true;
 
 			try {
-				const response = await post(`/instance/${this.selectedInstanceData.id}/paths`, PERMISSIONS.instance.files.paths.write);
+				const response = await post(`/instance/${this.selectedInstanceData.id}/paths`, PERMISSIONS.instance.files.paths.write, {
+					paths: this.updatedPaths
+				});
 				this.$alert.success(`File paths saved`);
 				this.fetchInstanceStatus(this.selectedInstance);
 			} catch (e) {
