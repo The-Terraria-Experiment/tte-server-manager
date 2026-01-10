@@ -18,7 +18,7 @@
 				<div class="grid instance-file-roots-grid w-max">
 					<template v-for="(entry, i) in updatedPaths">
 						<div class="py-2">
-							<ValueInput placeholder="Path nickname" :modelValue="entry[0]" />
+							<ValueInput placeholder="Path nickname" v-model="entry[0]" />
 						</div>
 						<div class="py-2 px-4">
 							<ValueInput placeholder="Path value" v-model="entry[1]" class="w-100"/>
@@ -107,17 +107,28 @@ export default {
 
 			try {
 				const response = await post(`/instance/${this.selectedInstanceData.id}/paths`, PERMISSIONS.instance.files.paths.write, {
-					paths: this.updatedPaths
+					paths: Object.fromEntries(this.updatedPaths)
 				});
 				this.$alert.success(`File paths saved`);
-				this.fetchInstanceStatus(this.selectedInstance);
+				this.fetchInstanceFiles(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error saving file paths");
 				console.error(e);
 			} finally {
 				this.saveLoading = false;
 			}
-		}
+		},
+
+		async fetchInstanceFiles(instanceID) {
+			this.$validatePermissions(PERMISSIONS.instance.files.read);
+
+			try {
+				await this.serverStore.fetchInstanceFiles(instanceID);
+			} catch (e) {
+				this.$alert.error("Error fetching instance files");
+				console.error(e);
+			}
+		},
 	},
 	watch: {
 		instancePaths() {
