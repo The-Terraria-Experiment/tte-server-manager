@@ -91,12 +91,12 @@ async function handle(event) {
 
 	const { pathsValid, pathErrors } = validatePaths(paths);
 	if (!pathsValid) {
-		return validationError("Invalid paths", { errors });
+		return validationError("Invalid paths", { pathErrors });
 	}
 
 	const { worldPathsValid, worldPathErrors } = validatePaths(worldPaths);
 	if (!worldPathsValid) {
-		return validationError("Invalid world paths", { errors });
+		return validationError("Invalid world paths", { worldPathErrors });
 	}
 
 	const key = `inst#${instanceId}`;
