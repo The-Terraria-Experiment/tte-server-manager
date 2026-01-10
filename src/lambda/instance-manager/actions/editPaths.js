@@ -62,8 +62,8 @@ function validateWorldPaths(paths) {
 	}
 	const errors = [];
 	for (const path of paths) {
-		if (!isSafePosixPath(p)) {
-			errors.push(`Invalid world path ${String(p)}`);
+		if (!isSafePosixPath(path)) {
+			errors.push(`Invalid world path ${String(path)}`);
 		}
 	}
 	return { valid: errors.length === 0, errors };
