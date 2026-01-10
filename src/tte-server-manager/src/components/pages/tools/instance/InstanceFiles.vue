@@ -1,6 +1,6 @@
 <template>
 	<StatusTile 
-		v-if="false && selectedInstanceData.state === 'ONLINE'"
+		v-if="selectedInstanceData.state === 'ONLINE'"
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
 		collapsible
 		class="mt-4 sm:mt-8"
@@ -10,12 +10,12 @@
 			<p class="text-gray-6 ml-2 text-lg">Files</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">2 folders</p>
+			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folders</p>
 		</template>
 		<template #content>
 			<FlexButton 
 				class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 mt-4 ml-4" 
-				@input="syncInstanceFiles(selectedInstance)"
+				@input="syncInstanceFiles(selectedInstanceData.id)"
 				:disabled="loading.fileUpload"
 			>
 				<div class="flex items-center">
@@ -25,33 +25,21 @@
 				</div>
 			</FlexButton>
 
-			<div class="flex flex-col sm:grid grid-cols-2 m-4">
-				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
-					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
-						<p class="text-sm">{{ PLUGINS_PATH }}/</p>
+			<div class="flex flex-col sm:grid grid-cols-2 m-4 gap-4">
+				<template v-for="(path, nickname) in serverStore.instanceFileRoots[selectedInstanceData.id]">
+					<div class="bg-gray-5 rounded-xl p-4 h-max">
+						<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
+							<p class="text-sm">{{ readPathsAuth ? path : nickname }}/</p>
+						</div>
+
+						<FileHierarchy 
+							class="mt-4 -ml-4"
+							:files="instanceFiles[path]"
+							@deleteClicked="(data) => { }"
+							@addClicked="($e) => openFileUploadPopup($e, path)"
+						/>
 					</div>
-
-					<FileHierarchy 
-						class="mt-4 -ml-4"
-						:files="instancePluginFiles"
-						@deleteClicked="(data) => { }"
-						@addClicked="($e) => openFileUploadPopup($e, PLUGINS_PATH)"
-					/>
-				</div>
-
-				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
-					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
-						<p class="text-sm">{{ WORLDS_PATH }}/</p>
-					</div>
-
-					<FileHierarchy 
-						class="mt-4 -ml-4"
-						:files="instanceWorldFiles"
-						@deleteClicked="(data) => { }"
-						@addClicked="($e) => openFileUploadPopup($e, WORLDS_PATH)"
-					/>
-				</div>
-
+				</template>
 			</div>
 		</template>
 	</StatusTile>
@@ -136,18 +124,37 @@ export default {
 		}
 	},
 	computed: {
-		instancePluginFiles() {
-			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
-				.map(d => d.key)	
-				.filter(p => p.startsWith(this.selectedInstance + PLUGINS_PATH))
-				.map(s => s.replace(this.selectedInstance + PLUGINS_PATH + "/", ""));
+		instanceFiles() {
+			const roots = Object.values(this.serverStore.instanceFileRoots[this.selectedInstanceData.id] ?? []);
+			const existingFiles = (this.serverStore.instanceFiles[this.selectedInstanceData.id] || [])
+				.map(d => d.key)
+				.filter(p => roots.some(root => p.startsWith(`${this.selectedInstanceData.id}${root}`)))
+				.map(s => s.replace(this.selectedInstanceData.id, ""));
+
+			const sortedFiles = Object.fromEntries(roots.map(r => [r, []]));
+			existingFiles.forEach(path => {
+				roots.forEach(root => {
+					if (path.startsWith(root)) {
+						let shortPath = path.replace(root, "");
+						if (shortPath[0] === "/") {
+							shortPath = shortPath.slice(1);
+						}
+						sortedFiles[root].push(shortPath);
+					}
+				});
+			});
+
+			return sortedFiles;
 		},
-		instanceWorldFiles() {
-			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
-				.map(d => d.key)	
-				.filter(p => p.startsWith(this.selectedInstance + WORLDS_PATH))
-				.map(s => s.replace(this.selectedInstance + WORLDS_PATH + "/", ""));
+		fileLocationCount() {
+			return Object.keys(this.instancePaths || {})?.length || 0;
 		},
+		instancePaths() {
+			return this.serverStore.instanceFileRoots[this.selectedInstanceData.id];
+		},
+		readPathsAuth() {
+			return this.$checkPermissions(PERMISSIONS.instance.files.paths.read);
+		}
 	},
 	methods: {
 		cancelFilePicker() {
@@ -253,7 +260,18 @@ export default {
 			} finally {
 				this.loading.fileUpload = false;
 			}
-		}
+		},
+
+		async fetchInstanceFiles(instanceID) {
+			this.$validatePermissions(PERMISSIONS.instance.files.read);
+
+			try {
+				await this.serverStore.fetchInstanceFiles(instanceID);
+			} catch (e) {
+				this.$alert.error("Error fetching instance files");
+				console.error(e);
+			}
+		},
 	},
 }
 </script>

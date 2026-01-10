@@ -35,7 +35,7 @@
 </template>
 
 <script>
-import { BTN_VARIANT, PLUGINS_PATH, WORLDS_PATH } from '../../util/constants';
+import { BTN_VARIANT, } from '../../util/constants';
 import Dropdown from '../common/Dropdown.vue';
 import { PERMISSIONS } from '../../util/permissionValues';
 import RefreshButton from '../common/RefreshButton.vue';
@@ -62,8 +62,6 @@ export default {
 		return {
 			BTN_VARIANT,
 			PERMISSIONS,
-			PLUGINS_PATH,
-			WORLDS_PATH,
 			selectedInstance: null,
 			serverStore: useServerStore(),
 			loading: {

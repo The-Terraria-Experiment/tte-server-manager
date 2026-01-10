@@ -25,8 +25,9 @@ async function handle(event) {
 
 	const instanceData = await getDynamoItem(process.env.INSTANCE_TABLE_NAME, `inst#${instanceId}`);
 	const pathRoots = instanceData?.validRoots || [];
+	const worldPaths = instanceData?.worldPaths || [];
 
-	return successResponse({ files, pathRoots });
+	return successResponse({ files, pathRoots, worldPaths });
 }
 
 module.exports = {handle};

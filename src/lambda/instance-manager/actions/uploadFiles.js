@@ -4,12 +4,12 @@
  */
 
 const {getSignedUploadUrl} = require("../shared/utils/aws");
+const {getDynamoItem} = require("../shared/utils/dynamo");
 const {successResponse, validationError} = require("../shared/utils/response");
 
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;
 	const bucketName = process.env.S3_FILESTORE_NAME;
-	const allowedPaths = JSON.parse(process.env.VALID_PATH_ROOTS || "[]");
 
 	if (!instanceId) {
 		return validationError("Instance ID is required");
@@ -18,6 +18,9 @@ async function handle(event) {
 	if (!bucketName) {
 		return validationError("S3 bucket not configured");
 	}
+
+	const instanceData = await getDynamoItem(process.env.INSTANCE_TABLE_NAME, `inst#${instanceId}`);
+	const allowedPaths = new Set(Object.values(instanceData?.validRoots || {}));
 
 	// Parse request body for upload request
 	let body;
@@ -38,13 +41,13 @@ async function handle(event) {
 	}
 
 	// Validate pathRoot against allowed paths
-	if (!allowedPaths.includes(pathRoot)) {
-		return validationError(`Invalid pathRoot. Allowed paths: ${allowedPaths.join(", ")}`);
+	if (!allowedPaths.has(pathRoot)) {
+		return validationError(`Invalid pathRoot`);
 	}
 
 	try {
 		// Build S3 path: {instanceID}/{pathRoot}/{path}/{fileName}
-		const pathComponents = [instanceId, pathRoot];
+		const pathComponents = [instanceId, pathRoot.slice(1)];
 		if (path) {
 			pathComponents.push(path);
 		}
