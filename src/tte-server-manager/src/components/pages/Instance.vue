@@ -11,7 +11,7 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="fetchInstanceStatus(selectedInstance)" />
+		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" />
 	</div>
 	
 	<StatusTile v-else-if="!serverStore.isLoadingList && !serverStore.instanceOptions.length">
@@ -121,6 +121,7 @@
 	</div>
 
 	<StatusTile 
+		v-if="selectedInstanceData.state === 'ONLINE'"
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
 		collapsible
 		class="mt-4 sm:mt-8"
@@ -133,6 +134,18 @@
 			<p class="text-2xl text-teal-4">2 folders</p>
 		</template>
 		<template #content>
+			<FlexButton 
+				class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 mt-4 ml-4" 
+				@input="syncInstanceFiles(selectedInstance)"
+				:disabled="loading.fileUpload"
+			>
+				<div class="flex items-center">
+					<Spinner v-if="loading.fileUpload" class="h-4 w-4 text-teal-3" thickness="4" />
+					<Icon v-else icon="arrow-rotate-right" color="text-teal-3" size="4" />
+					<p class="text-teal-3 ml-2 font-main font-bold">FORCE SYNC</p>
+				</div>
+			</FlexButton>
+
 			<div class="flex flex-col sm:grid grid-cols-2 m-4">
 				<div class="bg-gray-5 rounded-xl p-4 sm:mr-2 h-max">
 					<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
@@ -314,6 +327,10 @@ export default {
 		/*=======================================================================================
 		                                          Fetch                                          
 		=======================================================================================*/
+		refresh() {
+			this.fetchInstanceStatus(this.selectedInstance);
+			this.fetchInstanceFiles(this.selectedInstance);
+		},
 		async fetchInstanceList() {
 			this.$validatePermissions(PERMISSIONS.instance.list);
 
@@ -512,6 +529,9 @@ export default {
 		selectedInstance(value) {
 			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value)) {
 				this.fetchInstanceStatus(value);
+				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+					this.fetchInstanceFiles(this.selectedInstance);
+				}
 			}
 		}
 	}
