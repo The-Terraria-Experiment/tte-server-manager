@@ -1,15 +1,7 @@
 <template>
 	<Teleport to="body">
-		<!-- Backdrop -->
-		<Transition
-			enter-active-class="backdrop-enter"
-			leave-active-class="backdrop-leave"
-		>
-			<div v-if="open" :class="['fixed left-0 top-0 right-0 bottom-0', zLayers[layer]]">
-				<div class="fixed left-0 top-0 right-0 bottom-0 bg-gray-0 opacity-50"></div>
-				<div class="fixed left-0 top-0 right-0 bottom-0 backdrop-blur-xs"></div>
-			</div>
-		</Transition>
+		<!-- Persistent backdrop (opacity + blur) to avoid pop on mount -->
+		<div :class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[layer], { 'overlay-open': open, 'overlay-closed': !open }]" />
 		
 		<!-- Popup -->
 		<Transition
@@ -147,12 +139,25 @@ export default {
 </script>
 
 <style scoped>
-.backdrop-enter {
-	animation: fadeIn 0.2s ease-out;
+/* Backdrop is now persistent; we fade via CSS transitions instead of mount/unmount */
+.overlay-backdrop {
+	background-color: var(--tw-color-gray-0, rgba(0,0,0,0.35));
+	/* start invisible and no blur */
+	opacity: 0;
+	backdrop-filter: blur(0px);
+	transition: opacity 0.15s ease-out, backdrop-filter 0.15s ease-out;
+	will-change: opacity, backdrop-filter;
+	pointer-events: none; /* avoid clicks when closed */
 }
-
-.backdrop-leave {
-	animation: fadeIn 0.15s ease-in reverse;
+.overlay-open {
+	opacity: 1;
+	backdrop-filter: blur(3px); /* match backdrop-blur-xs */
+	pointer-events: auto;
+}
+.overlay-closed {
+	opacity: 0;
+	backdrop-filter: blur(0px);
+	pointer-events: none;
 }
 
 .popup-enter {
@@ -162,6 +167,8 @@ export default {
 .popup-leave {
 	animation: slideUpFade 0.12s ease-in reverse;
 }
+
+/* Removed nested blur overlay transition; handled by persistent overlay-backdrop */
 
 @keyframes fadeIn {
 	from {
@@ -182,4 +189,6 @@ export default {
 		transform: translateY(0);
 	}
 }
+
+/* Popup motion remains the same */
 </style>
