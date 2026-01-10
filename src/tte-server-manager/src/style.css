@@ -1,3 +1,5 @@
+@reference "./theme.css";
+
 input[type="text"], input[type="number"], input[type="password"] {
 	border: none;
 	padding-top: 0.5rem;
@@ -34,4 +36,16 @@ body {
 	100% {
 		background-position: -100% 0;
 	}
+}
+
+.gradient-tile-green {
+	@apply bg-linear-to-b from-gray-3 to-green-2 from-50%;
+	background-size: 100% 200%;
+	background-position: 0% 100%;
+}
+
+.gradient-tile-red {
+	@apply bg-linear-to-b from-gray-3 to-red-900 from-50%;
+	background-size: 100% 200%;
+	background-position: 0% 100%;
 }
