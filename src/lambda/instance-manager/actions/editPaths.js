@@ -56,6 +56,19 @@ function validatePaths(paths) {
 	return { valid: errors.length === 0, errors };
 }
 
+function validateWorldPaths(paths) {
+	if (!paths || !Array.isArray(paths)) {
+		return { valid: false, errors: ['worldPaths must be an array of paths'] };
+	}
+	const errors = [];
+	for (const path of paths) {
+		if (!isSafePosixPath(p)) {
+			errors.push(`Invalid world path ${String(p)}`);
+		}
+	}
+	return { valid: errors.length === 0, errors };
+}
+
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;
 
@@ -89,12 +102,12 @@ async function handle(event) {
 		return validationError("worldPaths are required");
 	}
 
-	const { pathsValid, pathErrors } = validatePaths(paths);
+	const { pathsValid, errors: pathErrors } = validatePaths(paths);
 	if (!pathsValid) {
 		return validationError("Invalid paths", { pathErrors });
 	}
 
-	const { worldPathsValid, worldPathErrors } = validatePaths(worldPaths);
+	const { worldPathsValid, errors: worldPathErrors } = validateWorldPaths(worldPaths);
 	if (!worldPathsValid) {
 		return validationError("Invalid world paths", { worldPathErrors });
 	}
