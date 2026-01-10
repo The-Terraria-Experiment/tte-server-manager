@@ -126,7 +126,6 @@ export default {
 	computed: {
 		instanceFiles() {
 			const roots = Object.values(this.serverStore.instanceFileRoots[this.selectedInstanceData.id] ?? []);
-			const rootSet = new Set(roots);
 			const existingFiles = (this.serverStore.instanceFiles[this.selectedInstanceData.id] || [])
 				.map(d => d.key)
 				.filter(p => roots.some(root => p.startsWith(`${this.selectedInstanceData.id}${root}`)))

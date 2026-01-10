@@ -1,0 +1,183 @@
+<template>
+	<StatusTile 
+		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+		collapsible
+		:perm-required="PERMISSIONS.server.world.select"
+		:loading="serverStore.loading.files[selectedInstance]"
+	>
+		<template #header>
+			<Icon icon="rocket" color="text-gray-6" size="5" />
+			<p class="text-gray-6 ml-2 text-lg">Launch World</p>
+		</template>
+		<template #summary>
+			<p class="text-2xl text-teal-4">{{ instanceWorldFiles.length }} world{{ plural(instanceWorldFiles.length) }} available</p>
+		</template>
+		<template #content>
+			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
+			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
+				<div class="grid world-select-grid px-2 py-2">
+					<div></div>
+					<div class="font-main font-semibold text-teal-6 pb-2">World File Name</div>
+					<div class="font-main font-semibold text-teal-6">File Size</div>
+					
+					<template v-for="(world, idx) in instanceWorldFiles">
+						<div :class="['p-2 rounded-l', { 'bg-gray-4': !(idx%2)}]">
+							<Checkbox 
+								class="h-4 w-4" 
+								:value="selectWorld.selectedWorld === world.name"
+								@input="selectWorld.selectedWorld = world.name"
+							/>
+						</div>
+						<div :class="['flex items-center', { 'bg-gray-4': !(idx%2)}]">
+							<p class="font-mono text-white-0 font-semibold">{{ world.name }}</p>
+						</div>
+						<div :class="['flex items-center rounded-r pr-2', { 'bg-gray-4': !(idx%2)}]">
+							<p class="font-mono text-white-0 font-semibold">{{ formatFileSize(world.size) }}</p>
+						</div>
+					</template>
+				</div>
+			</div>
+
+			<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
+			<div class="mx-4 mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
+				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+					<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
+					<ValueInput
+						type="number"
+						max="9999"
+						min="1000"
+						placeholder="Value between 1000 and 9999"
+						v-model="selectWorld.port"
+					/>
+				</div>
+
+				<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 sm:mx-4 flex flex-col">
+					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
+					<ValueInput
+						type="number"
+						max="500"
+						min="1"
+						placeholder="Value between 1 and 500"
+						v-model="selectWorld.maxplayers"
+					/>
+				</div>
+
+				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+					<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
+					<ValueInput
+						maxlength="25"
+						placeholder="Leave blank for none"
+						v-model="selectWorld.password"
+						:input-allowed="new Set(allowedPasswordChars)"
+					/>
+				</div>
+			</div>
+
+			<div class="flex justify-end p-4">
+				<FlexButton 
+					:variant="BTN_VARIANT.PRIMARY"
+					@input="startServer"
+				>
+					<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
+				</FlexButton>
+			</div>
+			
+		</template>
+	</StatusTile>
+</template>
+
+<script>
+import { useServerStore } from '../../../../stores/serverStore';
+import { BTN_VARIANT } from '../../../../util/constants';
+import { formatFileSize, plural } from '../../../../util/format';
+import { PERMISSIONS } from '../../../../util/permissionValues';
+import Checkbox from '../../../common/Checkbox.vue';
+
+
+export default {
+	mixins: [],
+	components: {
+		Checkbox,
+	},
+	props: {
+		selectedInstance: {
+			type: [String, null],
+			required: true
+		}
+	},
+	data() {
+		return {
+			PERMISSIONS,
+			BTN_VARIANT,
+			serverStore: useServerStore(),
+			selectWorld: {
+				selectedWorld: null,
+				port: 7777,
+				maxplayers: 16,
+				password: ""
+			},
+			allowedPasswordChars: [
+				...Array.from({length: 26}).map((_, i) => String.fromCharCode(97 + i)),
+				...Array.from({ length: 26 }).map((_, i) => String.fromCharCode(65 + i)),
+				...Array.from({ length: 10 }).map((_, i) => i.toString()),
+				'_'
+			],
+		}
+	},
+	computed: {
+		instanceWorldFiles() {
+			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
+			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+				.filter(p => worldRoots.some(root => p.startsWith(`${this.selectedInstance}${root}`)))
+				.map(s => ({ name: s.replace(this.selectedInstance, ""), size: s.size }));
+		},
+	},
+	methods: {
+		formatFileSize,
+		plural,
+		async startServer() {
+			this.$validatePermissions([PERMISSIONS.server.world.select, PERMISSIONS.server.status.start]);
+
+			if (this.selectWorld.port != 7777) {
+				this.$alert.warning("Currently, the port must be 7777.");
+				return;
+			}
+
+			if (this.selectWorld.password && !/^[a-zA-Z0-9_]+$/.test(this.selectWorld.password)) {
+				this.$alert.warning("The password can only contain alphanumberic characters and underscores.");
+				return;
+			}
+
+			if (this.selectWorld.maxplayers < 1 || this.selectWorld.maxplayers > 500) {
+				this.$alert.warning("The player cap must be between 1 and 500");
+				return;
+			}
+
+			if (!this.selectWorld.selectedWorld) {
+				this.$alert.warning("Please select a world file");
+				return;
+			}
+
+			try {
+				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.select, {
+					worldFilePath: this.selectWorld.selectedWorld,
+					port: this.selectWorld.port,
+					maxPlayers: this.selectWorld.maxplayers
+				});
+				this.$alert.success("Server starting");
+			} catch (e) {
+				this.$alert.error("Error launching server");
+				console.error(e);
+			}
+		},
+	},
+}
+</script>
+
+<style scoped>
+@reference "../../../../theme.css";
+
+.world-select-grid {
+	grid-template-columns: auto 1fr auto;
+}
+</style>
