@@ -2,10 +2,8 @@
  * Edit the valid path roots for an instance
  */
 
-const {UpdateCommand} = require("@aws-sdk/lib-dynamodb");
 const {successResponse, validationError} = require("../shared/utils/response");
 const {updateDynamoItem} = require("../shared/utils/dynamo");
-const {docClient} = require("../shared/utils/dynamo");
 
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;
@@ -41,21 +39,20 @@ async function handle(event) {
 		return validationError("path is required");
 	}
 
-	const iid = `inst#${instanceId}`;
+	const key = `inst#${instanceId}`;
 	const timestamp = new Date().toISOString();
 
-	const updatedItem = await updateDynamoItem(tableName, iid, {
-		UpdateExpression: "SET #validRoots.#nickname = :path, updatedAt = :updatedAt",
+	const updatedItem = await updateDynamoItem(tableName, key, {
+		UpdateExpression: "SET #validRoots = :validRoots, updatedAt = :updatedAt",
 		ExpressionAttributeNames: {
 			"#validRoots": "validRoots",
-			"#nickname": nickname,
 		},
 		ExpressionAttributeValues: {
-			":path": path,
+			":validRoots": {[nickname]: path},
 			":updatedAt": timestamp,
 		},
 		ReturnValues: "ALL_NEW",
-	}, "iid");
+	});
 
 	const updatedRoots = updatedItem?.validRoots || {[nickname]: path};
 

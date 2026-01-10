@@ -71,7 +71,7 @@ async function queryDynamo(tableName, keyCondition, filterExpression) {
 /**
  * Update DynamoDB item
  */
-async function updateDynamoItem(tableName, key, updateConfig, keyName = "uid") {
+async function updateDynamoItem(tableName, key, updateConfig) {
     assertIsTruthyString(tableName, "Table name required for update");
 	assertIsTruthyString(key, "Key is required for update");
 	assertSome([
@@ -101,7 +101,7 @@ async function updateDynamoItem(tableName, key, updateConfig, keyName = "uid") {
 
 	const params = {
 		TableName: tableName,
-		Key: { [keyName]: key },
+		Key: { 'uid': key },
         UpdateExpression: updateExpression,
         ReturnValues: updateConfig.ReturnValues || "ALL_NEW"
     };

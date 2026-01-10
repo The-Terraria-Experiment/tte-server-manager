@@ -26,25 +26,7 @@
 
 	<BasicInstanceInfo :selected-instance-data="selectedInstanceData" :loading="loading" />
 
-	<!-- <StatusTile 
-		v-if="selectedInstanceData.state === 'ONLINE'"
-		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.paths.read, PERMISSIONS.instance.files.paths.write]"
-		collapsible
-		class="mt-4 sm:mt-8"
-	>
-		<template #header>
-			<Icon icon="folder-open" color="text-gray-6" size="5" />
-			<p class="text-gray-6 ml-2 text-lg">File Locations</p>
-		</template>
-		<template #summary>
-			<p class="text-2xl text-teal-4">{{ serverStore.instanceFileRoots }} file locations</p>
-		</template>
-		<template #content>
-			<div>
-				<template v-for=""></template>
-			</div>
-		</template>
-	</StatusTile> -->
+	<InstanceFilePaths :selected-instance-data="selectedInstanceData" />
 
 	<InstanceFiles :selected-instance-data="selectedInstanceData" :loading="loading" />
 	
@@ -58,6 +40,7 @@ import RefreshButton from '../common/RefreshButton.vue';
 import { useServerStore } from '../../stores/serverStore';
 import BasicInstanceInfo from './tools/instance/BasicInstanceInfo.vue';
 import InstanceFiles from './tools/instance/InstanceFiles.vue';
+import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
 
 export default {
 	mixins: [],
@@ -66,6 +49,7 @@ export default {
 		RefreshButton,
 		BasicInstanceInfo,
 		InstanceFiles,
+		InstanceFilePaths,
 	},
 	props: {
 		
@@ -104,6 +88,7 @@ export default {
 			};
 
 			return {
+				id: this.selectedInstance,
 				state: stateMap[rawData.state],
 				publicIp: rawData.publicIp,
 				timeOnline: (rawData.launchTime && rawData.state === 'running') ? new Date(rawData.launchTime) : null,

@@ -9,7 +9,10 @@
 					<slot name="header"></slot>
 				</div>
 				<div class="px-4 pb-4">
-					<slot name="summary"></slot>
+					<div class="flex items-center">
+						<slot name="summary"></slot>
+						<Spinner v-if="loading" class="h-6 w-6 text-teal-3 ml-2"/>
+					</div>
 				</div>
 			</div>
 			<div v-if="collapsible" class="cursor-pointer flex items-center px-2">
@@ -71,6 +74,10 @@ export default {
 			default: null
 		},
 		displayIfNotAllowed: {
+			type: Boolean,
+			default: false
+		},
+		loading: {
 			type: Boolean,
 			default: false
 		}
