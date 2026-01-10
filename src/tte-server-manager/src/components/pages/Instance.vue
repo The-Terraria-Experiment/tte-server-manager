@@ -24,6 +24,8 @@
 		</template>
 	</StatusTile>
 
+	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
+
 	<BasicInstanceInfo :selected-instance-data="selectedInstanceData" :loading="loading" />
 
 	<InstanceFilePaths :selected-instance-data="selectedInstanceData" />
@@ -41,6 +43,7 @@ import { useServerStore } from '../../stores/serverStore';
 import BasicInstanceInfo from './tools/instance/BasicInstanceInfo.vue';
 import InstanceFiles from './tools/instance/InstanceFiles.vue';
 import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
+import MajorLoader from '../shared/MajorLoader.vue';
 
 export default {
 	mixins: [],
@@ -50,6 +53,7 @@ export default {
 		BasicInstanceInfo,
 		InstanceFiles,
 		InstanceFilePaths,
+		MajorLoader,
 	},
 	props: {
 		
