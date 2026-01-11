@@ -35,12 +35,13 @@ export const useUserStore = defineStore("userstore", {
 				this.idToken = session.tokens?.idToken?.toString() || null;
 				// Load permissions after successful login
 				await this.loadPermissions();
-				this.__userFetchedCallbacks.forEach(cb => cb());
-				this.__userFetchedCallbacks = [];
 			} catch (error) {
 				this.user = null;
 				this.idToken = null;
 				this.permissions = [];
+			} finally {
+				this.__userFetchedCallbacks.forEach(cb => cb());
+				this.__userFetchedCallbacks = [];
 			}
 		},
 		async loadPermissions() {

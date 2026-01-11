@@ -4,7 +4,7 @@
 		@xClicked="setUsernamePopupOpen = false"
 		headerText="Set Username"
 		:xDisabled="mustCreate"
-		bodyClass="w-full md:w-1/3 h-2/3"
+		bodyClass="w-11/12 md:w-1/3 h-2/3"
 		layer="2"
 		:buttons="[
 			mustCreate ? { variant: BTN_VARIANT.DANGER, text: 'LOG OUT', onClick: doLogout } : null,

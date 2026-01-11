@@ -1,32 +1,12 @@
 <template>
 	<div class="w-full">
-		<div class="flex flex-col sm:flex-row w-full">
-			<StatusTile class="grow sm:mr-4 mb-4 sm:mb-8 gradient-tile-red" collapsible>
-				<template #header>
-					<Icon icon="power" color="text-gray-6" size="4" />
-					<p class="text-gray-6 ml-2 text-lg">Instance Status</p>
-				</template>
-				<template #summary>
-					<p class="text-2xl text-teal-4">ONLINE</p>
-				</template>
-				<template #content>
-					<div>
-						<FlexButton class="mx-4 mb-4" :variant="BTN_VARIANT.DANGER">
-							<p class="py-2 px-12">STOP</p>
-						</FlexButton>
-					</div>
-				</template>
-			</StatusTile>
-
-			<StatusTile class="grow sm:ml-4 mb-8 gradient-tile">
-				<template #header>
-					<Icon icon="power" color="text-gray-6" size="4" />
-					<p class="text-gray-6 ml-2 text-lg">Server Status</p>
-				</template>
-				<template #summary>
-					<p class="text-2xl text-teal-4">RUNNING</p>
-				</template>
-			</StatusTile>
+		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
+			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">The Terraria Experiment Server Manager</h1>
+			<p class="font-main font-semibold text-white-0 mt-4">Welcome! Parts of this site are still under construction. There may be bugs, bad UI/UX, or broken tools.</p>
+			<p class="font-main font-semibold text-white-0 mt-4">
+				Please report any issues you find by messaging in <span class="text-yellow-2">#mod-help</span> in the Discord server. Make sure to ping <span class="text-yellow-2">@havoc</span>.
+			</p>
+			<p class="font-main font-semibold text-white-0 mt-4">Thank you!</p>
 		</div>
 	</div>
 </template>

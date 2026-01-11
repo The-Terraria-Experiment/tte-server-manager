@@ -100,16 +100,15 @@ async function handle(event) {
 	// or via iptables on the EC2 instance if not already configured
 	try {
 		const result = await executeSSMCommand(instanceId, [command]);
-		await delay(500);
-		// TODO: REMOVE FOR PROD
-		const output = await getSSMCommandResult(result.commandId, instanceId);
+		// await delay(500);
+		// const output = await getSSMCommandResult(result.commandId, instanceId);
 		return successResponse({
 			message: "TShock server starting",
 			instanceId,
 			commandId: result.commandId,
 			worldFile: worldFilePath,
 			port,
-			output,
+			// output,
 		});
 	} catch (error) {
 		return validationError(`Failed to execute command: ${error.message}`);
