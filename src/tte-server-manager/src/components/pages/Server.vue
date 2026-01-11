@@ -18,7 +18,7 @@
 
 	<BasicServerInfo :selected-server-data="selectedServerData" />
 
-	<SelectWorld :selected-instance="selectedInstance" :selected-server-data="selectedServerData" />
+	<SelectWorld v-if="!selectedServerData.state" :selected-instance="selectedInstance" :selected-server-data="selectedServerData" />
 
 	<StatusTile 
 		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
