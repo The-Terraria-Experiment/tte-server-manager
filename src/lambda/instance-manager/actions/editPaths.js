@@ -116,7 +116,7 @@ async function handle(event) {
 	const timestamp = new Date().toISOString();
 
 	// Drop deleted paths from world paths
-	const filteredWorldPaths = worldPaths.filter(p => paths.includes(p));
+	const filteredWorldPaths = worldPaths.filter(p => Object.values(paths).includes(p));
 
 	const updatedItem = await updateDynamoItem(tableName, key, {
 		updates: {

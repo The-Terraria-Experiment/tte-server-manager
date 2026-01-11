@@ -60,7 +60,16 @@ async function syncFilesToInstance(instanceId, s3Bucket, baseLocalPath = '/opt/t
 		commands.push(`if [ ! -f "${localPath}" ]; then`);
 		commands.push(`  echo "Downloading ${s3Key} to ${localPath}"`);
 		commands.push(`  mkdir -p "${dirPath}"`);
-		commands.push(`  curl -o "${localPath}" "${presignedUrl}"`);
+		commands.push(`  chmod 755 "${dirPath}"`);
+		commands.push(`  curl --silent --fail --location -o "${localPath}" "${presignedUrl}"`);
+		commands.push(`  if [ $? -eq 0 ]; then`);
+		commands.push(`    chown ubuntu:ubuntu "${localPath}"`);
+		commands.push(`    chmod 644 "${localPath}"`);
+		commands.push(`    echo "Successfully downloaded ${s3Key}"`);
+		commands.push(`  else`);
+		commands.push(`    echo "Failed to download ${s3Key}" >&2`);
+		commands.push(`    exit 1`);
+		commands.push(`  fi`);
 		commands.push(`else`);
 		commands.push(`  echo "File already exists, skipping: ${localPath}"`);
 		commands.push(`fi`);
