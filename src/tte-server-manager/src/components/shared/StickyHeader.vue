@@ -33,7 +33,7 @@
 			:open="profilePopupOpen"
 			@xClicked="profilePopupOpen = false"
 			headerText="Profile"
-			bodyClass="w-full md:w-1/3 h-1/4"
+			bodyClass="w-11/12 md:w-1/3 h-1/4"
 		>
 			<div class="w-full h-full flex justify-between items-center p-4">
 				<div>
