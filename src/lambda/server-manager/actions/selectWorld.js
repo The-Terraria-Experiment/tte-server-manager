@@ -7,6 +7,7 @@ const { executeSSMCommand } = require("../shared/utils/aws");
 const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
 const { getSSMCommandResult } = require("../shared/utils/aws");
+const { delay } = require("../shared/utils/delay");
 
 /**
  * Safely construct TShock command with flags
@@ -19,8 +20,9 @@ const { getSSMCommandResult } = require("../shared/utils/aws");
  */
 function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 	// Validate and quote paths to handle spaces safely
-	const quotedTshockPath = `"${process.env.BASE_ROOT}${tshockPath}"`;
-	const worldPathNormalized = path.posix.normalize(`${process.env.BASE_ROOT}${worldPath}`);
+	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
+	const quotedTshockPath = `"${baseRoot}${tshockPath}"`;
+	const worldPathNormalized = path.posix.normalize(`${baseRoot}${worldPath}`);
 	const escapedPath = worldPathNormalized.replace(/"/g, '\\"');
 	const quotedWorldPath = `"${escapedPath}"`;
 
@@ -34,9 +36,10 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 		command += ` -password "${password}"`;
 	}
 
-	// SSM runs as root, but TShock needs to run as ubuntu user
-	// Wrap the entire command with runuser to execute as ubuntu
-	return `runuser -u ubuntu -- ${command}`;
+	// SSM runs as root; force working directory and user for TShock
+	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
+	const cdRoot = `cd "${workingDir}"`;
+	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${command}"`;
 }
 
 async function handle(event) {
@@ -97,6 +100,7 @@ async function handle(event) {
 	// or via iptables on the EC2 instance if not already configured
 	try {
 		const result = await executeSSMCommand(instanceId, [command]);
+		await delay(500);
 		// TODO: REMOVE FOR PROD
 		const output = await getSSMCommandResult(result.commandId, instanceId);
 		return successResponse({
