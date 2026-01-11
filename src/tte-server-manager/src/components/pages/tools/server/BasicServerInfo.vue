@@ -110,7 +110,7 @@
 			:perm-required="PERMISSIONS.server.status.read"
 		>
 			<template #header>
-				<Icon icon="circle-info" color="text-gray-6" size="4" />
+				<Icon icon="scroll" color="text-gray-6" size="5" />
 				<p class="text-gray-6 ml-2 text-lg">Rules</p>
 			</template>
 			<template #summary>
