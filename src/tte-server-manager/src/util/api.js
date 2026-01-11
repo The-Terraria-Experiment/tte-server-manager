@@ -27,12 +27,6 @@ export async function apiRequest(method, endpoint, permission, options = {}) {
 		throw new Error('User is not authenticated');
 	}
 	
-	// Get ID token for authorization
-	const idToken = await userStore.getIdToken();
-	if (!idToken) {
-		throw new Error('Failed to retrieve authentication token');
-	}
-	
 	// Check permissions if required
 	if (permission) {
 		const hasPermission = userStore.hasPermission(permission);
@@ -41,6 +35,24 @@ export async function apiRequest(method, endpoint, permission, options = {}) {
 		}
 	}
 
+	// Make request with automatic token refresh on 401
+	return makeRequestWithRetry(method, endpoint, options, 0);
+}
+
+/**
+ * Make an API request with automatic retry on token expiration
+ * @private
+ */
+async function makeRequestWithRetry(method, endpoint, options, retryCount) {
+	const userStore = getUserStore();
+	const maxRetries = 1;
+	
+	// Get fresh ID token
+	let idToken = await userStore.getIdToken();
+	if (!idToken) {
+		throw new Error('Failed to retrieve authentication token');
+	}
+	
 	const isFormData = options && options.body && options.body instanceof FormData;
 	
 	// Build request
@@ -64,6 +76,19 @@ export async function apiRequest(method, endpoint, permission, options = {}) {
 	// Make request
 	const url = `${API_BASE_URL}${endpoint}`;
 	const response = await fetch(url, requestInit);
+	
+	// Handle 401 Unauthorized - likely expired token
+	if (response.status === 401 && retryCount < maxRetries) {
+		try {
+			// Refresh the token and retry
+			await userStore.refreshIdToken();
+			return makeRequestWithRetry(method, endpoint, options, retryCount + 1);
+		} catch (error) {
+			// Refresh failed, sign out and throw error
+			await userStore.signOut();
+			throw new Error('Session expired. Please sign in again.');
+		}
+	}
 	
 	if (!response.ok) {
 		const errorData = await response.json().catch(() => ({}));

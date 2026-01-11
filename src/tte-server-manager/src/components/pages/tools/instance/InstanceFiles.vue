@@ -10,7 +10,7 @@
 			<p class="text-gray-6 ml-2 text-lg">Files</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folders</p>
+			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folder{{ plural(fileLocationCount) }}</p>
 		</template>
 		<template #content>
 			<FlexButton 
@@ -85,7 +85,9 @@
 
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
+import { post, put } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
+import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 import FileHierarchy from '../../../common/FileHierarchy.vue';
@@ -157,6 +159,7 @@ export default {
 		}
 	},
 	methods: {
+		plural,
 		cancelFilePicker() {
 			this.isFilePickerOpen = false;
 			this.addFilePath = null;
@@ -178,7 +181,7 @@ export default {
 		async uploadFile() {
 			this.$validatePermissions(PERMISSIONS.instance.files.write);
 
-			const instanceID = this.selectedInstance;
+			const instanceID = this.selectedInstanceData.id;
 
 			if (!this.pickedFile || this.pickedFile.length === 0 || this.loading.fileUpload) return;
 			this.loading.fileUpload = true;
@@ -229,8 +232,8 @@ export default {
 			const pathString = pathParts.length > 0 ? pathParts.join("/") : "";
 
 			// Request pre-signed URL from backend
-			const response = await post(`/instance/${this.selectedInstance}/files`, PERMISSIONS.instance.files.write, {
-				pathRoot: this.addFilePathRoot.substring(1),
+			const response = await post(`/instance/${this.selectedInstanceData.id}/files`, PERMISSIONS.instance.files.write, {
+				pathRoot: this.addFilePathRoot,
 				path: pathString,
 				fileName: fileName,
 			});

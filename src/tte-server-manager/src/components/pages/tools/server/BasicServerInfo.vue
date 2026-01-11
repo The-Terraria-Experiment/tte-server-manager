@@ -2,7 +2,7 @@
 	<div class="flex flex-col sm:grid sm:grid-cols-3">
 		<StatusTile 
 			:class="['grow mt-4 sm:mt-8 sm:mx-1 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
-			collapsible
+			:collapsible="selectedServerData.state"
 			:perm-required="PERMISSIONS.server.status.read"
 		>
 			<template #header>
@@ -24,16 +24,6 @@
 						@input=""
 					>
 						<p class="py-2 px-12">STOP</p>
-					</FlexButton>
-				</div>
-				<div v-if="!selectedServerData.state">
-					<FlexButton 
-						v-if="$checkPermissions(PERMISSIONS.server.status.start)"
-						class="mx-4 mb-4" 
-						:variant="BTN_VARIANT.PRIMARY"
-						@input=""
-					>
-						<p class="py-2 px-12">START</p>
 					</FlexButton>
 				</div>
 			</template>

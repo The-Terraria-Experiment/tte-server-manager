@@ -75,19 +75,25 @@
 
 			<div class="flex justify-end p-4">
 				<FlexButton 
+					v-if="selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !startServerLoading && !selectedServerData.state"
 					:variant="BTN_VARIANT.PRIMARY"
 					@input="startServer"
+					:disabled="startServerLoading"
 				>
 					<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
 				</FlexButton>
+				<div v-else-if="startServerLoading" class="flex items-center">
+					<Spinner class="h-5 w-5 text-teal-3" />
+					<p class="font-main font-bold text-teal-4 mx-2">SERVER STARTING...</p>
+				</div>
 			</div>
-			
 		</template>
 	</StatusTile>
 </template>
 
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
+import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { formatFileSize, plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -103,6 +109,10 @@ export default {
 		selectedInstance: {
 			type: [String, null],
 			required: true
+		},
+		selectedServerData: {
+			type: Object,
+			required: true,
 		}
 	},
 	data() {
@@ -122,14 +132,15 @@ export default {
 				...Array.from({ length: 10 }).map((_, i) => i.toString()),
 				'_'
 			],
+			startServerLoading: false,
 		}
 	},
 	computed: {
 		instanceWorldFiles() {
 			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
 			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
-				.filter(p => worldRoots.some(root => p.startsWith(`${this.selectedInstance}${root}`)))
-				.map(s => ({ name: s.replace(this.selectedInstance, ""), size: s.size }));
+				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}`)))
+				.map(s => ({ name: s.key.replace(this.selectedInstance, ""), size: s.size }));
 		},
 	},
 	methods: {
@@ -137,6 +148,8 @@ export default {
 		plural,
 		async startServer() {
 			this.$validatePermissions([PERMISSIONS.server.world.select, PERMISSIONS.server.status.start]);
+
+			if (this.startServerLoading) return;
 
 			if (this.selectWorld.port != 7777) {
 				this.$alert.warning("Currently, the port must be 7777.");
@@ -158,6 +171,8 @@ export default {
 				return;
 			}
 
+			this.startServerLoading = true;
+
 			try {
 				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.select, {
 					worldFilePath: this.selectWorld.selectedWorld,
@@ -168,6 +183,8 @@ export default {
 			} catch (e) {
 				this.$alert.error("Error launching server");
 				console.error(e);
+			} finally {
+				this.startServerLoading = false;
 			}
 		},
 	},
