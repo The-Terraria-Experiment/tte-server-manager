@@ -80,7 +80,7 @@ export const useServerStore = defineStore("serverstore", {
 				const data = await get(`/server/${instanceId}/status`, PERMISSIONS.server.status.read);
 				this.serverStatusData[instanceId] = data.server;
 			} catch (error) {
-				console.error("Error fetching instance status:", error);
+				console.error("Error fetching server status:", error);
 				throw error;
 			} finally {
 				this.loading.serverStatus[instanceId] = false;

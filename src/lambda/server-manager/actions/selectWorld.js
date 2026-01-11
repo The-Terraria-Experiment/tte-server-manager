@@ -3,7 +3,8 @@
  */
 
 const {successResponse, validationError} = require("../shared/utils/response");
-const {executeSSMCommand} = require("../shared/utils/aws");
+const { executeSSMCommand } = require("../shared/utils/aws");
+const path = require("path");
 
 /**
  * Safely construct TShock command with flags
@@ -17,7 +18,9 @@ const {executeSSMCommand} = require("../shared/utils/aws");
 function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 	// Validate and quote paths to handle spaces safely
 	const quotedTshockPath = `"${process.env.BASE_ROOT}${tshockPath}"`;
-	const quotedWorldPath = `"${process.env.BASE_ROOT}${process.env.WORLD_PATH_ROOT}${worldPath}"`;
+	const worldPathNormalized = path.posix.normalize(`${process.env.BASE_ROOT}${worldPath}`);
+	const escapedPath = worldPathNormalized.replace(/"/g, '\\"');
+	const quotedWorldPath = `"${escapedPath}"`;
 
 	// Build command with flags
 	let command = `${quotedTshockPath} -world ${quotedWorldPath}`;
@@ -73,6 +76,13 @@ async function handle(event) {
 	const tshockPath = process.env.TSHOCK_PATH;
 	if (!tshockPath) {
 		return validationError("TShock executable path not configured (TSHOCK_PATH env var missing)");
+	}
+
+	const instanceData = await getDynamoItem(process.env.INSTANCE_TABLE_NAME, `inst#${instanceId}`);
+	const worldPaths = instanceData?.worldPaths || [];
+
+	if (!worldPaths.some(validPath => worldFilePath.startsWith(validPath))) {
+		return validationError("File path does not fall within a designated world files folder");
 	}
 
 	// Build the command

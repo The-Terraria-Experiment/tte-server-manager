@@ -4,6 +4,7 @@
 
 const {getSecret} = require("../shared/utils/aws");
 const http = require("http");
+const { successResponse } = require("../shared/utils/response");
 
 // Simple per-IP token cache for Lambda warm containers
 const tokenCache = new Map(); // ip -> { token, expiresAtMs }
@@ -126,7 +127,15 @@ async function callTShockAPI(ipAddress, endpoint, data = null, method = 'GET') {
 	if (!secretName) {
 		throw new Error("TSHOCK_SECRET_NAME is not set");
 	}
-	const token = await getAuthTokenForIp(ipAddress, secretName);
+	let token;
+	try {
+		token = await getAuthTokenForIp(ipAddress, secretName);
+	} catch (e) {
+		if (e.message.includes("ECONNREFUSED")) {
+			return successResponse({ server: { status: false } });
+		}
+		throw e;
+	}
 
 	const baseUrl = `http://${ipAddress}:${process.env.TSHOCK_API_PORT}`;
 	
