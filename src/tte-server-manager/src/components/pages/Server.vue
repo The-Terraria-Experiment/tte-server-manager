@@ -90,24 +90,11 @@ export default {
 	computed: {		
 		selectedServerData() {
 			return {
+				...(this.serverStore.serverStatusData[this.selectedInstance] || {}),
 				state: Boolean(this.serverStore.serverStatusData[this.selectedInstance]?.status),
 				players: this.serverStore.serverStatusData[this.selectedInstance]?.players,
-				world: this.serverStore.serverStatusData[this.selectedInstance]?.world
+				world: this.serverStore.serverStatusData[this.selectedInstance]?.world,
 			}
-			/**
-			 * {
-				"status": "200",
-				"name": "",
-				"serverversion": "v1.4.4.9",
-				"tshockversion": "5.2.4.0",
-				"port": 7777,
-				"playercount": 0,
-				"maxplayers": 8,
-				"world": "test1",
-				"uptime": "0.00:25:30",
-				"serverpassword": false
-			}
-			 */
 		}
 	},
 	methods: {
