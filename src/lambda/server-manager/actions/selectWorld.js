@@ -6,7 +6,7 @@ const {successResponse, validationError} = require("../shared/utils/response");
 const { executeSSMCommand } = require("../shared/utils/aws");
 const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
-const { getSSMCommandResult } = require("../../shared/utils/aws");
+const { getSSMCommandResult } = require("../shared/utils/aws");
 
 /**
  * Safely construct TShock command with flags
