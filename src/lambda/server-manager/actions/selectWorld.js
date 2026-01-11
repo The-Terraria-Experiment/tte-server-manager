@@ -6,6 +6,7 @@ const {successResponse, validationError} = require("../shared/utils/response");
 const { executeSSMCommand } = require("../shared/utils/aws");
 const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
+const { getSSMCommandResult } = require("../../shared/utils/aws");
 
 /**
  * Safely construct TShock command with flags
@@ -96,12 +97,15 @@ async function handle(event) {
 	// or via iptables on the EC2 instance if not already configured
 	try {
 		const result = await executeSSMCommand(instanceId, [command]);
+		// TODO: REMOVE FOR PROD
+		const output = await getSSMCommandResult(result.commandId, instanceId);
 		return successResponse({
 			message: "TShock server starting",
 			instanceId,
 			commandId: result.commandId,
 			worldFile: worldFilePath,
 			port,
+			output,
 		});
 	} catch (error) {
 		return validationError(`Failed to execute command: ${error.message}`);

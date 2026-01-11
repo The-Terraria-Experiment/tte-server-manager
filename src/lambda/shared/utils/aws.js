@@ -4,7 +4,7 @@
  */
 
 const {EC2Client, StartInstancesCommand, StopInstancesCommand, RebootInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
-const {SSMClient, SendCommandCommand} = require("@aws-sdk/client-ssm");
+const {SSMClient, SendCommandCommand, GetCommandInvocationCommand} = require("@aws-sdk/client-ssm");
 const {SecretsManagerClient, GetSecretValueCommand} = require("@aws-sdk/client-secrets-manager");
 const {S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand} = require("@aws-sdk/client-s3");
 const {getSignedUrl} = require("@aws-sdk/s3-request-presigner");
@@ -138,6 +138,27 @@ async function executeSSMCommand(instanceId, commands) {
 }
 
 /**
+ * Get SSM command invocation output (stdout/stderr/status)
+ * @param {string} commandId
+ * @param {string} instanceId
+ * @returns {Promise<{status: string, exitCode: number, stdout: string, stderr: string}>}
+ */
+async function getSSMCommandResult(commandId, instanceId) {
+	const command = new GetCommandInvocationCommand({
+		CommandId: commandId,
+		InstanceId: instanceId,
+	});
+	const response = await ssmClient.send(command);
+
+	return {
+		status: response.Status, // Pending | InProgress | Success | Cancelled | Failed | TimedOut | Cancelling
+		exitCode: response.ResponseCode,
+		stdout: response.StandardOutputContent || "",
+		stderr: response.StandardErrorContent || "",
+	};
+}
+
+/**
  * Get secret from Secrets Manager
  * @param {secretName} string
  * @returns {Promise<string>}
@@ -215,6 +236,7 @@ module.exports = {
 	stopInstance,
 	rebootInstance,
 	executeSSMCommand,
+	getSSMCommandResult,
 	getSecret,
 	listS3Objects,
 	getSignedUploadUrl,
