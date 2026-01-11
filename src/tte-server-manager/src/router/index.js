@@ -6,10 +6,12 @@ import Server from "../components/pages/Server.vue";
 import Users from "../components/pages/Users.vue";
 import Login from "../components/pages/Login.vue";
 import { useUserStore } from "../stores/userStore";
+import Terms from "../components/pages/Terms.vue";
 
 export const router = createRouter({
 	history: createWebHistory(),
 	routes: [
+		{ path: "/terms-and-conditions-privacy-policy", component: Terms, meta: { requiresAuth: false } },
 		{ path: "/login", component: Login, meta: { requiresAuth: false } },
 		{ path: "/overview", component: Overview, meta: { requiresAuth: true } },
 		{ path: "/instance", component: Instance, meta: { requiresAuth: true } },
