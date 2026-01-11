@@ -83,6 +83,16 @@ export const useUserStore = defineStore("userstore", {
 			}
 			return this.idToken;
 		},
+		async refreshIdToken() {
+			try {
+				const session = await fetchAuthSession();
+				this.idToken = session.tokens?.idToken?.toString() || null;
+				return this.idToken;
+			} catch (error) {
+				console.error('Token refresh failed:', error);
+				throw error;
+			}
+		},
 		async ensureUserFetched() {
 			if (!!this.user) return true;
 			
