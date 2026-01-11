@@ -23,7 +23,7 @@ async function handle(event) {
 		}
 
 		// Call TShock API /v2/server/status on port 3891
-		const status = await callTShockAPI(ip, "/v2/server/status");
+		const status = await callTShockAPI(ip, "/v2/server/status", { players: true, rules: true });
 
 		return successResponse({server: status});
 	} catch (err) {

@@ -95,6 +95,7 @@
 import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
+import delay from '../../../../util/delay';
 import { formatFileSize, plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
@@ -186,7 +187,21 @@ export default {
 			} finally {
 				this.startServerLoading = false;
 			}
+
+			await delay(5000);
+			this.fetchServerStatus();
 		},
+
+		async fetchServerStatus() {
+			this.$validatePermissions(PERMISSIONS.server.status.read);
+
+			try {
+				await this.serverStore.fetchServerStatus(this.selectedInstance);
+			} catch (e) {
+				this.$alert.error("Error getting server status");
+				console.error(e);
+			}
+		}
 	},
 }
 </script>

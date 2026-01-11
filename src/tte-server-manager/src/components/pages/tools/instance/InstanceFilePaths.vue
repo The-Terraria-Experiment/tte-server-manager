@@ -15,18 +15,18 @@
 		</template>
 		<template #content>
 			<div class="p-4">
-				<div class="grid instance-file-roots-grid w-max gap-4">
-					<div>
+				<div class="grid instance-file-roots-grid w-max max-w-full gap-4 overflow-x-auto">
+					<div class="flex items-end">
 						<p class="font-main font-bold text-teal-5">Path Nickname</p>
 					</div>
-					<div>
+					<div class="flex items-end">
 						<p class="font-main font-bold text-teal-5">Path Value</p>
 					</div>
-					<div>
-						<p class="font-main font-bold text-teal-5">Is Worlds Folder</p>
+					<div class="flex items-end">
+						<p class="font-main font-bold text-teal-5">{{ isMobile ? "WF" : "Is Worlds Folder" }}</p>
 					</div>
-					<div>
-						<p class="font-main font-bold text-teal-5">Delete Path</p>
+					<div class="flex items-end">
+						<p class="font-main font-bold text-teal-5">{{ isMobile ? "" : "Delete Path" }}</p>
 					</div>
 					<template v-for="(entry, i) in updatedPaths">
 						<div class="">
@@ -44,12 +44,12 @@
 					</template>
 				</div>
 
-				<div class="flex items-center5 mt-2 cursor-pointer bg-gray-5 hover:bg-gray-4 rounded w-max p-2" @click="addNewPath">
+				<div class="flex items-center5 mt-4 cursor-pointer bg-gray-5 hover:bg-gray-4 rounded w-max p-2" @click="addNewPath">
 					<Icon icon="plus" size="4" color="text-white-0" />
 					<p class="ml-2 font-main font-semibold text-sm text-white-0">ADD</p>
 				</div>
 
-				<div class="flex justify-end w-full">
+				<div class="flex justify-end w-full mt-4">
 					<FlexButton
 						:variant="BTN_VARIANT.DANGER"
 						@input="initDataHolders"
@@ -76,10 +76,11 @@ import { BTN_VARIANT } from '../../../../util/constants';
 import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
+import screen from "../../../../mixins/screen";
 
 
 export default {
-	mixins: [],
+	mixins: [screen],
 	components: {
 		Checkbox,
 	},

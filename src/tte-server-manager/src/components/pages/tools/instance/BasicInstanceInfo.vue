@@ -98,6 +98,7 @@
 
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
+import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import delay from '../../../../util/delay';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -137,11 +138,11 @@ export default {
 			this.loading.stateChange = true;
 
 			try {
-				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstance).text;
-				const response = await post(`/instance/${this.selectedInstance}/stop`, PERMISSIONS.instance.status.stop);
+				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstanceData.id).text;
+				const response = await post(`/instance/${this.selectedInstanceData.id}/stop`, PERMISSIONS.instance.status.stop);
 				await delay(2000);
 				this.$alert.info(`Initiated shutdown of instance '${instanceName}'`);
-				this.fetchInstanceStatus(this.selectedInstance);
+				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance shutdown");
 				console.error(e);
@@ -156,11 +157,11 @@ export default {
 			this.loading.stateChange = true;
 
 			try {
-				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstance).text;
-				const response = await post(`/instance/${this.selectedInstance}/start`, PERMISSIONS.instance.status.start);
+				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstanceData.id).text;
+				const response = await post(`/instance/${this.selectedInstanceData.id}/start`, PERMISSIONS.instance.status.start);
 				await delay(2000);
 				this.$alert.info(`Initiated startup of instance '${instanceName}'`);
-				this.fetchInstanceStatus(this.selectedInstance);
+				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance startup");
 				console.error(e);
@@ -175,16 +176,27 @@ export default {
 			this.loading.stateChange = true;
 
 			try {
-				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstance).text;
-				const response = await post(`/instance/${this.selectedInstance}/restart`, PERMISSIONS.instance.status.restart);
+				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstanceData.id).text;
+				const response = await post(`/instance/${this.selectedInstanceData.id}/restart`, PERMISSIONS.instance.status.restart);
 				await delay(2000);
 				this.$alert.info(`Initiated restart of instance '${instanceName}'`);
-				this.fetchInstanceStatus(this.selectedInstance);
+				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance restart");
 				console.error(e);
 			} finally {
 				this.loading.stateChange = false;
+			}
+		},
+
+		async fetchInstanceStatus(instanceID) {
+			this.$validatePermissions(PERMISSIONS.instance.status.read);
+
+			try {
+				await this.serverStore.fetchInstanceStatus(instanceID);
+			} catch (e) {
+				this.$alert.error("Error fetching instance status");
+				console.error(e);
 			}
 		},
 	},

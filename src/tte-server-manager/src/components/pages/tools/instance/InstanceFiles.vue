@@ -20,8 +20,8 @@
 			>
 				<div class="flex items-center">
 					<Spinner v-if="loading.fileUpload" class="h-4 w-4 text-teal-3" thickness="4" />
-					<Icon v-else icon="arrow-rotate-right" color="text-teal-3" size="4" />
-					<p class="text-teal-3 ml-2 font-main font-bold">FORCE SYNC</p>
+					<Icon v-else icon="sync" color="text-teal-3" size="5" />
+					<p class="text-teal-3 ml-2 font-main font-bold">RESYNC FILES</p>
 				</div>
 			</FlexButton>
 
