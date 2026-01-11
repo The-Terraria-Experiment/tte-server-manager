@@ -11,7 +11,7 @@
 			<p class="text-gray-6 ml-2 text-lg">File Locations</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">{{ fileLocationCount }} file locations</p>
+			<p class="text-2xl text-teal-4">{{ fileLocationCount }} file location{{ plural(fileLocationCount) }}</p>
 		</template>
 		<template #content>
 			<div class="p-4">
@@ -73,6 +73,7 @@
 import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
+import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 
@@ -107,6 +108,7 @@ export default {
 		}
 	},
 	methods: {
+		plural,
 		initDataHolders() {
 			this.updatedPaths = Object.entries(this.instancePaths || {});
 			this.updatedWorldPaths = new Set(this.serverStore.instanceWorldPaths[this.selectedInstanceData.id]);

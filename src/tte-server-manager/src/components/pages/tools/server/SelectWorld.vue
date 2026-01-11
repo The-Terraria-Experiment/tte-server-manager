@@ -75,13 +75,13 @@
 
 			<div class="flex justify-end p-4">
 				<FlexButton 
+					v-if="selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port"
 					:variant="BTN_VARIANT.PRIMARY"
 					@input="startServer"
 				>
 					<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
 				</FlexButton>
 			</div>
-			
 		</template>
 	</StatusTile>
 </template>
@@ -128,8 +128,8 @@ export default {
 		instanceWorldFiles() {
 			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
 			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
-				.filter(p => worldRoots.some(root => p.startsWith(`${this.selectedInstance}${root}`)))
-				.map(s => ({ name: s.replace(this.selectedInstance, ""), size: s.size }));
+				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}`)))
+				.map(s => ({ name: s.key.replace(this.selectedInstance, ""), size: s.size }));
 		},
 	},
 	methods: {

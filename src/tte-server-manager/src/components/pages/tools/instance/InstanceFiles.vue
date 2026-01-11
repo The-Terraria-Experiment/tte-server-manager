@@ -10,7 +10,7 @@
 			<p class="text-gray-6 ml-2 text-lg">Files</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folders</p>
+			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folder{{ plural(fileLocationCount) }}</p>
 		</template>
 		<template #content>
 			<FlexButton 
@@ -87,6 +87,7 @@
 import { useServerStore } from '../../../../stores/serverStore';
 import { post, put } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
+import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 import FileHierarchy from '../../../common/FileHierarchy.vue';
@@ -158,6 +159,7 @@ export default {
 		}
 	},
 	methods: {
+		plural,
 		cancelFilePicker() {
 			this.isFilePickerOpen = false;
 			this.addFilePath = null;
