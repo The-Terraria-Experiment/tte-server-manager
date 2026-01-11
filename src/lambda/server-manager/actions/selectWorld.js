@@ -4,6 +4,7 @@
 
 const {successResponse, validationError} = require("../shared/utils/response");
 const { executeSSMCommand } = require("../shared/utils/aws");
+const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
 
 /**
