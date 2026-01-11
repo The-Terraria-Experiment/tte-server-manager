@@ -60,6 +60,7 @@ async function syncFilesToInstance(instanceId, s3Bucket, baseLocalPath = '/opt/t
 		commands.push(`if [ ! -f "${localPath}" ]; then`);
 		commands.push(`  echo "Downloading ${s3Key} to ${localPath}"`);
 		commands.push(`  mkdir -p "${dirPath}"`);
+		commands.push(`  chown ubuntu:ubuntu "${dirPath}"`);
 		commands.push(`  chmod 755 "${dirPath}"`);
 		commands.push(`  curl --silent --fail --location -o "${localPath}" "${presignedUrl}"`);
 		commands.push(`  if [ $? -eq 0 ]; then`);

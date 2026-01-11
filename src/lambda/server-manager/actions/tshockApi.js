@@ -2,6 +2,14 @@
  * TShock REST API helper
  */
 
+/**
+ * Note:
+ * Perms required:
+ * - tshock.rest.maintenance
+ * - tshock.rest.useapi
+ * - tshock.rest.cfg
+ */
+
 const {getSecret} = require("../shared/utils/aws");
 const http = require("http");
 const { successResponse } = require("../shared/utils/response");

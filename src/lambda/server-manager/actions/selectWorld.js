@@ -33,7 +33,9 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 		command += ` -password "${password}"`;
 	}
 
-	return command;
+	// SSM runs as root, but TShock needs to run as ubuntu user
+	// Wrap the entire command with runuser to execute as ubuntu
+	return `runuser -u ubuntu -- ${command}`;
 }
 
 async function handle(event) {
