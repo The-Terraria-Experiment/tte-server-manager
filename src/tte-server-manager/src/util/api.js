@@ -67,7 +67,7 @@ async function makeRequestWithRetry(method, endpoint, options, retryCount) {
 		method,
 		headers: {
 			'Authorization': `Bearer ${idToken}`,
-			...(userSub ? { 'x-user-sub': userSub } : {}),
+			// ...(userSub ? { 'x-user-sub': userSub } : {}),
 			...(isFormData ? {} : { 'Content-Type': 'application/json' }),
 			...options.headers
 		},
