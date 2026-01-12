@@ -8,6 +8,8 @@ const {SSMClient, SendCommandCommand, GetCommandInvocationCommand} = require("@a
 const {SecretsManagerClient, GetSecretValueCommand} = require("@aws-sdk/client-secrets-manager");
 const {S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand} = require("@aws-sdk/client-s3");
 const {getSignedUrl} = require("@aws-sdk/s3-request-presigner");
+const { logActionCond } = require("./cloudwatchLogger");
+const { CW_LOG_GENERAL } = require("../constants");
 
 const ec2Client = new EC2Client({region: process.env.AWS_REGION});
 const ssmClient = new SSMClient({region: process.env.AWS_REGION});
@@ -31,6 +33,14 @@ async function getInstanceStatus(instanceId) {
 
 	const instance = response.Reservations[0].Instances[0];
 	const nameTag = instance.Tags?.find(tag => tag.Key === 'Name');
+
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-get-instance-status',
+		resource: null,
+		details: { instanceId }
+	});
+
 	return {
 		state: instance.State.Name, // pending | running | shutting-down | terminated | stopping | stopped
 		publicIp: instance.PublicIpAddress || "PENDING",
@@ -70,6 +80,13 @@ async function getMultipleInstanceStatus(instanceIds) {
 		}
 	}
 
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-get-multiple-instance-status',
+		resource: null,
+		details: { instanceIds }
+	});
+
 	return instances;
 }
 
@@ -84,6 +101,14 @@ async function startInstance(instanceId) {
 	});
 	const response = await ec2Client.send(command);
 	const instance = response.StartingInstances[0];
+
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-start-instance',
+		resource: null,
+		details: { instanceId }
+	});
+
 	return {
 		state: instance.CurrentState.Name,
 	};
@@ -100,6 +125,14 @@ async function stopInstance(instanceId) {
 	});
 	const response = await ec2Client.send(command);
 	const instance = response.StoppingInstances[0];
+
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-stop-instance',
+		resource: null,
+		details: { instanceId }
+	});
+
 	return {
 		state: instance.CurrentState.Name,
 	};
@@ -114,6 +147,14 @@ async function rebootInstance(instanceId) {
 	const command = new RebootInstancesCommand({
 		InstanceIds: [instanceId],
 	});
+
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-reboot-instance',
+		resource: null,
+		details: { instanceId }
+	});
+
 	await ec2Client.send(command);
 }
 
@@ -131,6 +172,14 @@ async function executeSSMCommand(instanceId, commands) {
 			commands: commands,
 		},
 	});
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-execute-ssm-command',
+		resource: null,
+		details: { instanceId, commands }
+	});
+
 	const response = await ssmClient.send(command);
 	return {
 		commandId: response.Command.CommandId,
@@ -148,6 +197,14 @@ async function getSSMCommandResult(commandId, instanceId) {
 		CommandId: commandId,
 		InstanceId: instanceId,
 	});
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-get-ssm-command-result',
+		resource: null,
+		details: { instanceId, commandId }
+	});
+
 	const response = await ssmClient.send(command);
 
 	return {
@@ -167,6 +224,14 @@ async function getSecret(secretName) {
 	const command = new GetSecretValueCommand({
 		SecretId: secretName,
 	});
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-get-secret',
+		resource: null,
+		details: { secretName }
+	});
+
 	const response = await secretsClient.send(command);
 	return response.SecretString;
 }
@@ -182,6 +247,14 @@ async function listS3Objects(bucketName, prefix = "") {
 		Bucket: bucketName,
 		Prefix: prefix,
 	});
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-list-s3-objects',
+		resource: null,
+		details: { bucketName, prefix }
+	});
+
 	const response = await s3Client.send(command);
 	
 	if (!response.Contents || response.Contents.length === 0) {
@@ -207,6 +280,14 @@ async function getSignedUploadUrl(bucketName, key, expiresIn = 3600) {
 		Bucket: bucketName,
 		Key: key,
 	});
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-get-signed-upload-url',
+		resource: null,
+		details: { bucketName, key, expiresIn }
+	});
+
 	return getSignedUrl(s3Client, command, {expiresIn});
 }
 
@@ -222,6 +303,14 @@ async function getSignedDownloadUrl(bucketName, key, expiresIn = 3600) {
 		Bucket: bucketName,
 		Key: key,
 	});
+	
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-get-signed-download-url',
+		resource: null,
+		details: { bucketName, key, expiresIn }
+	});
+
 	return getSignedUrl(s3Client, command, {expiresIn});
 }
 

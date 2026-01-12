@@ -4,6 +4,13 @@
  * Each Lambda has its own action log group: /aws/lambda/{functionName}/actions
  */
 
+/**
+ * Conditional logging levels: (each level includes all previous levels)
+ * - Base / 1 (No specific level): All function invocations, all function success returns
+ * - 2: Increased action logging (critical shared utilities are also logged)
+ * - 3: Increased action logging (all shared utilities are also logged)
+ */
+
 const { CloudWatchLogsClient, PutLogEventsCommand, CreateLogStreamCommand } = require("@aws-sdk/client-cloudwatch-logs");
 const { FUNC_NAMES } = require("../constants");
 
@@ -85,6 +92,26 @@ async function logAction(functionName, actionLog) {
 	}
 }
 
+/**
+ * Conditionally logs an action based on the function's active logging level
+ * @param {string} functionName - Lambda function name (e.g., 'instance-manager', 'server-manager')
+ * @param {object} actionLog - Log object with action details
+ * @param {string} actionLog.userId - User sub/ID performing the action
+ * @param {string} actionLog.action - Action name (e.g., 'START_INSTANCE', 'EXECUTE_COMMAND')
+ * @param {string} actionLog.resource - Resource being acted upon (e.g., instance ID, server ID)
+ * @param {object} actionLog.details - Additional details about the action
+ * @param {number} actionLog.timestamp - Timestamp (defaults to now)
+ * @param {string} actionLog.status - 'SUCCESS' | 'FAILED' | 'DENIED'
+ * @param {string} [actionLog.error] - Error message if status is FAILED
+ * @returns {Promise<void>}
+ */
+async function logActionCond(levelRequired, functionName, actionLog) {
+	if (process.env?.LOG_LEVEL && (Number(process.env?.LOG_LEVEL) >= levelRequired)) {
+		return logAction(functionName, actionLog);
+	}
+}
+
 module.exports = {
 	logAction,
+	logActionCond,
 };

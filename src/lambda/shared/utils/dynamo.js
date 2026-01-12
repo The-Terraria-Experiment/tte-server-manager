@@ -7,6 +7,8 @@ const {DynamoDBClient} = require("@aws-sdk/client-dynamodb");
 const {DynamoDBDocumentClient, GetCommand, PutCommand, QueryCommand, UpdateCommand, ScanCommand} = require("@aws-sdk/lib-dynamodb");
 const { logError } = require("../middleware/errorHandler");
 const { assertIsTruthyString, assertObjectHasTruthyKey, assertSome, assertObjectHasTruthyKeys } = require("../middleware/assert");
+const { logActionCond } = require("./cloudwatchLogger");
+const { CW_LOG_GENERAL } = require("../constants");
 
 const client = new DynamoDBClient({region: process.env.AWS_REGION});
 const docClient = DynamoDBDocumentClient.from(client);
@@ -23,6 +25,13 @@ async function getDynamoItem(tableName, key) {
 		Key: {
 			uid: key
 		}
+	});
+
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-dynamo-get-item',
+		resource: null,
+		details: { tableName, key }
 	});
 
 	let getCmdResponse;
@@ -49,6 +58,13 @@ async function putDynamoItem(tableName, item) {
 	const cmd = new PutCommand({
 		TableName: tableName,
 		Item: item
+	});
+
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-dynamo-put-item',
+		resource: null,
+		details: { tableName, item }
 	});
 
 	try {
@@ -110,7 +126,14 @@ async function updateDynamoItem(tableName, key, updateConfig) {
     if (expressionAttributeValues) params.ExpressionAttributeValues = expressionAttributeValues;
     if (updateConfig.ConditionExpression) params.ConditionExpression = updateConfig.ConditionExpression;
 
-    const cmd = new UpdateCommand(params);
+	const cmd = new UpdateCommand(params);
+	
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-dynamo-update-item',
+		resource: null,
+		details: { tableName, key, updateConfig }
+	});
 
     try {
         const response = await docClient.send(cmd);
@@ -153,6 +176,13 @@ async function scanDynamoTable(tableName) {
 
 	const cmd = new ScanCommand({
 		TableName: tableName
+	});
+
+	logActionCond(3, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-dynamo-scan-table',
+		resource: null,
+		details: { tableName }
 	});
 
 	try {
