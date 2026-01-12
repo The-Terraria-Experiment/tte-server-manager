@@ -9,6 +9,11 @@ function getUserStore() {
 	return useUserStore();
 }
 
+function getUserSub() {
+	const userStore = getUserStore();
+	return userStore.user?.userId || userStore.user?.attributes?.sub || null;
+}
+
 /**
  * Make an authenticated API request
  * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
@@ -52,6 +57,8 @@ async function makeRequestWithRetry(method, endpoint, options, retryCount) {
 	if (!idToken) {
 		throw new Error('Failed to retrieve authentication token');
 	}
+
+	const userSub = getUserSub();
 	
 	const isFormData = options && options.body && options.body instanceof FormData;
 	
@@ -60,6 +67,7 @@ async function makeRequestWithRetry(method, endpoint, options, retryCount) {
 		method,
 		headers: {
 			'Authorization': `Bearer ${idToken}`,
+			...(userSub ? { 'x-user-sub': userSub } : {}),
 			...(isFormData ? {} : { 'Content-Type': 'application/json' }),
 			...options.headers
 		},
