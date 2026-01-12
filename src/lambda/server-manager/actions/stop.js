@@ -23,10 +23,10 @@ async function handle(event) {
 			return errorResponse(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
-		const result = await callTShockAPI(event.request.userAttributes.sub, ip, "/v2/server/off", { confirm: true, message: "Server stopping..." });
+		const result = await callTShockAPI(event.requestContext?.authorizer?.claims?.sub, ip, "/v2/server/off", { confirm: true, message: "Server stopping..." });
 		
 		logAction(FUNC_NAMES.SERV_MGR, {
-			userId: event.request.userAttributes.sub ?? 'unknown',
+			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 			action: "stop",
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 			details: { ip, instanceId: serverId, result }

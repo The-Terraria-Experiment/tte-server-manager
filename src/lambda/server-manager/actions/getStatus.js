@@ -25,10 +25,10 @@ async function handle(event) {
 		}
 
 		// Call TShock API /v2/server/status on port 3891
-		const status = await callTShockAPI(event.request.userAttributes.sub, ip, "/v2/server/status", { players: true, rules: true });
+		const status = await callTShockAPI(event.requestContext?.authorizer?.claims?.sub, ip, "/v2/server/status", { players: true, rules: true });
 
 		logAction(FUNC_NAMES.SERV_MGR, {
-			userId: event.request.userAttributes.sub ?? 'unknown',
+			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 			action: "get-status",
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 			details: { ip, instanceId: serverId, status }

@@ -17,7 +17,7 @@ async function handle(event) {
 	await startInstance(instanceId);
 
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.request.userAttributes.sub ?? 'unknown',
+		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 		action: "start",
 		status: 'ok',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

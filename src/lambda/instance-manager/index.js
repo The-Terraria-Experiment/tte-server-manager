@@ -56,7 +56,7 @@ const endpoints = {
 exports.handler = errorHandler(async (event, context) => {
 	console.log("Instance Manager:", { httpMethod: event.httpMethod, path: event.path });
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.request.userAttributes.sub,
+		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
 		action: "invoke",
 		resource: null,
 	});
@@ -74,7 +74,7 @@ exports.handler = errorHandler(async (event, context) => {
 	await validatePermission(event, action.permRequired);
 
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.request.userAttributes.sub,
+		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
 		action: "invoke-action",
 		status: 'permission-validated',
 		resource: routeKey,

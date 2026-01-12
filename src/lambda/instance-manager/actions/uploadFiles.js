@@ -60,7 +60,7 @@ async function handle(event) {
 		const uploadUrl = await getSignedUploadUrl(bucketName, s3Key, 3600);
 
 		logAction(FUNC_NAMES.INST_MGR, {
-			userId: event.request.userAttributes.sub ?? 'unknown',
+			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 			action: "upload-files",
 			status: 'ok',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

@@ -98,7 +98,7 @@ async function handle(event) {
 	const command = buildTShockCommand(tshockPath, worldFilePath, port, maxPlayers, password);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
-		userId: event.request.userAttributes.sub ?? 'unknown',
+		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 		action: "select-world",
 		status: 'command-built',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
@@ -112,7 +112,7 @@ async function handle(event) {
 		const result = await executeSSMCommand(instanceId, [command]);
 
 		logAction(FUNC_NAMES.SERV_MGR, {
-			userId: event.request.userAttributes.sub ?? 'unknown',
+			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 			action: "select-world",
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 			details: { commandId: result.commandId, worldFilePath, port, tshockPath }

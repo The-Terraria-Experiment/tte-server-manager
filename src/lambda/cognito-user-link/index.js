@@ -13,7 +13,7 @@ const { FUNC_NAMES } = require("./shared/constants");
 exports.handler = async (event, context) => {
 	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
 	logAction(FUNC_NAMES.COG_LINK, {
-		userId: event.request.userAttributes.sub,
+		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
 		action: "invoke",
 		resource: null,
 	});
@@ -40,7 +40,7 @@ exports.handler = async (event, context) => {
 		const success = await putDynamoItem(PERM_TABLE, userRecord);
 
 		logAction(FUNC_NAMES.COG_LINK, {
-			userId: event.request.userAttributes.sub,
+			userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
 			action: "account-create",
 			resource: null,
 		});

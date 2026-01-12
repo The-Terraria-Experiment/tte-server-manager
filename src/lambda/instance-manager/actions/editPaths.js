@@ -131,7 +131,7 @@ async function handle(event) {
 	const updatedRoots = updatedItem?.validRoots || {};
 
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.request.userAttributes.sub ?? 'unknown',
+		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 		action: "edit-paths",
 		status: 'ok',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

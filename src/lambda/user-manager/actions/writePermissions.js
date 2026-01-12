@@ -23,7 +23,7 @@ async function handle(event) {
 	});
 
 	logAction(FUNC_NAMES.USER_MGR, {
-		userId: event.request.userAttributes.sub ?? 'unknown',
+		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 		action: "write-permissions",
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 		details: { updatedUser: updateUser, permissions: deduplicated }

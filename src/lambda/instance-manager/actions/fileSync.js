@@ -116,7 +116,7 @@ async function handle(event) {
 		const result = await syncFilesToInstance(instanceId, bucket, baseLocalPath);
 
 		logAction(FUNC_NAMES.INST_MGR, {
-			userId: event.request.userAttributes.sub ?? 'unknown',
+			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 			action: "file-sync",
 			status: 'ok',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
