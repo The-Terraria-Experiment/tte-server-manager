@@ -99,9 +99,10 @@
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
-import { BTN_VARIANT } from '../../../../util/constants';
+import { BTN_VARIANT, INSTANCE_STATES } from '../../../../util/constants';
 import delay from '../../../../util/delay';
 import { PERMISSIONS } from '../../../../util/permissionValues';
+import { getDateOffset } from '../../../../util/timeutils';
 import ActiveDate from '../../../common/ActiveDate.vue';
 
 
@@ -125,6 +126,8 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
+			statusPollInterval: null,
+			statusPollStopStates: []
 		}
 	},
 	computed: {
@@ -142,6 +145,7 @@ export default {
 				const response = await post(`/instance/${this.selectedInstanceData.id}/stop`, PERMISSIONS.instance.status.stop);
 				await delay(2000);
 				this.$alert.info(`Initiated shutdown of instance '${instanceName}'`);
+				this.pollInstanceState([INSTANCE_STATES.ONLINE, INSTANCE_STATES.OFFLINE]);
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance shutdown");
@@ -161,6 +165,7 @@ export default {
 				const response = await post(`/instance/${this.selectedInstanceData.id}/start`, PERMISSIONS.instance.status.start);
 				await delay(2000);
 				this.$alert.info(`Initiated startup of instance '${instanceName}'`);
+				this.pollInstanceState([INSTANCE_STATES.ONLINE, INSTANCE_STATES.OFFLINE]);
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance startup");
@@ -199,7 +204,31 @@ export default {
 				console.error(e);
 			}
 		},
+
+		pollInstanceState(stopStates) {
+			this.statusPollStopStates = stopStates;
+			const refreshAt = getDateOffset(5000).valueOf();
+			this.$emit("autoRefreshAt", refreshAt);
+
+			this.statusPollInterval = setInterval(() => {
+				const refreshAt = getDateOffset(5000).valueOf();
+				this.$emit("autoRefreshAt", refreshAt);
+			}, 6000);
+		},
+
+		checkForPollStop() {
+			if (this.statusPollStopStates.includes(this.selectedInstanceData.state)) {
+				this.statusPollStopStates = [];
+				clearInterval(this.statusPollInterval);
+				this.$emit("autoRefreshAt", null);
+			}
+		}
 	},
+	watch: {
+		"selectedInstanceData.state": function () {
+			this.checkForPollStop();
+		}
+	}
 }
 </script>
 
