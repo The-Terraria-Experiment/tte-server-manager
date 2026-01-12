@@ -7,8 +7,8 @@
 const {putDynamoItem} = require("./shared/utils/dynamo");
 const {PERM_TABLE} = require("./shared/constants");
 const {PERMISSIONS} = require("./shared/permissionValues");
-const { logAction } = require("../shared/utils/cloudwatchLogger");
-const { FUNC_NAMES } = require("../shared/constants");
+const { logAction } = require("./shared/utils/cloudwatchLogger");
+const { FUNC_NAMES } = require("./shared/constants");
 
 exports.handler = async (event, context) => {
 	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
