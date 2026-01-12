@@ -12,7 +12,7 @@
  */
 
 const { CloudWatchLogsClient, PutLogEventsCommand, CreateLogStreamCommand } = require("@aws-sdk/client-cloudwatch-logs");
-const { FUNC_NAMES } = require("../constants");
+const { FUNC_NAMES, CW_LOG_GENERAL } = require("../constants");
 
 const cloudwatchClient = new CloudWatchLogsClient({ region: process.env.AWS_REGION });
 
@@ -33,8 +33,8 @@ const existingStreams = new Set();
  * @returns {Promise<void>}
  */
 async function logAction(functionName, actionLog) {
-	if (!Object.values(FUNC_NAMES).includes(functionName)) {
-		throw new Error("Invalid function name", functionName);
+	if (![...Object.values(FUNC_NAMES), CW_LOG_GENERAL].includes(functionName)) {
+		throw new Error(`Invalid function name '${functionName}'`);
 	}
 
 	try {
