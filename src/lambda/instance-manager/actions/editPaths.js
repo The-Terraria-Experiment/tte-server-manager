@@ -5,6 +5,8 @@
 const {successResponse, validationError} = require("../shared/utils/response");
 const {updateDynamoItem} = require("../shared/utils/dynamo");
 const path = require("path");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { FUNC_NAMES } = require("../shared/constants");
 
 // Validate a single nickname (key in validRoots)
 function isSafeNickname(nickname) {
@@ -127,6 +129,14 @@ async function handle(event) {
 	});
 
 	const updatedRoots = updatedItem?.validRoots || {};
+
+	logAction(FUNC_NAMES.INST_MGR, {
+		userId: event.request.userAttributes.sub ?? 'unknown',
+		action: "edit-paths",
+		status: 'ok',
+		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+		details: { instanceId, updatedRoots }
+	});
 
 	return successResponse({
 		instanceId,
