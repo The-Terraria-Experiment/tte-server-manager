@@ -7,10 +7,12 @@
  * on the instance, avoiding unnecessary re-downloads
  */
 
+const { validationError } = require('../shared/utils/response');
 const { FUNC_NAMES } = require('../shared/constants');
 const {executeSSMCommand, listS3Objects, getSignedDownloadUrl} = require('../shared/utils/aws');
 const { logAction } = require('../shared/utils/cloudwatchLogger');
 const {successResponse} = require('../shared/utils/response');
+const { validateResourceAccess } = require('../shared/utils/permissions');
 
 /**
  * Sync files from S3 to instance
@@ -99,13 +101,17 @@ async function syncFilesToInstance(instanceId, s3Bucket, baseLocalPath = '/opt/t
  * @returns {Promise<Response>}
  */
 async function handle(event) {
-	try {
-		const instanceId = event.pathParameters?.id;
-		const baseLocalPath = process.env.BASE_ROOT;
+	const instanceId = event.pathParameters?.id;
 
-		if (!instanceId) {
-			throw new Error('Instance ID is required');
-		}
+	if (!instanceId) {
+		return validationError("Instance ID is required");
+	}
+
+	await validateResourceAccess(event, `instance::${instanceId}`);
+
+	try {
+		
+		const baseLocalPath = process.env.BASE_ROOT;
 
 		// Use environment variable for bucket
 		const bucket = process.env.S3_FILESTORE_NAME;

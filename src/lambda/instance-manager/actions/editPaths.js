@@ -7,6 +7,7 @@ const {updateDynamoItem} = require("../shared/utils/dynamo");
 const path = require("path");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
+const { validateResourceAccess } = require("../shared/utils/permissions");
 
 // Validate a single nickname (key in validRoots)
 function isSafeNickname(nickname) {
@@ -77,6 +78,8 @@ async function handle(event) {
 	if (!instanceId) {
 		return validationError("Instance ID is required");
 	}
+
+	await validateResourceAccess(event, `instance::${instanceId}`);
 
 	const tableName = process.env.INSTANCE_TABLE_NAME;
 
