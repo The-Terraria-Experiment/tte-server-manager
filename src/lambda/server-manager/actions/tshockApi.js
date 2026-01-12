@@ -13,6 +13,8 @@
 const {getSecret} = require("../shared/utils/aws");
 const http = require("http");
 const { successResponse } = require("../shared/utils/response");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { FUNC_NAMES } = require("../shared/constants");
 
 // Simple per-IP token cache for Lambda warm containers
 const tokenCache = new Map(); // ip -> { token, expiresAtMs }
@@ -122,13 +124,21 @@ async function getAuthTokenForIp(ipAddress, secretName) {
  * @param {string} method - HTTP method ('GET' or 'POST'), defaults to 'GET'
  * @returns {Promise<any>} Parsed JSON response from TShock
  */
-async function callTShockAPI(ipAddress, endpoint, data = null, method = 'GET') {
+async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 'GET') {
 	if (!ipAddress) {
 		throw new Error("Missing IP address for TShock API call");
 	}
 	if (!endpoint) {
 		throw new Error("Missing endpoint for TShock API call");
 	}
+
+	logAction(FUNC_NAMES.SERV_MGR, {
+		userId,
+		action: "call-tshock-api",
+		status: 'pre-call',
+		resource: null,
+		details: { ipAddress, endpoint, method }
+	});
 
 	// Get TShock token from Secrets Manager
 	const secretName = process.env.TSHOCK_SECRET_NAME;
