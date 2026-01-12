@@ -3,9 +3,10 @@
  */
 
 const {successResponse} = require("../shared/utils/response");
-const {PERM_TABLE} = require("../shared/constants");
+const {PERM_TABLE, FUNC_NAMES} = require("../shared/constants");
 const {logError} = require("../shared/middleware/errorHandler");
 const {updateDynamoItem} = require("../shared/utils/dynamo");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
 
 async function handle(event) {
 	if (!event.parsedBody || !event.parsedBody.username) {
@@ -18,6 +19,13 @@ async function handle(event) {
 		updates: {
 			displayName: event.parsedBody.username,
 		},
+	});
+
+	logAction(FUNC_NAMES.USER_MGR, {
+		userId: event.request.userAttributes.sub ?? 'unknown',
+		action: "set-username",
+		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+		details: { newDisplayName: updated.displayName }
 	});
 
 	return successResponse({ displayName: updated.displayName, userID: userSub });
