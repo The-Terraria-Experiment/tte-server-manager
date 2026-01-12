@@ -7,6 +7,8 @@ const {validatePermission} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
 const {PERMISSIONS} = require("./shared/permissionValues");
+const { FUNC_NAMES } = require("../shared/constants");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
 
 const endpoints = {
 	"GET /instances": {
@@ -52,7 +54,12 @@ const endpoints = {
 };
 
 exports.handler = errorHandler(async (event, context) => {
-	console.log("Instance Manager:", {httpMethod: event.httpMethod, path: event.path});
+	console.log("Instance Manager:", { httpMethod: event.httpMethod, path: event.path });
+	logAction(FUNC_NAMES.INST_MGR, {
+		userId: event.request.userAttributes.sub,
+		action: "invoke",
+		resource: null,
+	});
 
 	const {httpMethod, resource} = event;
 	const routeKey = `${httpMethod} ${resource}`;
@@ -65,6 +72,14 @@ exports.handler = errorHandler(async (event, context) => {
 
 	// Do permission check
 	await validatePermission(event, action.permRequired);
+
+	logAction(FUNC_NAMES.INST_MGR, {
+		userId: event.request.userAttributes.sub,
+		action: "invoke-action",
+		status: 'permission-validated',
+		resource: routeKey,
+		details: { context, event }
+	});
 
 	// Actual action
 	return action.action.handle(event, context);

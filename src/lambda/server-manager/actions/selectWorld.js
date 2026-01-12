@@ -8,6 +8,8 @@ const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
 const { getSSMCommandResult } = require("../shared/utils/aws");
 const { delay } = require("../shared/utils/delay");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { FUNC_NAMES } = require("../shared/constants");
 
 /**
  * Safely construct TShock command with flags
@@ -95,11 +97,27 @@ async function handle(event) {
 	// Build the command
 	const command = buildTShockCommand(tshockPath, worldFilePath, port, maxPlayers, password);
 
+	logAction(FUNC_NAMES.SERV_MGR, {
+		userId: event.request.userAttributes.sub ?? 'unknown',
+		action: "select-world",
+		status: 'command-built',
+		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+		details: { command }
+	});
+
 	// Execute command on EC2 instance via SSM
 	// Note: Port forwarding may need to be handled at the security group level
 	// or via iptables on the EC2 instance if not already configured
 	try {
 		const result = await executeSSMCommand(instanceId, [command]);
+
+		logAction(FUNC_NAMES.SERV_MGR, {
+			userId: event.request.userAttributes.sub ?? 'unknown',
+			action: "select-world",
+			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+			details: { commandId: result.commandId, worldFilePath, port, tshockPath }
+		});
+
 		// await delay(500);
 		// const output = await getSSMCommandResult(result.commandId, instanceId);
 		return successResponse({

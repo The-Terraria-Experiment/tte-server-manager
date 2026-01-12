@@ -2,7 +2,9 @@
  * List all instances with status
  */
 
+const { FUNC_NAMES } = require("../shared/constants");
 const {getMultipleInstanceStatus} = require("../shared/utils/aws");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
 const {successResponse} = require("../shared/utils/response");
 
 async function handle(event) {
@@ -17,6 +19,14 @@ async function handle(event) {
 		state: idata.state,
 		name: idata.name
 	}));
+
+	logAction(FUNC_NAMES.INST_MGR, {
+		userId: event.request.userAttributes.sub ?? 'unknown',
+		action: "list",
+		status: 'ok',
+		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+		details: { instances }
+	});
 
 	return successResponse({ instances });
 }

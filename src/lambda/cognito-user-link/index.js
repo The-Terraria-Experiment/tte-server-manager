@@ -7,9 +7,16 @@
 const {putDynamoItem} = require("./shared/utils/dynamo");
 const {PERM_TABLE} = require("./shared/constants");
 const {PERMISSIONS} = require("./shared/permissionValues");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { FUNC_NAMES } = require("../shared/constants");
 
 exports.handler = async (event, context) => {
 	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
+	logAction(FUNC_NAMES.COG_LINK, {
+		userId: event.request.userAttributes.sub,
+		action: "invoke",
+		resource: null,
+	});
 
 	try {
 		// Extract user details from Cognito event
@@ -31,6 +38,12 @@ exports.handler = async (event, context) => {
 
 		// Write to DynamoDB
 		const success = await putDynamoItem(PERM_TABLE, userRecord);
+
+		logAction(FUNC_NAMES.COG_LINK, {
+			userId: event.request.userAttributes.sub,
+			action: "account-create",
+			resource: null,
+		});
 
 		if (!success) {
 			console.error("Failed to create user record in DynamoDB", {sub, username});

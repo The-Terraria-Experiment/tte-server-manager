@@ -3,7 +3,9 @@
  * Client uploads files directly to S3 using these URLs (bypasses 10MB API Gateway limit)
  */
 
+const { FUNC_NAMES } = require("../shared/constants");
 const {getSignedUploadUrl} = require("../shared/utils/aws");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
 const {getDynamoItem} = require("../shared/utils/dynamo");
 const {successResponse, validationError} = require("../shared/utils/response");
 
@@ -56,6 +58,14 @@ async function handle(event) {
 
 		// Generate pre-signed URL valid for 1 hour
 		const uploadUrl = await getSignedUploadUrl(bucketName, s3Key, 3600);
+
+		logAction(FUNC_NAMES.INST_MGR, {
+			userId: event.request.userAttributes.sub ?? 'unknown',
+			action: "upload-files",
+			status: 'ok',
+			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+			details: { path, fileName, pathRoot, instanceId, s3Key }
+		});
 
 		return successResponse({
 			message: "Pre-signed upload URL generated",

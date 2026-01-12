@@ -11,7 +11,7 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" />
+		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" :refresh-at="autoRefreshAt" />
 	</div>
 	
 	<StatusTile v-else-if="!serverStore.isLoadingList && !serverStore.instanceOptions.length">
@@ -26,7 +26,7 @@
 
 	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
 
-	<BasicInstanceInfo :selected-instance-data="selectedInstanceData" :loading="loading" />
+	<BasicInstanceInfo :selected-instance-data="selectedInstanceData" :loading="loading" @autoRefreshAt="autoRefreshAt = $event" />
 
 	<InstanceFilePaths :selected-instance-data="selectedInstanceData" />
 
@@ -35,7 +35,7 @@
 </template>
 
 <script>
-import { BTN_VARIANT, } from '../../util/constants';
+import { BTN_VARIANT, INSTANCE_STATES, } from '../../util/constants';
 import Dropdown from '../common/Dropdown.vue';
 import { PERMISSIONS } from '../../util/permissionValues';
 import RefreshButton from '../common/RefreshButton.vue';
@@ -68,6 +68,7 @@ export default {
 				stateChange: false,
 				fileUpload: false,
 			},
+			autoRefreshAt: null
 		}
 	},
 	computed: {
@@ -81,12 +82,12 @@ export default {
 			};
 
 			const stateMap = {
-				"pending": "STARTING",
-				"running": "ONLINE",
-				"shutting-down": "SHUTTING DOWN",
-				"terminated": "TERMINATED",
-				"stopping": "STOPPING",
-				"stopped": "OFFLINE"
+				"pending": INSTANCE_STATES.STARTING,
+				"running": INSTANCE_STATES.ONLINE,
+				"shutting-down": INSTANCE_STATES.SHUTTING_DOWN,
+				"terminated": INSTANCE_STATES.TERMINATED,
+				"stopping": INSTANCE_STATES.STOPPING,
+				"stopped": INSTANCE_STATES.OFFLINE
 			};
 
 			return {

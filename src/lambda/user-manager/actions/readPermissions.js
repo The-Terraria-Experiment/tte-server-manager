@@ -3,8 +3,9 @@
  */
 
 const {successResponse} = require("../shared/utils/response");
-const { PERM_TABLE } = require("../shared/constants");
+const { PERM_TABLE, FUNC_NAMES } = require("../shared/constants");
 const { scanDynamoTable } = require("../shared/utils/dynamo");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
 
 async function handle(event) {
 	const allEntries = await scanDynamoTable(PERM_TABLE);
@@ -15,6 +16,12 @@ async function handle(event) {
 		username: e.username,
 		displayName: e.displayName
 	}));
+
+	logAction(FUNC_NAMES.USER_MGR, {
+		userId: event.request.userAttributes.sub ?? 'unknown',
+		action: "read-permissions",
+		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+	});
 
 	return successResponse({entries: filteredEntries});
 }

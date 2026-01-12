@@ -7,6 +7,8 @@ const {validatePermission} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
 const {PERMISSIONS} = require("./shared/permissionValues");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { FUNC_NAMES } = require("../shared/constants");
 
 const endpoints = {
 	"GET /users": {
@@ -36,7 +38,12 @@ const endpoints = {
 };
 
 exports.handler = errorHandler(async (event, context) => {
-	console.log("User Manager:", {httpMethod: event.httpMethod, path: event.path});
+	console.log("User Manager:", { httpMethod: event.httpMethod, path: event.path });
+	logAction(FUNC_NAMES.USER_MGR, {
+		userId: event.request.userAttributes.sub,
+		action: "invoke",
+		resource: null,
+	});
 
 	const {httpMethod, resource} = event;
 	const routeKey = `${httpMethod} ${resource}`;
@@ -58,6 +65,14 @@ exports.handler = errorHandler(async (event, context) => {
 			event.parsedBody = event.body;
 		}
 	}
+
+	logAction(FUNC_NAMES.USER_MGR, {
+		userId: event.request.userAttributes.sub,
+		action: "invoke-action",
+		status: 'permission-validated',
+		resource: routeKey,
+		details: { context, event }
+	});
 
 	// Execute action
 	return action.action.handle(event, context);

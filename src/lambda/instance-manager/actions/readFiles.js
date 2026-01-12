@@ -2,7 +2,9 @@
  * List files in S3 for a specific instance
  */
 
+const { FUNC_NAMES } = require("../shared/constants");
 const {listS3Objects} = require("../shared/utils/aws");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { getDynamoItem } = require("../shared/utils/dynamo");
 const {successResponse, notFoundError} = require("../shared/utils/response");
 
@@ -26,6 +28,14 @@ async function handle(event) {
 	const instanceData = await getDynamoItem(process.env.INSTANCE_TABLE_NAME, `inst#${instanceId}`);
 	const pathRoots = instanceData?.validRoots || [];
 	const worldPaths = instanceData?.worldPaths || [];
+
+	logAction(FUNC_NAMES.INST_MGR, {
+		userId: event.request.userAttributes.sub ?? 'unknown',
+		action: "read-files",
+		status: 'ok',
+		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+		details: { files, pathRoots, worldPaths }
+	});
 
 	return successResponse({ files, pathRoots, worldPaths });
 }

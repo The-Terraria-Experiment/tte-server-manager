@@ -5,6 +5,8 @@
 const {callTShockAPI} = require("./tshockApi");
 const {successResponse, notFoundError, errorResponse} = require("../shared/utils/response");
 const {getInstanceStatus} = require("../shared/utils/aws");
+const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { FUNC_NAMES } = require("../shared/constants");
 
 async function handle(event) {
 	const serverId = event.pathParameters?.id;
@@ -23,7 +25,14 @@ async function handle(event) {
 		}
 
 		// Call TShock API /v2/server/status on port 3891
-		const status = await callTShockAPI(ip, "/v2/server/status", { players: true, rules: true });
+		const status = await callTShockAPI(event.request.userAttributes.sub, ip, "/v2/server/status", { players: true, rules: true });
+
+		logAction(FUNC_NAMES.SERV_MGR, {
+			userId: event.request.userAttributes.sub ?? 'unknown',
+			action: "get-status",
+			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+			details: { ip, instanceId: serverId, status }
+		});
 
 		return successResponse({server: status});
 	} catch (err) {
