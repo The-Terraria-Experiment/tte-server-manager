@@ -24,6 +24,13 @@
 
 		<SetUsernamePopup ref="namepopup" mustCreate />
 	</div>
+
+	<div 
+		v-if="['', '/', '/overview'].includes($route.path)"
+		:class="['absolute m-auto left-0 right-0 text-center text-blue-400 font-main font-semibold text-xs', isMobile ? 'bottom-20' : 'bottom-2']"
+	>
+		<a href="https://server.terrariaexperiment.click/terms-and-conditions-privacy-policy">Terms / Privacy Policy</a>
+	</div>
 </template>
 
 <script>
