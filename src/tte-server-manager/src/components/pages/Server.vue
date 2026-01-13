@@ -1,4 +1,9 @@
 <template>
+	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
+		<h1 class="font-main font-bold text-teal-4 text-2xl">MANAGE GAME SERVER</h1>
+		<p class="font-main font-bold text-gray-7 mt-2">View and manage game server status</p>
+	</div>
+
 	<div 
 		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && serverStore.instanceOptions?.length"
 		class="bg-gray-3 p-4 rounded-xl"
