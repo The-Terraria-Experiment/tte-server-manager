@@ -1,11 +1,16 @@
 <template>
+	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
+		<h1 class="font-main font-bold text-teal-4 text-2xl">MANAGE GAME SERVER</h1>
+		<p class="font-main font-bold text-gray-7 mt-2">View and manage game server status</p>
+	</div>
+
 	<div 
-		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && serverStore.instanceOptions?.length"
+		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
 		class="bg-gray-3 p-4 rounded-xl"
 	>
 		<p class="font-main font-bold text-gray-7 mb-2">HOST INSTANCE</p>
 		<Dropdown 
-			:options="serverStore.instanceOptions"
+			:options="filteredInstanceOptions"
 			v-model="selectedInstance"
 			inputClass="bg-teal-3 text-white-1"
 			iconColor="text-white-1"
@@ -13,6 +18,15 @@
 
 		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" />
 	</div>
+	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
+		<template #header>
+			<Icon icon="warning" color="text-yellow-2" size="4" />
+			<p class="text-yellow-2 ml-2 text-lg">No Data</p>
+		</template>
+		<template #summary>
+			<p class="text-2xl text-teal-4">No instances to show</p>
+		</template>
+	</StatusTile>
 
 	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
 
@@ -95,6 +109,9 @@ export default {
 				players: this.serverStore.serverStatusData[this.selectedInstance]?.players,
 				world: this.serverStore.serverStatusData[this.selectedInstance]?.world,
 			}
+		},
+		filteredInstanceOptions() {
+			return this.serverStore.instanceOptions.filter(i => this.$checkResourceAccess(`instance::${i.id}`));
 		}
 	},
 	methods: {
@@ -107,7 +124,11 @@ export default {
 
 			try {
 				const instances = await this.serverStore.fetchInstanceList();
-				this.selectedInstance = instances[0]?.id || undefined;
+				instances.forEach(i => {
+					if (this.$checkResourceAccess(`instance::${i.id}`)) {
+						this.selectedInstance = i.id;
+					}
+				});
 			} catch (e) {
 				this.$alert.error("Error fetching instance list");
 				console.error(e);
@@ -136,6 +157,8 @@ export default {
 		
 		async fetchServerStatus() {
 			this.$validatePermissions(PERMISSIONS.server.status.read);
+
+			if (!this.selectedInstance) return;
 
 			try {
 				await this.serverStore.fetchServerStatus(this.selectedInstance);

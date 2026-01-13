@@ -28,43 +28,24 @@
 
 		<StatusTile 
 			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-			:collapsible="false"
+			:collapsible="!!selectedServerData.playercount"
 			:perm-required="PERMISSIONS.server.status.read"
 		>
 			<template #header>
 				<Icon icon="people-group" color="text-gray-6" size="4" />
-				<p class="text-gray-6 ml-2 text-lg">Players Online</p>
+				<p class="text-gray-6 ml-2 text-lg">Players</p>
 			</template>
 			<template #summary>
-				<p class="text-2xl text-teal-4">{{ selectedServerData.playercount ?? 'Unknown' }}</p>
+				<p class="text-2xl text-teal-4">{{ selectedServerData.playercount ? `${selectedServerData.playercount} player${plural(selectedServerData.playercount || 0)} online` : 'Unknown' }}</p>
 			</template>
 			<template #content>
-				<!-- <div class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap">
-					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">havoc</div>
-					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">exception</div>
-					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">havoc</div>
-					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">exception</div>
-					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">havoc</div>
-					<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">exception</div>
-				</div> -->
-			</template>
-		</StatusTile>
-
-		<!-- <StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-			:perm-required="PERMISSIONS.server.status.read"
-		>
-			<template #header>
-				<Icon icon="earth" color="text-gray-6" size="4" />
-				<p class="text-gray-6 ml-2 text-lg">Active World</p>
-			</template>
-			<template #summary>
-				<div class="flex items-center">
-					<p class="text-2xl text-teal-4">{{ selectedServerData.world || 'Unknown' }}</p>
-					<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
+				<div v-if="selectedServerData.players?.length" class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap">
+					<template v-for="player in selectedServerData.players">
+						<div class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1">{{ player.nickname }}</div>
+					</template>
 				</div>
 			</template>
-		</StatusTile> -->
+		</StatusTile>
 
 		<StatusTile 
 			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
@@ -130,6 +111,7 @@
 
 <script>
 import { BTN_VARIANT } from '../../../../util/constants';
+import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 
 export default {
@@ -153,7 +135,7 @@ export default {
 		
 	},
 	methods: {
-		
+		plural
 	},
 }
 </script>

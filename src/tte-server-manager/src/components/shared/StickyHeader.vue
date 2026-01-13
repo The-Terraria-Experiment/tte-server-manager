@@ -1,5 +1,5 @@
 <template>
-	<div class="flex rounded-b-2xl md:rounded-none overflow-hidden sm:fixed sm:w-full z-10 shadow-lg shadow-gray-1">
+	<div class="flex rounded-b-2xl md:rounded-none overflow-hidden sm:fixed sm:w-full z-20 shadow-lg shadow-gray-1">
 		<div class="h-14 md:h-16 grow bg-gray-3 md:bg-linear-to-r from-gray-3 to-gray-5 from-50%  flex items-center">
 			<p v-if="isMobile" class="font-main font-semibold text-cream ml-4 text-lg">SERVER MANAGER</p>
 			<p v-else class="font-main font-semibold text-cream text-xl ml-4">SERVER MANAGEMENT DASHBOARD</p>

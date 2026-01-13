@@ -2,17 +2,21 @@
  * Get specific instance status
  */
 
+const { validationError } = require("../shared/utils/response");
 const { FUNC_NAMES } = require("../shared/constants");
 const {getInstanceStatus} = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
-const {successResponse, notFoundError} = require("../shared/utils/response");
+const {successResponse} = require("../shared/utils/response");
+const { validateResourceAccess } = require("../shared/utils/permissions");
 
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;
 
 	if (!instanceId) {
-		return notFoundError("Instance ID");
+		return validationError("Instance ID is required");
 	}
+
+	await validateResourceAccess(event, `instance::${instanceId}`);
 
 	const status = await getInstanceStatus(instanceId);
 

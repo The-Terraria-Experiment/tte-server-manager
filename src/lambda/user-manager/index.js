@@ -27,6 +27,10 @@ const endpoints = {
 		action: require("./actions/writePermissions"),
 		permRequired: PERMISSIONS.users.permissions.write,
 	},
+	"POST /users/resourcepermissions": {
+		action: require("./actions/writeResourcePermissions"),
+		permRequired: PERMISSIONS.users.permissions.write,
+	},
 	"GET /users/permissions/getown": {
 		action: require("./actions/readOwnPermissions"),
 		permRequired: PERMISSIONS.access

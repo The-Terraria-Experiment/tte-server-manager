@@ -6,6 +6,7 @@ export const useUserStore = defineStore("userstore", {
 		user: null,
 		idToken: null,
 		permissions: [],
+		resourceAccess: [],
 		accountData: null,
 		__userFetchedCallbacks: []
 	}),
@@ -23,6 +24,14 @@ export const useUserStore = defineStore("userstore", {
 				return perms.some(perm => state.permissions.includes(perm));
 			}
 		},
+		hasResourceAccess: (state) => (resources, requireAll = true) => {
+			const resourcePerms = Array.isArray(resources) ? resources : [resources];
+			if (requireAll) {
+				return resourcePerms.every(rperm => state.resourceAccess.includes(rperm));
+			} else {
+				return resourcePerms.some(rperm => state.resourceAccess.includes(rperm));
+			}
+		}
 	},
 	actions: {
 		async loadUser(forceReload = false) {
@@ -60,6 +69,7 @@ export const useUserStore = defineStore("userstore", {
 					const data = await response.json();
 					this.accountData = data?.entries || null;
 					this.permissions = data?.entries?.permissions || [];
+					this.resourceAccess = data?.entries.resourceAccess || [];
 					this.user.displayName = data?.entries?.displayName || "";
 					this.user.username = data?.entries?.username || "";
 				}

@@ -2,6 +2,7 @@
  * List files in S3 for a specific instance
  */
 
+const { validateResourceAccess } = require("../shared/utils/permissions");
 const { FUNC_NAMES } = require("../shared/constants");
 const {listS3Objects} = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
@@ -14,6 +15,8 @@ async function handle(event) {
 	if (!instanceId) {
 		return notFoundError("Instance ID");
 	}
+
+	await validateResourceAccess(event, `instance::${instanceId}`);
 
 	const bucketName = process.env.S3_FILESTORE_NAME;
 
