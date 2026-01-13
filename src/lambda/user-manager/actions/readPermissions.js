@@ -12,6 +12,7 @@ async function handle(event) {
 
 	const filteredEntries = (allEntries || []).map(e => ({
 		permissions: e.permissions,
+		resourceAccess: e.resourceAccess,
 		userID: e.uid,
 		username: e.username,
 		displayName: e.displayName
