@@ -5,12 +5,12 @@
 	</div>
 	
 	<div 
-		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && serverStore.instanceOptions?.length"
+		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
 		class="bg-gray-3 p-4 rounded-xl"
 	>
 		<p class="font-main font-bold text-gray-7 mb-2">VIEW INSTANCE</p>
 		<Dropdown 
-			:options="serverStore.instanceOptions"
+			:options="filteredInstanceOptions"
 			v-model="selectedInstance"
 			inputClass="bg-teal-3 text-white-1"
 			iconColor="text-white-1"
@@ -19,7 +19,7 @@
 		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" :refresh-at="autoRefreshAt" />
 	</div>
 	
-	<StatusTile v-else-if="!serverStore.isLoadingList && !serverStore.instanceOptions.length">
+	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
 		<template #header>
 			<Icon icon="warning" color="text-yellow-2" size="4" />
 			<p class="text-yellow-2 ml-2 text-lg">No Data</p>
@@ -45,6 +45,7 @@ import Dropdown from '../common/Dropdown.vue';
 import { PERMISSIONS } from '../../util/permissionValues';
 import RefreshButton from '../common/RefreshButton.vue';
 import { useServerStore } from '../../stores/serverStore';
+import { useUserStore } from '../../stores/userStore';
 import BasicInstanceInfo from './tools/instance/BasicInstanceInfo.vue';
 import InstanceFiles from './tools/instance/InstanceFiles.vue';
 import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
@@ -69,6 +70,7 @@ export default {
 			PERMISSIONS,
 			selectedInstance: null,
 			serverStore: useServerStore(),
+			userStore: useUserStore(),
 			loading: {
 				stateChange: false,
 				fileUpload: false,
@@ -103,6 +105,9 @@ export default {
 				instanceType: rawData.instanceType
 			};
 		},
+		filteredInstanceOptions() {
+			return this.serverStore.instanceOptions.filter(i => this.$checkResourceAccess(`instance::${i.id}`));
+		}
 	},
 	methods: {
 		refresh() {
@@ -115,7 +120,11 @@ export default {
 
 			try {
 				const instances = await this.serverStore.fetchInstanceList();
-				this.selectedInstance = instances[0]?.id || undefined;
+				instances.forEach(i => {
+					if (this.$checkResourceAccess(`instance::${i.id}`)) {
+						this.selectedInstance = i.id;
+					}
+				});
 			} catch (e) {
 				this.$alert.error("Error fetching instance list");
 				console.error(e);

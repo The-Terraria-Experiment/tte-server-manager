@@ -15,10 +15,10 @@ export default {
 		app.config.globalProperties.$checkPermissions = check;
 		app.provide('checkPermissions', check);
 
-		app.config.globalProperties.$validateResourcePermissions = validateResource;
-		app.provide('validateResourcePermissions', validateResource);
+		app.config.globalProperties.$validateResourceAccess = validateResource;
+		app.provide('validateResourceAccess', validateResource);
 
-		app.config.globalProperties.$checkResourcePermissions = checkResource;
-		app.provide('checkResourcePermissions', checkResource);
+		app.config.globalProperties.$checkResourceAccess = checkResource;
+		app.provide('checkResourceAccess', checkResource);
 	},
 };
