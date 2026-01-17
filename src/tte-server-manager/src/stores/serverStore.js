@@ -24,6 +24,15 @@ export const useServerStore = defineStore("serverstore", {
 		},
 		isLoadingList: (state) => state.loading.list,
 		isLoadingStatus: (state) => (instanceId) => state.loading.status[instanceId] || false,
+		somethingIsLoading: (state) => {
+			for (const cat of Object.values(state.loading)) {
+				if (typeof cat !== "object") continue;
+				for (const inst of Object.values(cat)) {
+					if (inst) return inst;
+				}
+			}
+			return state.loading.list || false;
+		}
 	},
 	actions: {
 		async fetchInstanceList() {

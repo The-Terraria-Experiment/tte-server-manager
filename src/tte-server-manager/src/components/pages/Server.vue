@@ -16,7 +16,7 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" />
+		<RefreshButton :loading="serverStore.somethingIsLoading" @input="refresh" />
 	</div>
 	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
 		<template #header>
@@ -181,11 +181,9 @@ export default {
 	},
 	watch: {
 		selectedInstance(value) {
-			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value)) {
-				this.fetchInstanceStatus(value);
-				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
-					this.fetchInstanceFiles(this.selectedInstance);
-				}
+			this.fetchServerStatus();
+			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+				this.fetchInstanceFiles(this.selectedInstance);
 			}
 		}
 	}
