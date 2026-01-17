@@ -17,7 +17,7 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.somethingIsLoading" @input="refresh" />
+		<RefreshButton :loading="serverStore.somethingIsLoading" @input="refresh" :refresh-at="autoRefreshAt" />
 	</div>
 	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
 		<template #header>
@@ -33,7 +33,12 @@
 
 	<BasicServerInfo :selected-server-data="selectedServerData" />
 
-	<SelectWorld v-if="!selectedServerData.state" :selected-instance="selectedInstance" :selected-server-data="selectedServerData" />
+	<SelectWorld 
+		v-if="!selectedServerData.state" 
+		:selected-instance="selectedInstance" 
+		:selected-server-data="selectedServerData" 
+		@autoRefreshAt="autoRefreshAt = $event"
+	/>
 
 	<StatusTile 
 		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
@@ -100,6 +105,7 @@ export default {
 			BTN_VARIANT,
 			serverStore: useServerStore(),
 			selectedInstance: null,
+			autoRefreshAt: null,
 		}
 	},
 	computed: {		

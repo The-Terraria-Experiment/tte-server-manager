@@ -206,22 +206,35 @@ export default {
 		},
 
 		pollInstanceState(stopStates) {
+			const maxRefreshes = 5;
+			let refreshesDone = 1;
+
 			this.statusPollStopStates = stopStates;
 			const refreshAt = getDateOffset(5000).valueOf();
 			this.$emit("autoRefreshAt", refreshAt);
 
 			this.statusPollInterval = setInterval(() => {
-				const refreshAt = getDateOffset(5000).valueOf();
-				this.$emit("autoRefreshAt", refreshAt);
+				if (refreshesDone >= maxRefreshes) {
+					this.stopPoll();
+				} else {
+					const refreshAt = getDateOffset(5000).valueOf();
+					this.$emit("autoRefreshAt", refreshAt);
+				}
+
+				refreshesDone++;
 			}, 6000);
 		},
 
 		checkForPollStop() {
 			if (this.statusPollStopStates.includes(this.selectedInstanceData.state)) {
-				this.statusPollStopStates = [];
-				clearInterval(this.statusPollInterval);
-				this.$emit("autoRefreshAt", null);
+				this.stopPoll();
 			}
+		},
+
+		stopPoll() {
+			this.statusPollStopStates = [];
+			clearInterval(this.statusPollInterval);
+			this.$emit("autoRefreshAt", null);
 		}
 	},
 	watch: {

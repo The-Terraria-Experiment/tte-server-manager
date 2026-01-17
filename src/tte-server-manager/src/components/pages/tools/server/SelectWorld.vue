@@ -98,6 +98,7 @@ import { BTN_VARIANT } from '../../../../util/constants';
 import delay from '../../../../util/delay';
 import { formatFileSize, plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
+import { getDateOffset } from '../../../../util/timeutils';
 import Checkbox from '../../../common/Checkbox.vue';
 
 
@@ -134,6 +135,7 @@ export default {
 				'_'
 			],
 			startServerLoading: false,
+			statusPollInterval: null,
 		}
 	},
 	computed: {
@@ -201,8 +203,39 @@ export default {
 				this.$alert.error("Error getting server status");
 				console.error(e);
 			}
+		},
+
+		pollInstanceState() {
+			const maxRefreshes = 3;
+			let refreshesDone = 1;
+
+			const refreshAt = getDateOffset(5000).valueOf();
+			this.$emit("autoRefreshAt", refreshAt);
+
+			this.statusPollInterval = setInterval(() => {
+				if (refreshesDone >= maxRefreshes) {
+					this.stopPoll();
+				} else {
+					const refreshAt = getDateOffset(5000).valueOf();
+					this.$emit("autoRefreshAt", refreshAt);
+				}
+
+				refreshesDone++;
+			}, 6000);
+		},
+
+		stopPoll() {
+			clearInterval(this.statusPollInterval);
+			this.$emit("autoRefreshAt", null);
 		}
 	},
+	watch: {
+		"selectedServerData.state": function (value) {
+			if (value) {
+				this.stopPoll();
+			}
+		}
+	}
 }
 </script>
 
