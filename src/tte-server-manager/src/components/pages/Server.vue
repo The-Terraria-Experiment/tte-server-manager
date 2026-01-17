@@ -1,7 +1,8 @@
 <template>
-	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
-		<h1 class="font-main font-bold text-teal-4 text-2xl">MANAGE GAME SERVER</h1>
-		<p class="font-main font-bold text-gray-7 mt-2">View and manage game server status</p>
+	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8 terraria-bg']">
+		<div class="title-bg-gradient"></div>
+		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20">MANAGE GAME SERVER</h1>
+		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20">View and manage game server status</p>
 	</div>
 
 	<div 
@@ -193,4 +194,14 @@ export default {
 <style scoped>
 @reference "../../theme.css";
 
+.terraria-bg {
+	background-image: url('public/images/terraria-wallpaper.png');
+	background-position: right center;
+	background-repeat: no-repeat;
+	@apply relative bg-size-[50%];
+}
+
+.terraria-bg .title-bg-gradient {
+	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-10;
+}
 </style>
