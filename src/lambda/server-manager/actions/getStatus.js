@@ -7,6 +7,7 @@ const {successResponse, notFoundError, errorResponse} = require("../shared/utils
 const {getInstanceStatus} = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
+const { validateResourceAccess } = require("../shared/utils/permissions");
 
 async function handle(event) {
 	const serverId = event.pathParameters?.id;
@@ -14,6 +15,8 @@ async function handle(event) {
 	if (!serverId) {
 		return notFoundError("Server ID");
 	}
+
+	await validateResourceAccess(event, `server::${serverId}`);
 
 	try {
 		// For now, treat serverId as the EC2 instance ID to obtain IP

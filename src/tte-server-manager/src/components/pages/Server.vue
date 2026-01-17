@@ -29,9 +29,12 @@
 		</template>
 	</StatusTile>
 
-	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
+	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..." />
 
-	<BasicServerInfo :selected-server-data="selectedServerData" />
+	<BasicServerInfo 
+		:selected-server-data="selectedServerData"
+		:selected-instance="selectedInstance"
+	/>
 
 	<SelectWorld 
 		v-if="!selectedServerData.state" 
