@@ -3,6 +3,7 @@
 		:class="['mt-4 sm:mt-8']"
 		collapsible
 		:perm-required="PERMISSIONS.server.config.read"
+		:loading="loadingSaveConfig"
 	>
 		<template #header>
 			<Icon icon="gear" color="text-gray-6" size="5" />
@@ -50,18 +51,24 @@
 					</FlexButton>
 				</div>
 
-				<div class="font-mono text-sm">
-					<LargeTextInput
-						placeholder="Config not loaded or not found"
-						:disabled="!$checkPermissions(PERMISSIONS.server.config.write)"
-						ref="configInput"
-						v-model="configText"
-						class="mt-4 rounded w-full min-h-100"
-						@keydown.tab.prevent="insertTab"
-					/>
+				<div>
+					<div class="font-mono text-sm">
+						<LargeTextInput
+							placeholder="Config not loaded or not found"
+							:disabled="!$checkPermissions(PERMISSIONS.server.config.write)"
+							ref="configInput"
+							v-model="configText"
+							class="mt-4 rounded w-full min-h-100"
+							@keydown.tab.prevent="insertTab"
+						/>
+					</div>
+					<div v-if="!jsonIsValid" class="flex items-center bg-gray-1 w-max py-2 px-4 rounded mt-2">
+						<Icon icon="warning" size="4" color="text-red-5" />
+						<p class="font-mono text-red-5 ml-2">Invalid JSON</p>
+					</div>
 				</div>
 
-				<div class="flex justify-end w-full mt-4" v-if="dirtyConfig">
+				<div class="flex justify-end w-full mt-4" v-if="dirtyConfig && !loadingSaveConfig">
 					<FlexButton
 						:variant="BTN_VARIANT.DANGER"
 						@input="resetConfig"
@@ -75,6 +82,10 @@
 					>
 						<p class="font-main font-bold py-2 px-8 md:px-12">SAVE</p>
 					</FlexButton>
+				</div>
+				<div v-else-if="loadingSaveConfig" class="flex items-center justify-end mt-8 mr-4 mb-4">
+					<Spinner class="h-5 w-5 text-teal-3" />
+					<p class="font-main font-bold text-teal-4 mx-2">SAVING...</p>
 				</div>
 			</div>
 		</template>
@@ -111,7 +122,15 @@ export default {
 	},
 	computed: {
 		dirtyConfig() {
-			return this.configText !== this.serverStore.serverConfigs[this.selectedInstance];
+			return this.configText !== JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance], null, 2);
+		},
+		jsonIsValid() {
+			try {
+				JSON.parse(this.configText);
+				return true;
+			} catch (e) {
+				return false;
+			}
 		}
 	},
 	methods: {
@@ -136,7 +155,7 @@ export default {
 
 			try {
 				await this.serverStore.fetchServerConfig(this.selectedInstance);
-				this.configText = this.serverStore.serverConfigs[this.selectedInstance];
+				this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance], null, 2);
 			} catch (e) {
 				this.$alert.error("Error getting server config");
 				console.error(e);
@@ -157,7 +176,7 @@ export default {
 			}
 
 			try {
-				const response = await post(`/server/${this.selectedInstance}/config`, PERMISSIONS.server.config.write, JSON.parse(this.configText));
+				const response = await post(`/server/${this.selectedInstance}/config`, PERMISSIONS.server.config.write, { config: JSON.parse(this.configText) });
 				this.$alert.success("Config saved");
 			} catch (e) {
 				this.$alert.error("Error saving config");
@@ -168,7 +187,12 @@ export default {
 		},
 
 		resetConfig() {
-			this.configText = this.serverStore.serverConfigs[this.selectedInstance];
+			this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance], null, 2);
+		}
+	},
+	mounted() {
+		if (this.$checkPermissions(PERMISSIONS.server.config.read)) {
+			this.fetchServerConfig();
 		}
 	},
 	watch: {

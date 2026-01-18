@@ -38,15 +38,14 @@ async function syncConfigToInstance(instanceId, s3Bucket, baseLocalPath) {
 	commands.push('');
 
 	// Extract the filepath from the key (remove instanceId prefix)
-	const filepath = `${instanceId}/config.json`;
-	const localPath = `${baseLocalPath}/${filepath}`;
+	const localPath = `${baseLocalPath}/tshock/config.json`;
 	const dirPath = localPath.substring(0, localPath.lastIndexOf('/'));
 
 	// Generate pre-signed URL for download (1 hour expiry)
-	const presignedUrl = await getSignedDownloadUrl(s3Bucket, `inst#${filepath}`, 3600);
+	const presignedUrl = await getSignedDownloadUrl(s3Bucket, `inst#${instanceId}/config.json`, 3600);
 
 	// Create directory and download file, overwriting if it exists
-	commands.push(`echo "Downloading ${filepath} to ${localPath}"`);
+	commands.push(`echo "Downloading config file to ${localPath}"`);
 	commands.push(`mkdir -p "${dirPath}"`);
 	commands.push(`chown ubuntu:ubuntu "${dirPath}"`);
 	commands.push(`chmod 755 "${dirPath}"`);
@@ -54,9 +53,9 @@ async function syncConfigToInstance(instanceId, s3Bucket, baseLocalPath) {
 	commands.push(`if [ $? -eq 0 ]; then`);
 	commands.push(`  chown ubuntu:ubuntu "${localPath}"`);
 	commands.push(`  chmod 644 "${localPath}"`);
-	commands.push(`  echo "Successfully downloaded ${filepath}"`);
+	commands.push(`  echo "Successfully downloaded config file"`);
 	commands.push(`else`);
-	commands.push(`  echo "Failed to download ${filepath}" >&2`);
+	commands.push(`  echo "Failed to download config file" >&2`);
 	commands.push(`  exit 1`);
 	commands.push(`fi`);
 	commands.push('');
@@ -83,9 +82,10 @@ async function handle(event) {
 
 	let configBody;
 	try {
-		configBody = JSON.parse(event.body.config || "{}");
+		const body = JSON.parse(event.body);
+		configBody = body.config;
 	} catch (err) {
-		return validationError("Request body must be valid JSON");
+		return validationError("Config must be valid JSON");
 	}
 
 	if (!configBody || typeof configBody !== 'object' || Array.isArray(configBody)) {
@@ -97,7 +97,7 @@ async function handle(event) {
 		throw new Error('S3_CONFIG_BUCKET_NAME env var not set');
 	}
 
-	const baseLocalPath = process.env.BASE_ROOT;
+	const baseLocalPath = process.env.TSHOCK_WD;
 	if (!baseLocalPath) {
 		throw new Error('BASE_ROOT env var not set');
 	}
