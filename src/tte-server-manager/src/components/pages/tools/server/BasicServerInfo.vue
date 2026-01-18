@@ -4,6 +4,7 @@
 			:class="['grow mt-4 sm:mt-8 sm:mx-1 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			:collapsible="selectedServerData.state"
 			:perm-required="PERMISSIONS.server.status.read"
+			:loading="statusLoading"
 		>
 			<template #header>
 				<Icon icon="power" color="text-gray-6" size="4" />
@@ -18,7 +19,7 @@
 						v-if="$checkPermissions(PERMISSIONS.server.status.stop)"
 						class="mx-4 mb-4" 
 						:variant="BTN_VARIANT.DANGER"
-						@input=""
+						@input="stopServer"
 					>
 						<p class="py-2 px-12">STOP</p>
 					</FlexButton>
@@ -36,7 +37,7 @@
 				<p class="text-gray-6 ml-2 text-lg">Players</p>
 			</template>
 			<template #summary>
-				<p class="text-2xl text-teal-4">{{ selectedServerData.playercount ? `${selectedServerData.playercount} player${plural(selectedServerData.playercount || 0)} online` : 'Unknown' }}</p>
+				<p class="text-2xl text-teal-4">{{ playerCountText }}</p>
 			</template>
 			<template #content>
 				<div v-if="selectedServerData.players?.length" class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap">
@@ -110,6 +111,7 @@
 </template>
 
 <script>
+import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -123,19 +125,44 @@ export default {
 		selectedServerData: {
 			type: Object,
 			required: true
-		}
+		},
+		selectedInstance: {
+			type: [String, null],
+			required: true
+		},
 	},
 	data() {
 		return {
 			BTN_VARIANT,
 			PERMISSIONS,
+			statusLoading: false
 		}
 	},
 	computed: {
-		
+		playerCountText() {
+			if (typeof this.selectedServerData.playercount === 'number') {
+				return `${this.selectedServerData.playercount} player${plural(this.selectedServerData.playercount || 0)} online`
+			}
+			return 'Unknown';
+		}
 	},
 	methods: {
-		plural
+		async stopServer() {
+			this.$validatePermissions(PERMISSIONS.server.status.stop);
+
+			if (this.statusLoading) return;
+			this.statusLoading = true;
+
+			try {
+				const response = await post(`/server/${this.selectedInstance}/stop`, PERMISSIONS.server.status.stop);
+				this.$alert.success("Server stopping");
+			} catch (e) {
+				this.$alert.error("Error stopping server");
+				console.error(e);
+			} finally {
+				this.statusLoading = false;
+			}
+		}
 	},
 }
 </script>

@@ -28,13 +28,17 @@ const endpoints = {
 		permRequired: PERMISSIONS.server.status.stop,
 	},
 	"GET /server/{id}/config": {
-		action: null,
+		action: require("./actions/readConfig"),
 		permRequired: PERMISSIONS.server.config.read,
 	},
 	"POST /server/{id}/config": {
-		action: null,
+		action: require("./actions/writeConfig"),
 		permRequired: PERMISSIONS.server.config.write,
 	},
+	// "PUT /server/{id}/config": {
+	// 	action: require("./actions/writeConfig"),
+	// 	permRequired: PERMISSIONS.server.config.write,
+	// },
 	"POST /server/{id}/tshock": {
 		action: null,
 		permRequired: PERMISSIONS.server.tshock.execute,

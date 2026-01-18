@@ -10,11 +10,13 @@ export const useServerStore = defineStore("serverstore", {
 		instanceFileRoots: {},
 		instanceWorldPaths: {},
 		serverStatusData: {},
+		serverConfigs: {},
 		loading: {
 			list: false,
 			status: {},
 			files: {},
-			serverStatus: {}
+			serverStatus: {},
+			config: {},
 		},
 	}),
 	getters: {
@@ -24,6 +26,15 @@ export const useServerStore = defineStore("serverstore", {
 		},
 		isLoadingList: (state) => state.loading.list,
 		isLoadingStatus: (state) => (instanceId) => state.loading.status[instanceId] || false,
+		somethingIsLoading: (state) => {
+			for (const cat of Object.values(state.loading)) {
+				if (typeof cat !== "object") continue;
+				for (const inst of Object.values(cat)) {
+					if (inst) return inst;
+				}
+			}
+			return state.loading.list || false;
+		}
 	},
 	actions: {
 		async fetchInstanceList() {
@@ -84,6 +95,20 @@ export const useServerStore = defineStore("serverstore", {
 				throw error;
 			} finally {
 				this.loading.serverStatus[instanceId] = false;
+			}
+		},
+		async fetchServerConfig(instanceId) {
+			if (this.loading.config[instanceId]) return;
+			this.loading.config[instanceId] = true;
+
+			try {
+				const data = await get(`/server/${instanceId}/config`, PERMISSIONS.server.config.read);
+				this.serverConfigs[instanceId] = data.file;
+			} catch (error) {
+				console.error("Error fetching server config:", error);
+				throw error;
+			} finally {
+				this.loading.config[instanceId] = false;
 			}
 		}
 	}

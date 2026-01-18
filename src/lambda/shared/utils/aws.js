@@ -17,6 +17,31 @@ const secretsClient = new SecretsManagerClient({region: process.env.AWS_REGION})
 const s3Client = new S3Client({region: process.env.AWS_REGION});
 
 /**
+ * Upload a JSON object to S3
+ * @param {string} bucketName
+ * @param {string} key
+ * @param {Object} payload
+ * @param {number} spacing - optional JSON spacing (default 2)
+ */
+async function putJsonObject(bucketName, key, payload, spacing = 2) {
+	const command = new PutObjectCommand({
+		Bucket: bucketName,
+		Key: key,
+		Body: JSON.stringify(payload, null, spacing),
+		ContentType: "application/json",
+	});
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-put-json-object',
+		resource: null,
+		details: { bucketName, key }
+	});
+
+	return s3Client.send(command);
+}
+
+/**
  * Get EC2 instance status
  * @param {string} instanceId
  * @returns {Promise<{state: string, publicIp: string, launchTime: string, instanceType: string, name: string}>}
@@ -248,7 +273,7 @@ async function listS3Objects(bucketName, prefix = "") {
 		Prefix: prefix,
 	});
 
-	logActionCond(2, CW_LOG_GENERAL, {
+	logActionCond(3, CW_LOG_GENERAL, {
 		userId: null,
 		action: 'shared-aws-list-s3-objects',
 		resource: null,
@@ -266,6 +291,37 @@ async function listS3Objects(bucketName, prefix = "") {
 		size: obj.Size,
 		lastModified: obj.LastModified,
 	}));
+}
+
+/**
+ * Get object from S3 bucket
+ * @param {string} bucketName
+ * @param {string} key - S3 object key/path
+ * @returns {Promise<string|false>} - Object content as string, or false if not found
+ */
+async function getS3Object(bucketName, key) {
+	try {
+		const command = new GetObjectCommand({
+			Bucket: bucketName,
+			Key: key,
+		});
+
+		logActionCond(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: 'shared-aws-get-s3-object',
+			resource: null,
+			details: { bucketName, key }
+		});
+
+		const response = await s3Client.send(command);
+		const bodyContents = await response.Body.transformToString();
+		return bodyContents;
+	} catch (error) {
+		if (error.name === 'NoSuchKey') {
+			return false;
+		}
+		throw error;
+	}
 }
 
 /**
@@ -328,6 +384,8 @@ module.exports = {
 	getSSMCommandResult,
 	getSecret,
 	listS3Objects,
+	getS3Object,
 	getSignedUploadUrl,
 	getSignedDownloadUrl,
+	putJsonObject,
 };

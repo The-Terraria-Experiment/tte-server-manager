@@ -1,7 +1,8 @@
 <template>
-	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
-		<h1 class="font-main font-bold text-teal-4 text-2xl">MANAGE GAME SERVER</h1>
-		<p class="font-main font-bold text-gray-7 mt-2">View and manage game server status</p>
+	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8 terraria-bg']">
+		<div class="title-bg-gradient"></div>
+		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0">MANAGE GAME SERVER</h1>
+		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View and manage game server status</p>
 	</div>
 
 	<div 
@@ -16,7 +17,7 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" />
+		<RefreshButton :loading="serverStore.somethingIsLoading" @input="refresh" :refresh-at="autoRefreshAt" />
 	</div>
 	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
 		<template #header>
@@ -28,31 +29,23 @@
 		</template>
 	</StatusTile>
 
-	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
+	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..." />
 
-	<BasicServerInfo :selected-server-data="selectedServerData" />
+	<BasicServerInfo 
+		:selected-server-data="selectedServerData"
+		:selected-instance="selectedInstance"
+	/>
 
-	<SelectWorld v-if="!selectedServerData.state" :selected-instance="selectedInstance" :selected-server-data="selectedServerData" />
+	<SelectWorld 
+		v-if="!selectedServerData.state" 
+		:selected-instance="selectedInstance" 
+		:selected-server-data="selectedServerData" 
+		@autoRefreshAt="autoRefreshAt = $event"
+	/>
 
-	<StatusTile 
-		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-		collapsible
-		:perm-required="'SUPERPERM'"
-	>
-		<template #header>
-			<Icon icon="rocket" color="text-gray-6" size="5" />
-			<p class="text-gray-6 ml-2 text-lg">Create World</p>
-		</template>
-		<template #summary>
-			<div class="flex items-center">
-				<p class="text-2xl text-teal-4">6 worlds available</p>
-				<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
-			</div>
-		</template>
-		<template #content>
-			
-		</template>
-	</StatusTile>
+	<ServerConfig 
+		:selected-instance="selectedInstance" 
+	/>
 
 	<Popup
 		body-class="h-1/4 w-full sm:w-1/2 lg:w-1/4"
@@ -78,6 +71,7 @@ import Popup from "../common/Popup.vue"
 import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
+import ServerConfig from './tools/server/ServerConfig.vue';
 
 
 export default {
@@ -89,6 +83,7 @@ export default {
 		BasicServerInfo,
 		SelectWorld,
 		MajorLoader,
+		ServerConfig,
 	},
 	props: {
 		
@@ -99,6 +94,7 @@ export default {
 			BTN_VARIANT,
 			serverStore: useServerStore(),
 			selectedInstance: null,
+			autoRefreshAt: null,
 		}
 	},
 	computed: {		
@@ -181,11 +177,9 @@ export default {
 	},
 	watch: {
 		selectedInstance(value) {
-			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value)) {
-				this.fetchInstanceStatus(value);
-				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
-					this.fetchInstanceFiles(this.selectedInstance);
-				}
+			this.fetchServerStatus();
+			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+				this.fetchInstanceFiles(this.selectedInstance);
 			}
 		}
 	}
@@ -195,4 +189,14 @@ export default {
 <style scoped>
 @reference "../../theme.css";
 
+.terraria-bg {
+	background-image: url('/images/terraria-wallpaper.png');
+	background-position: right center;
+	background-repeat: no-repeat;
+	@apply relative bg-size-[50%];
+}
+
+.terraria-bg .title-bg-gradient {
+	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-10;
+}
 </style>

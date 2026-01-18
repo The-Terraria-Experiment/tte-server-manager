@@ -10,6 +10,7 @@ const { getSSMCommandResult } = require("../shared/utils/aws");
 const { delay } = require("../shared/utils/delay");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
+const { validateResourceAccess } = require("../shared/utils/permissions");
 
 /**
  * Safely construct TShock command with flags
@@ -50,6 +51,8 @@ async function handle(event) {
 	if (!instanceId) {
 		return validationError("Instance ID is required");
 	}
+
+	await validateResourceAccess(event, `server::${instanceId}`);
 
 	// Extract body parameters
 	const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;

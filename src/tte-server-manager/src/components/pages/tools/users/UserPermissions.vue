@@ -61,6 +61,7 @@
 
 <script>
 import { useUserStore } from '../../../../stores/userStore';
+import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';

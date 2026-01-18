@@ -3,8 +3,10 @@
  */
 
 const { FUNC_NAMES } = require("../shared/constants");
+const { getInstanceStatus } = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
-const {successResponse} = require("../shared/utils/response");
+const { validateResourceAccess } = require("../shared/utils/permissions");
+const {successResponse, errorResponse} = require("../shared/utils/response");
 const {callTShockAPI} = require("./tshockApi");
 
 async function handle(event) {
@@ -13,6 +15,8 @@ async function handle(event) {
 	if (!serverId) {
 		return notFoundError("Server ID");
 	}
+
+	await validateResourceAccess(event, `server::${serverId}`);
 
 	try {
 		// For now, treat serverId as the EC2 instance ID to obtain IP
@@ -36,8 +40,6 @@ async function handle(event) {
 	} catch (err) {
 		return errorResponse(err.message || "Failed to shut down server");
 	}
-
-	return successResponse({});
 }
 
 module.exports = {handle};
