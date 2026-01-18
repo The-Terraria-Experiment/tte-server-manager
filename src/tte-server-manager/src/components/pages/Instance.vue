@@ -179,7 +179,7 @@ export default {
 @reference "../../theme.css";
 
 .server-bg {
-	background-image: url('public/images/abstract-orange.avif');
+	background-image: url('/images/abstract-orange.avif');
 	/* background-image: url('public/images/server-wallpaper.jpg'); */
 	background-position: right center;
 	background-repeat: no-repeat;

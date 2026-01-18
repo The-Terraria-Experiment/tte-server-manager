@@ -204,7 +204,7 @@ export default {
 @reference "../../theme.css";
 
 .terraria-bg {
-	background-image: url('public/images/terraria-wallpaper.png');
+	background-image: url('/images/terraria-wallpaper.png');
 	background-position: right center;
 	background-repeat: no-repeat;
 	@apply relative bg-size-[50%];
