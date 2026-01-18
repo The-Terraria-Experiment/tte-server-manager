@@ -24,7 +24,7 @@
 				<div class="w-3/4 px-4 font-mono pb-2">
 					<LargeTextInput 
 						placeholder="Select a user to view resource permissions"
-						class="min-h-40 w-full" 
+						class="min-h-40 w-full rounded" 
 						v-model="userResourcePermissions"
 					/>
 				</div>
@@ -102,7 +102,7 @@ export default {
 					? this.updatedPermissions[this.userSelected]
 					: this.permissionsData[this.userSelected].resourceAccess).join(",\n")
 
-				return currentPermValues || "[no permissions found]";
+				return currentPermValues;
 			},
 			set(value) {
 				this.dirtyPermissions = true;
@@ -113,7 +113,6 @@ export default {
 	},
 	methods: {
 		async savePermChanges() {
-			console.log(this.updatedPermissions);
 			this.$emit('saving', true);
 
 			for (const [userID, updatedPerms] of Object.entries(this.updatedPermissions)) {
