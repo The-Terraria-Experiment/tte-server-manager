@@ -40,6 +40,7 @@
 					</FlexButton>
 
 					<FlexButton
+						v-if="selectedServerData.state"
 						class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2"
 						:disabled="false"
 					>
@@ -106,6 +107,10 @@ export default {
 		LargeTextInput,
 	},
 	props: {
+		selectedServerData: {
+			type: Object,
+			required: true
+		},
 		selectedInstance: {
 			type: [String, null],
 			required: true

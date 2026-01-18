@@ -46,6 +46,7 @@
 
 	<ServerConfig 
 		v-if="selectedInstance"
+		:selected-server-data="selectedServerData"
 		:selected-instance="selectedInstance" 
 	/>
 
