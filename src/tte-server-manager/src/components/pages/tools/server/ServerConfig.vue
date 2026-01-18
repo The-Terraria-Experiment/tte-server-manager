@@ -10,7 +10,7 @@
 			<p class="text-gray-6 ml-2 text-lg">Server Config</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">text</p>
+			<p class="text-2xl text-teal-4">{{ summaryText }}</p>
 		</template>
 		<template #content>
 			<div class="p-4">
@@ -53,7 +53,7 @@
 				</div>
 
 				<div>
-					<div class="font-mono text-sm">
+					<div class="font-mono text-xs sm:text-sm">
 						<LargeTextInput
 							placeholder="Config not loaded or not found"
 							:disabled="!$checkPermissions(PERMISSIONS.server.config.write)"
@@ -127,7 +127,7 @@ export default {
 	},
 	computed: {
 		dirtyConfig() {
-			return this.configText !== JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance], null, 2);
+			return this.configText !== JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance]?.config, null, 2);
 		},
 		jsonIsValid() {
 			try {
@@ -136,6 +136,12 @@ export default {
 			} catch (e) {
 				return false;
 			}
+		},
+		summaryText() {
+			if (!this.serverStore.serverConfigs[this.selectedInstance]) {
+				return 'Unknown config';
+			}
+			return this.serverStore.serverConfigs[this.selectedInstance]?.isDefaultConfig ? 'Default configuration' : 'Custom configuration';
 		}
 	},
 	methods: {
@@ -160,7 +166,7 @@ export default {
 
 			try {
 				await this.serverStore.fetchServerConfig(this.selectedInstance);
-				this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance], null, 2);
+				this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance]?.config, null, 2);
 			} catch (e) {
 				this.$alert.error("Error getting server config");
 				console.error(e);
@@ -192,7 +198,7 @@ export default {
 		},
 
 		resetConfig() {
-			this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance], null, 2);
+			this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance]?.config, null, 2);
 		}
 	},
 	mounted() {
