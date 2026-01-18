@@ -15,24 +15,26 @@
 		<template #content>
 			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
 			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
-				<div class="grid world-select-grid px-2 py-2">
-					<div></div>
-					<div class="font-main font-semibold text-teal-6 pb-2">World File Name</div>
-					<div class="font-main font-semibold text-teal-6">File Size</div>
+				<div :class="['grid px-2 py-2', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
+					<template v-if="!isMobile">
+						<div></div>
+						<div class="font-main font-semibold text-teal-6 pb-2">World File Name</div>
+						<div class="font-main font-semibold text-teal-6">File Size</div>
+					</template>
 					
 					<template v-for="(world, idx) in instanceWorldFiles">
-						<div :class="['p-2 rounded-l', { 'bg-gray-4': !(idx%2)}]">
+						<div :class="['p-2 rounded-l flex items-center', { 'bg-gray-4': !(idx%2)}]">
 							<Checkbox 
 								class="h-4 w-4" 
 								:value="selectWorld.selectedWorld === world.name"
 								@input="selectWorld.selectedWorld = world.name"
 							/>
 						</div>
-						<div :class="['flex items-center', { 'bg-gray-4': !(idx%2)}]">
-							<p class="font-mono text-white-0 font-semibold">{{ world.name }}</p>
+						<div :class="['flex items-center', { 'bg-gray-4': !(idx%2)}]" @click="selectWorld.selectedWorld = world.name">
+							<p class="font-mono text-white-0 font-semibold text-sm">{{ world.name }}</p>
 						</div>
-						<div :class="['flex items-center rounded-r pr-2', { 'bg-gray-4': !(idx%2)}]">
-							<p class="font-mono text-white-0 font-semibold">{{ formatFileSize(world.size) }}</p>
+						<div v-if="!isMobile" :class="['flex items-center rounded-r pr-2', { 'bg-gray-4': !(idx%2)}]">
+							<p class="font-mono text-white-0 font-semibold text-sm">{{ formatFileSize(world.size) }}</p>
 						</div>
 					</template>
 				</div>
@@ -92,6 +94,7 @@
 </template>
 
 <script>
+import screen from '../../../../mixins/screen';
 import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
@@ -103,7 +106,7 @@ import Checkbox from '../../../common/Checkbox.vue';
 
 
 export default {
-	mixins: [],
+	mixins: [screen],
 	components: {
 		Checkbox,
 	},
@@ -244,5 +247,9 @@ export default {
 
 .world-select-grid {
 	grid-template-columns: auto 1fr auto;
+}
+
+.world-select-grid-mobile {
+	grid-template-columns: auto 1fr;
 }
 </style>
