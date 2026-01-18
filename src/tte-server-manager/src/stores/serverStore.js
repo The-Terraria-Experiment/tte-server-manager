@@ -103,7 +103,10 @@ export const useServerStore = defineStore("serverstore", {
 
 			try {
 				const data = await get(`/server/${instanceId}/config`, PERMISSIONS.server.config.read);
-				this.serverConfigs[instanceId] = data.file;
+				this.serverConfigs[instanceId] = {
+					config: data.file,
+					isDefaultConfig: data.isDefaultConfig
+				};
 			} catch (error) {
 				console.error("Error fetching server config:", error);
 				throw error;

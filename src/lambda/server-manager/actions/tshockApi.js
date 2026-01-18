@@ -173,7 +173,19 @@ async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 
 		Accept: "application/json",
 	};
 
-	const { statusCode, json } = await httpJsonRequest(url, { method, headers, timeout: 5000 }, null);
+	let statusCode, json;
+	try {
+		const data = await httpJsonRequest(url, { method, headers, timeout: 5000 }, null);
+		statusCode = data.statusCode;
+		json = data.json;
+	} catch (e) {
+		// If the token cache includes a token, but the server has been shut down, it will fail here instead
+		if (e.message.includes("ECONNREFUSED")) {
+			return successResponse({ server: { status: false } });
+		}
+		throw e;
+	}
+
 	if (statusCode < 200 || statusCode >= 300) {
 		const message = json?.message || 'TShock API error';
 		throw new Error(`TShock HTTP ${statusCode}: ${message}`);

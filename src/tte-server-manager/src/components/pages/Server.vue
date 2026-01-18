@@ -32,18 +32,21 @@
 	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..." />
 
 	<BasicServerInfo 
+		v-if="selectedInstance"
 		:selected-server-data="selectedServerData"
 		:selected-instance="selectedInstance"
 	/>
 
 	<SelectWorld 
-		v-if="!selectedServerData.state" 
+		v-if="selectedInstance && !selectedServerData.state" 
 		:selected-instance="selectedInstance" 
 		:selected-server-data="selectedServerData" 
 		@autoRefreshAt="autoRefreshAt = $event"
 	/>
 
 	<ServerConfig 
+		v-if="selectedInstance"
+		:selected-server-data="selectedServerData"
 		:selected-instance="selectedInstance" 
 	/>
 
@@ -107,7 +110,7 @@ export default {
 			}
 		},
 		filteredInstanceOptions() {
-			return this.serverStore.instanceOptions.filter(i => this.$checkResourceAccess(`instance::${i.id}`));
+			return this.serverStore.instanceOptions.filter(i => this.$checkResourceAccess(`server::${i.id}`));
 		}
 	},
 	methods: {
@@ -121,7 +124,7 @@ export default {
 			try {
 				const instances = await this.serverStore.fetchInstanceList();
 				instances.forEach(i => {
-					if (this.$checkResourceAccess(`instance::${i.id}`)) {
+					if (this.$checkResourceAccess(`server::${i.id}`)) {
 						this.selectedInstance = i.id;
 					}
 				});
@@ -167,17 +170,19 @@ export default {
 	async mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			await this.fetchInstanceList();
-			if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+			if (this.$checkPermissions(PERMISSIONS.instance.files.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
-			if (this.$checkPermissions(PERMISSIONS.server.status.read)) {
+			if (this.$checkPermissions(PERMISSIONS.server.status.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
 				this.fetchServerStatus();
 			}
 		}
 	},
 	watch: {
 		selectedInstance(value) {
-			this.fetchServerStatus();
+			if (this.$checkResourceAccess(`server::${value}`)) {
+				this.fetchServerStatus();
+			}
 			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkPermissions(PERMISSIONS.instance.files.read)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}

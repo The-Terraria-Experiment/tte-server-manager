@@ -32,11 +32,23 @@
 
 	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
 
-	<BasicInstanceInfo :selected-instance-data="selectedInstanceData" :loading="loading" @autoRefreshAt="autoRefreshAt = $event" />
+	<BasicInstanceInfo 
+	v-if="selectedInstance"
+		:selected-instance-data="selectedInstanceData" 
+		:loading="loading" 
+		@autoRefreshAt="autoRefreshAt = $event" 
+	/>
 
-	<InstanceFilePaths :selected-instance-data="selectedInstanceData" />
+	<InstanceFilePaths 
+	v-if="selectedInstance"
+		:selected-instance-data="selectedInstanceData" 
+	/>
 
-	<InstanceFiles :selected-instance-data="selectedInstanceData" :loading="loading" />
+	<InstanceFiles 
+	v-if="selectedInstance"
+		:selected-instance-data="selectedInstanceData" 
+		:loading="loading" 
+	/>
 	
 </template>
 
@@ -157,14 +169,14 @@ export default {
 	async mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			await this.fetchInstanceList();
-			if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+			if (this.$checkPermissions(PERMISSIONS.instance.files.read) && this.$checkResourceAccess(`instance::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
 		}
 	},
 	watch: {
 		selectedInstance(value) {
-			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value)) {
+			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkResourceAccess(`instance::${value}`)) {
 				this.fetchInstanceStatus(value);
 				if (this.$checkPermissions(PERMISSIONS.instance.files.read)) {
 					this.fetchInstanceFiles(this.selectedInstance);
