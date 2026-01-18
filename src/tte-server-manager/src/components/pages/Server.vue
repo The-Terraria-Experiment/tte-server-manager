@@ -1,8 +1,8 @@
 <template>
 	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8 terraria-bg']">
 		<div class="title-bg-gradient"></div>
-		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20">MANAGE GAME SERVER</h1>
-		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20">View and manage game server status</p>
+		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0">MANAGE GAME SERVER</h1>
+		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View and manage game server status</p>
 	</div>
 
 	<div 
