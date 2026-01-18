@@ -43,25 +43,9 @@
 		@autoRefreshAt="autoRefreshAt = $event"
 	/>
 
-	<StatusTile 
-		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-		collapsible
-		:perm-required="'SUPERPERM'"
-	>
-		<template #header>
-			<Icon icon="rocket" color="text-gray-6" size="5" />
-			<p class="text-gray-6 ml-2 text-lg">Create World</p>
-		</template>
-		<template #summary>
-			<div class="flex items-center">
-				<p class="text-2xl text-teal-4">6 worlds available</p>
-				<Spinner v-if="false" class="h-6 w-6 text-teal-3 ml-2"/>
-			</div>
-		</template>
-		<template #content>
-			
-		</template>
-	</StatusTile>
+	<ServerConfig 
+		:selected-instance="selectedInstance" 
+	/>
 
 	<Popup
 		body-class="h-1/4 w-full sm:w-1/2 lg:w-1/4"
@@ -87,6 +71,7 @@ import Popup from "../common/Popup.vue"
 import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
+import ServerConfig from './tools/server/ServerConfig.vue';
 
 
 export default {
@@ -98,6 +83,7 @@ export default {
 		BasicServerInfo,
 		SelectWorld,
 		MajorLoader,
+		ServerConfig,
 	},
 	props: {
 		
