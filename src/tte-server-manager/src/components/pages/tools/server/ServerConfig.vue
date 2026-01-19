@@ -28,7 +28,7 @@
 						</div>
 					</FlexButton> -->
 
-					<FlexButton
+					<!-- <FlexButton
 						class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2"
 						:disabled="false"
 					>
@@ -37,17 +37,18 @@
 							<Icon v-else icon="sync" color="text-teal-3" size="5" />
 							<p class="text-teal-3 ml-2 font-main font-bold flex">RESYNC CONFIG FILE</p>
 						</div>
-					</FlexButton>
+					</FlexButton> -->
 
 					<FlexButton
 						v-if="selectedServerData.state"
 						class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2"
 						:disabled="false"
+						@input="reloadConfig"
 					>
 						<div class="flex items-center">
 							<Spinner v-if="false" class="h-4 w-4 text-teal-3" thickness="4" />
 							<Icon v-else icon="arrow-rotate-right" color="text-teal-3" size="4" />
-							<p class="text-teal-3 ml-2 font-main font-bold flex">RELOAD TSHOCK CONFIG</p>
+							<p class="text-teal-3 ml-2 font-main font-bold flex">RELOAD CONFIG IN TSHOCK</p>
 						</div>
 					</FlexButton>
 				</div>
@@ -199,6 +200,22 @@ export default {
 
 		resetConfig() {
 			this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance]?.config, null, 2);
+		},
+
+		async reloadConfig() {
+			this.$validatePermissions(PERMISSIONS.server.config.write);
+
+			if (this.loadingSaveConfig) return;
+			this.loadingSaveConfig = true;
+
+			try {
+				await post(`/server/${this.selectedInstance}/config/reload`, PERMISSIONS.server.config.write, {});
+				this.$alert.success("Config reloaded");
+			} catch (e) {
+				this.$alert.error("Error reloading config");
+			} finally {
+				this.loadingSaveConfig = false;
+			}
 		}
 	},
 	mounted() {

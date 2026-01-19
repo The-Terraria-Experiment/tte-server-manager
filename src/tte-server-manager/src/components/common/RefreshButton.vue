@@ -15,8 +15,7 @@
 						:date="new Date(refreshAt)" 
 						@countdownExpired="refreshCountdownExpired" 
 						:update-interval="200"
-					/>
-				)
+					/>)
 				</span>
 			</p>
 		</div>

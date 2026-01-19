@@ -175,9 +175,9 @@ async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 
 
 	let statusCode, json;
 	try {
-		const data = await httpJsonRequest(url, { method, headers, timeout: 5000 }, null);
-		statusCode = data.statusCode;
-		json = data.json;
+		const requestData = await httpJsonRequest(url, { method, headers, timeout: 5000 }, null);
+		statusCode = requestData.statusCode;
+		json = requestData.json;
 	} catch (e) {
 		// If the token cache includes a token, but the server has been shut down, it will fail here instead
 		if (e.message.includes("ECONNREFUSED")) {
