@@ -33,11 +33,11 @@
 			:open="profilePopupOpen"
 			@xClicked="profilePopupOpen = false"
 			headerText="Profile"
-			bodyClass="w-11/12 md:w-1/3 h-1/4"
+			bodyClass="w-11/12 md:w-1/4 h-1/3 sm:h-1/4"
 		>
-			<div class="w-full h-full flex justify-between items-center p-4">
+			<div class="w-full h-full flex flex-col  justify-between items-center p-4">
 				<div>
-					<p class="text-gray-6 font-main font-bold">Display Name</p>
+					<p class="text-gray-6 font-main font-bold text-center mb-2">Display Name</p>
 					<div 
 						class="rounded-lg bg-gray-4 py-2 px-4 font-main font-bold text-cream min-w-50 cursor-pointer"
 						@click="$refs.namepopup.openPopup"
