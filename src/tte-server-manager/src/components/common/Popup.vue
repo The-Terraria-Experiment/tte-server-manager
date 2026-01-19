@@ -39,7 +39,7 @@
 							v-if="button"
 							:variant="button.variant"
 							@input="doClick(button)"
-							class="ml-4"
+							class="ml-4 text-sm sm:text-md"
 						>
 							<p class="font-main font-bold py-2 px-4 md:px-10">{{ button.text }}</p>
 						</FlexButton>

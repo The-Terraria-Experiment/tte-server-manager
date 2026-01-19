@@ -33,7 +33,7 @@
 	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
 
 	<BasicInstanceInfo 
-	v-if="selectedInstance"
+		v-if="selectedInstance"
 		:selected-instance-data="selectedInstanceData" 
 		:loading="loading" 
 		@autoRefreshAt="autoRefreshAt = $event" 

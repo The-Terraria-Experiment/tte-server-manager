@@ -19,25 +19,25 @@
 			<template #content>
 				<div v-if="selectedInstanceData.state === 'ONLINE'">
 					<FlexButton 
-						v-if="$checkPermissions(PERMISSIONS.instance.status.stop) && !loading.stateChange"
+						v-if="$checkPermissions(PERMISSIONS.instance.status.stop) && !loading.stateChange && showStateChangeButtons"
 						class="mx-4 mb-4" 
 						:variant="BTN_VARIANT.DANGER"
-						@input="stopInstance"
+						@input="openConfirmStopPopup"
 					>
 						<p class="py-2 px-12">STOP</p>
 					</FlexButton>
 					<FlexButton 
-						v-if="$checkPermissions(PERMISSIONS.instance.status.restart) && !loading.stateChange"
+						v-if="$checkPermissions(PERMISSIONS.instance.status.restart) && !loading.stateChange && showStateChangeButtons"
 						class="mx-4 mb-4" 
 						:variant="BTN_VARIANT.DANGER"
-						@input="restartInstance"
+						@input="openConfirmRestartPopup"
 					>
 						<p class="py-2 px-12">RESTART</p>
 					</FlexButton>
 				</div>
 				<div v-if="selectedInstanceData.state === 'OFFLINE'">
 					<FlexButton 
-						v-if="$checkPermissions(PERMISSIONS.instance.status.start) && !loading.stateChange"
+						v-if="$checkPermissions(PERMISSIONS.instance.status.start) && !loading.stateChange && showStateChangeButtons"
 						class="mx-4 mb-4" 
 						:variant="BTN_VARIANT.PRIMARY"
 						@input="startInstance"
@@ -94,6 +94,36 @@
 			</template>
 		</StatusTile>
 	</div>
+
+	<Popup
+		body-class="h-1/3 w-11/12 sm:w-1/2 lg:w-1/4"
+		header-text="CONFIRM"
+		:open="confirmStopPopupOpen"
+		@x-clicked="confirmStopPopupOpen = false"
+		:buttons="[
+			{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmStopPopupOpen = false } },
+			{ variant: BTN_VARIANT.DANGER, text: 'STOP INSTANCE', onClick: stopInstance },
+		]"
+	>
+		<div class="p-4 h-full w-full flex text-center justify-center items-center font-main font-bold text-red-5">
+			Are you sure you want to stop this instance?
+		</div>
+	</Popup>
+
+	<Popup
+		body-class="h-1/3 w-11/12 sm:w-1/2 lg:w-1/4"
+		header-text="CONFIRM"
+		:open="confirmRestartPopupOpen"
+		@x-clicked="confirmRestartPopupOpen = false"
+		:buttons="[
+			{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmRestartPopupOpen = false } },
+			{ variant: BTN_VARIANT.DANGER, text: 'RESTART INSTANCE', onClick: restartInstance },
+		]"
+	>
+		<div class="p-4 h-full w-full flex text-center justify-center items-center font-main font-bold text-red-5">
+			Are you sure you want to restart this instance?
+		</div>
+	</Popup>
 </template>
 
 <script>
@@ -104,13 +134,16 @@ import delay from '../../../../util/delay';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import { getDateOffset } from '../../../../util/timeutils';
 import ActiveDate from '../../../common/ActiveDate.vue';
+import Popup from '../../../common/Popup.vue';
 
 
 export default {
 	mixins: [],
 	components: {
 		ActiveDate,
+		Popup,
 	},
+	emits: ['autoRefreshAt'],
 	props: {
 		selectedInstanceData: {
 			type: Object,
@@ -127,14 +160,24 @@ export default {
 			BTN_VARIANT,
 			serverStore: useServerStore(),
 			statusPollInterval: null,
-			statusPollStopStates: []
+			statusPollStopStates: [],
+			confirmStopPopupOpen: false,
+			confirmRestartPopupOpen: false,
+			showStateChangeButtons: true,
 		}
 	},
 	computed: {
 		
 	},
 	methods: {
+		openConfirmStopPopup() {
+			this.confirmStopPopupOpen = true;
+		},
+		openConfirmRestartPopup() {
+			this.confirmRestartPopupOpen = true;
+		},
 		async stopInstance() {
+			this.confirmStopPopupOpen = false;
 			this.$validatePermissions(PERMISSIONS.instance.status.stop);
 
 			if (this.loading.stateChange) return;
@@ -175,6 +218,7 @@ export default {
 			}
 		},
 		async restartInstance() {
+			this.confirmRestartPopupOpen = false;
 			this.$validatePermissions(PERMISSIONS.instance.status.restart);
 
 			if (this.loading.stateChange) return;
@@ -184,7 +228,7 @@ export default {
 				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstanceData.id).text;
 				const response = await post(`/instance/${this.selectedInstanceData.id}/restart`, PERMISSIONS.instance.status.restart);
 				await delay(2000);
-				this.$alert.info(`Initiated restart of instance '${instanceName}'`);
+				this.$alert.success(`Initiated restart of instance '${instanceName}'`);
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance restart");
@@ -209,6 +253,7 @@ export default {
 			const maxRefreshes = 5;
 			let refreshesDone = 1;
 
+			this.showStateChangeButtons = false;
 			this.statusPollStopStates = stopStates;
 			const refreshAt = getDateOffset(5000).valueOf();
 			this.$emit("autoRefreshAt", refreshAt);
@@ -233,6 +278,7 @@ export default {
 
 		stopPoll() {
 			this.statusPollStopStates = [];
+			this.showStateChangeButtons = true;
 			clearInterval(this.statusPollInterval);
 			this.$emit("autoRefreshAt", null);
 		}
