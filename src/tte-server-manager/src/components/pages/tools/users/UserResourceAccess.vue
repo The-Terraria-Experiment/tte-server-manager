@@ -12,19 +12,20 @@
 					<template v-for="(user, idx) of sortedPermissionsData">
 						<div 
 							:class="[
-								'w-full p-2 hover:bg-gray-5 cursor-pointer',
+								'w-full p-2 sm:hover:bg-gray-5 cursor-pointer',
 								userSelected === user.userID ? 'bg-teal-1' : (idx % 2 ? 'bg-gray-3' : 'bg-gray-4')
 							]"
 							@click="userSelected = user.userID"
 						>
-							<p class="font-mono font-semibold text-cream">{{ user.displayName || user.username }}</p>
+							<p class="font-mono font-semibold text-cream overflow-x-auto text-nowrap">{{ user.displayName || user.username }}</p>
 						</div>
 					</template>
 				</div>
-				<div class="w-3/4 px-4 font-mono pb-2">
+				<div class="w-3/4 pr-2 font-mono pb-2 text-xs sm:text-md">
 					<LargeTextInput 
 						placeholder="Select a user to view resource permissions"
 						class="min-h-40 w-full rounded" 
+						wrap="off"
 						v-model="userResourcePermissions"
 					/>
 				</div>
