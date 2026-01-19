@@ -35,6 +35,10 @@ const endpoints = {
 		action: require("./actions/writeConfig"),
 		permRequired: PERMISSIONS.server.config.write,
 	},
+	"POST /server/{id}/config/reload": {
+		action: require("./actions/reloadConfig"),
+		permRequired: PERMISSIONS.server.config.write,
+	},
 	// "PUT /server/{id}/config": {
 	// 	action: require("./actions/writeConfig"),
 	// 	permRequired: PERMISSIONS.server.config.write,
