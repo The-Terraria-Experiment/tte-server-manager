@@ -115,6 +115,7 @@ import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
+import { getDateOffset } from '../../../../util/timeutils';
 
 export default {
 	mixins: [],
@@ -155,7 +156,10 @@ export default {
 
 			try {
 				const response = await post(`/server/${this.selectedInstance}/stop`, PERMISSIONS.server.status.stop);
+				const refreshAt = getDateOffset(5000).valueOf();
+				this.$emit("autoRefreshAt", refreshAt);
 				this.$alert.success("Server stopping");
+				setTimeout(() => this.$emit("autoRefreshAt", null), 6000);
 			} catch (e) {
 				this.$alert.error("Error stopping server");
 				console.error(e);

@@ -31,7 +31,7 @@
 							/>
 						</div>
 						<div :class="['flex items-center', { 'bg-gray-4': !(idx%2)}]" @click="selectWorld.selectedWorld = world.name">
-							<p class="font-mono text-white-0 font-semibold text-sm">{{ world.name }}</p>
+							<p class="font-mono text-white-0 font-semibold text-sm cursor-pointer">{{ world.name }}</p>
 						</div>
 						<div v-if="!isMobile" :class="['flex items-center rounded-r pr-2', { 'bg-gray-4': !(idx%2)}]">
 							<p class="font-mono text-white-0 font-semibold text-sm">{{ formatFileSize(world.size) }}</p>
@@ -186,15 +186,13 @@ export default {
 					maxPlayers: this.selectWorld.maxplayers
 				});
 				this.$alert.success("Server starting");
+				this.pollInstanceState();
 			} catch (e) {
 				this.$alert.error("Error launching server");
 				console.error(e);
 			} finally {
 				this.startServerLoading = false;
 			}
-
-			await delay(5000);
-			this.fetchServerStatus();
 		},
 
 		async fetchServerStatus() {
@@ -232,12 +230,8 @@ export default {
 			this.$emit("autoRefreshAt", null);
 		}
 	},
-	watch: {
-		"selectedServerData.state": function (value) {
-			if (value) {
-				this.stopPoll();
-			}
-		}
+	beforeUnmount() {
+		this.stopPoll();
 	}
 }
 </script>
