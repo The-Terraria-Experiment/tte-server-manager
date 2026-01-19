@@ -6,19 +6,19 @@
 				<div class="mt-1">OVERVIEW</div>
 			</FlexButton>
 		</RouterLink>
-		<RouterLink to="/instance" class="w-1/5">
+		<RouterLink to="/instance" class="w-1/5" v-if="hasInstancePermissions">
 			<FlexButton :class="['flex-col justify-end h-full p-2', selectedClass('/instance')]">
 				<Icon icon="server" size="6" :color="selectedClass('/instance')"/>
 				<div class="mt-1">INSTANCE</div>
 			</FlexButton>
 		</RouterLink>
-		<RouterLink to="/server" class="w-1/5">
+		<RouterLink to="/server" class="w-1/5" v-if="hasServerPermissions">
 			<FlexButton :class="['flex-col justify-end h-full p-2', selectedClass('/server')]">
 				<Icon icon="gamepad" size="7" :color="selectedClass('/server')"/>
 				<div class="mt-0.5">SERVER</div>
 			</FlexButton>
 		</RouterLink>
-		<RouterLink to="/users" class="w-1/5">
+		<RouterLink to="/users" class="w-1/5" v-if="hasUserPermissions">
 			<FlexButton :class="['flex-col justify-end h-full p-2', selectedClass('/users')]">
 				<Icon icon="user-lock" size="6" :color="selectedClass('/users')"/>
 				<div class="mt-1">USERS</div>
@@ -28,6 +28,8 @@
 </template>
 
 <script>
+import { PERMISSIONS } from '../../util/permissionValues';
+import leaves from '../../util/traverse';
 import FlexButton from '../common/FlexButton.vue';
 import Icon from '../common/Icon.vue';
 
@@ -35,6 +37,22 @@ export default {
 	components: {
 		FlexButton,
 		Icon,
+	},
+	data() {
+		return {
+			PERMISSIONS,
+		}
+	},
+	computed: {
+		hasUserPermissions() {
+			return this.$checkPermissions(leaves(PERMISSIONS.users), false);
+		},
+		hasInstancePermissions() {
+			return this.$checkPermissions(leaves(PERMISSIONS.instance), false);
+		},
+		hasServerPermissions() {
+			return this.$checkPermissions(leaves(PERMISSIONS.server), false);
+		}
 	},
 	methods: {
 		selectedClass(routes) {
