@@ -183,7 +183,8 @@ export default {
 				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.select, {
 					worldFilePath: this.selectWorld.selectedWorld,
 					port: this.selectWorld.port,
-					maxPlayers: this.selectWorld.maxplayers
+					maxPlayers: this.selectWorld.maxplayers,
+					password: this.selectWorld.password ?? ""
 				});
 				this.$alert.success("Server starting");
 				this.pollInstanceState();
