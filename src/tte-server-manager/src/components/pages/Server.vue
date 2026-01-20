@@ -157,8 +157,12 @@ export default {
 			try {
 				await this.serverStore.fetchServerStatus(this.selectedInstance);
 			} catch (e) {
-				this.$alert.error("Error getting server status");
-				console.error(e);
+				if (e.message.includes("Request timed out for")) {
+					this.$alert.warning("Could not fetch server status: instance is not running or not responding");
+				} else {
+					this.$alert.error("Error getting server status");
+					console.error(e);
+				}
 			}
 		}
 	},
