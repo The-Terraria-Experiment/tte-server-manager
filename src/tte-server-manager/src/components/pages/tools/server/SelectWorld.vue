@@ -41,8 +41,8 @@
 			</div>
 
 			<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
-			<div class="mx-4 mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+			<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
+				<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
 					<ValueInput
 						type="number"
@@ -51,7 +51,7 @@
 						placeholder="Value between 1000 and 9999"
 						v-model="selectWorld.port"
 					/>
-				</div>
+				</div> -->
 
 				<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 sm:mx-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
@@ -64,7 +64,7 @@
 					/>
 				</div>
 
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+				<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
 					<ValueInput
 						maxlength="25"
@@ -72,7 +72,7 @@
 						v-model="selectWorld.password"
 						:input-allowed="new Set(allowedPasswordChars)"
 					/>
-				</div>
+				</div> -->
 			</div>
 
 			<div class="flex justify-end p-4">

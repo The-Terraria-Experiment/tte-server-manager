@@ -35,7 +35,7 @@ async function handle(event) {
 
 		const result = await callTShockAPI(event.requestContext?.authorizer?.claims?.sub, ip, "/v3/server/reload");
 	} catch (e) {
-		return errorResponse(err.message || 'Failed to fetch server status');
+		return errorResponse(e.message || 'Failed to fetch server status');
 	}
 
 	return successResponse({ });
