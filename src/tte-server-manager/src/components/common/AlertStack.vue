@@ -67,7 +67,7 @@ const typeClasses = (type) => {
 		case 'error':
 			return 'bg-linear-to-r from-red-2 to-red-0 text-white-1';
 		case 'warning':
-			return 'bg-linear-to-r from-yellow-2 to-yellow-700 text-white-1';
+			return 'bg-linear-to-r from-yellow-600 to-yellow-700 text-white-1';
 		default:
 			return 'bg-linear-to-r from-blue-1 to-blue-0 text-white-1';
 	}
