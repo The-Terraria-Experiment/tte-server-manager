@@ -41,8 +41,8 @@
 			</div>
 
 			<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
-			<div class="mx-4 mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+			<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
+				<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
 					<ValueInput
 						type="number"
@@ -51,7 +51,7 @@
 						placeholder="Value between 1000 and 9999"
 						v-model="selectWorld.port"
 					/>
-				</div>
+				</div> -->
 
 				<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 sm:mx-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
@@ -64,7 +64,7 @@
 					/>
 				</div>
 
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+				<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
 					<ValueInput
 						maxlength="25"
@@ -72,7 +72,7 @@
 						v-model="selectWorld.password"
 						:input-allowed="new Set(allowedPasswordChars)"
 					/>
-				</div>
+				</div> -->
 			</div>
 
 			<div class="flex justify-end p-4">
@@ -183,13 +183,18 @@ export default {
 				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.select, {
 					worldFilePath: this.selectWorld.selectedWorld,
 					port: this.selectWorld.port,
-					maxPlayers: this.selectWorld.maxplayers
+					maxPlayers: this.selectWorld.maxplayers,
+					password: this.selectWorld.password ?? ""
 				});
 				this.$alert.success("Server starting");
 				this.pollInstanceState();
 			} catch (e) {
-				this.$alert.error("Error launching server");
-				console.error(e);
+				if (e.message.includes("Instances not in a valid state")) {
+					this.$alert.warning("Could not launch server: instance is not running or not responding");
+				} else {
+					this.$alert.error("Error launching server");
+					console.error(e);
+				}
 			} finally {
 				this.startServerLoading = false;
 			}
@@ -201,8 +206,12 @@ export default {
 			try {
 				await this.serverStore.fetchServerStatus(this.selectedInstance);
 			} catch (e) {
-				this.$alert.error("Error getting server status");
-				console.error(e);
+				if (e.message.includes("Request timed out for")) {
+					this.$alert.warning("Could not fetch server status: instance is not running or not responding");
+				} else {
+					this.$alert.error("Error getting server status");
+					console.error(e);
+				}
 			}
 		},
 

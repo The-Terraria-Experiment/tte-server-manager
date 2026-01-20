@@ -4,6 +4,10 @@ import { PERMISSIONS } from '../util/permissionValues';
 
 export const useServerStore = defineStore("serverstore", {
 	state: () => ({
+		selected: {
+			instance: null,
+			server: null,
+		},
 		instances: [],
 		instanceData: {},
 		instanceFiles: {},

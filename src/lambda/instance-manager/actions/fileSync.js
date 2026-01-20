@@ -126,7 +126,7 @@ async function handle(event) {
 			action: "file-sync",
 			status: 'ok',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
-			details: { commandId, filesProcessed }
+			details: { commandId: result.commandId, filesProcessed: result.filesProcessed }
 		});
 
 		return successResponse({

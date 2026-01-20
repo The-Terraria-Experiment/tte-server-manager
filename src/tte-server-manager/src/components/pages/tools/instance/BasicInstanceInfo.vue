@@ -105,8 +105,9 @@
 			{ variant: BTN_VARIANT.DANGER, text: 'STOP INSTANCE', onClick: stopInstance },
 		]"
 	>
-		<div class="p-4 h-full w-full flex text-center justify-center items-center font-main font-bold text-red-5">
-			Are you sure you want to stop this instance?
+		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
+			<p class="text-white-0 py-2">Are you sure you want to stop this instance?</p>
+			<p class="text-red-5">If there is a server currently running on this instance, any unsaved progress will be lost!</p>
 		</div>
 	</Popup>
 
@@ -120,8 +121,9 @@
 			{ variant: BTN_VARIANT.DANGER, text: 'RESTART INSTANCE', onClick: restartInstance },
 		]"
 	>
-		<div class="p-4 h-full w-full flex text-center justify-center items-center font-main font-bold text-red-5">
-			Are you sure you want to restart this instance?
+		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
+			<p class="text-white-0 py-2">Are you sure you want to restart this instance?</p>
+			<p class="text-red-5">If there is a server currently running on this instance, any unsaved progress will be lost!</p>
 		</div>
 	</Popup>
 </template>
