@@ -82,7 +82,6 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
-			selectedInstance: null,
 			autoRefreshAt: null,
 		}
 	},
@@ -97,6 +96,14 @@ export default {
 		},
 		filteredInstanceOptions() {
 			return this.serverStore.instanceOptions.filter(i => this.$checkResourceAccess(`server::${i.id}`));
+		},
+		selectedInstance: {
+			get() {
+				return this.serverStore.selected.instance;
+			},
+			set(value) {
+				this.serverStore.selected.instance = value;
+			}
 		}
 	},
 	methods: {
@@ -109,11 +116,13 @@ export default {
 
 			try {
 				const instances = await this.serverStore.fetchInstanceList();
-				instances.forEach(i => {
-					if (this.$checkResourceAccess(`server::${i.id}`)) {
-						this.selectedInstance = i.id;
-					}
-				});
+				if (!this.selectedInstance) {
+					instances.forEach(i => {
+						if (this.$checkResourceAccess(`server::${i.id}`)) {
+							this.selectedInstance = i.id;
+						}
+					});
+				}
 			} catch (e) {
 				this.$alert.error("Error fetching instance list");
 				console.error(e);
