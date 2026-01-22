@@ -289,6 +289,8 @@ export default {
 		async syncInstanceFiles(instanceID) {
 			this.$validatePermissions(PERMISSIONS.instance.files.write);
 
+			this.loading.fileUpload = true;
+
 			try {
 				await put(`/instance/${instanceID}/files`, PERMISSIONS.instance.files.write);
 				this.$alert.success("File sync complete");
@@ -322,7 +324,8 @@ export default {
 				await post(`/instance/${this.selectedInstanceData.id}/files/delete`, PERMISSIONS.instance.files.write, {
 					pathRoot: this.deleteDetails.pathRoot,
 					path: this.deleteDetails.path.slice(0, -1).join("/"),
-					fileName: this.deleteDetails.path[this.deleteDetails.path.length-1]
+					fileName: this.deleteDetails.path[this.deleteDetails.path.length - 1],
+					isFolder: this.deleteDetails.isFolder
 				});
 				this.$alert.success("File deleted");
 				this.fetchInstanceFiles(this.selectedInstanceData.id);

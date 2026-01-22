@@ -6,7 +6,7 @@
 const {EC2Client, StartInstancesCommand, StopInstancesCommand, RebootInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
 const {SSMClient, SendCommandCommand, GetCommandInvocationCommand} = require("@aws-sdk/client-ssm");
 const {SecretsManagerClient, GetSecretValueCommand} = require("@aws-sdk/client-secrets-manager");
-const {S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand} = require("@aws-sdk/client-s3");
+const {S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, DeleteObjectsCommand} = require("@aws-sdk/client-s3");
 const {getSignedUrl} = require("@aws-sdk/s3-request-presigner");
 const { logActionCond } = require("./cloudwatchLogger");
 const { CW_LOG_GENERAL } = require("../constants");
@@ -392,6 +392,50 @@ async function deleteS3Object(bucketName, key) {
 	await s3Client.send(command);
 }
 
+/**
+ * Delete all objects in S3 bucket with a given prefix (folder)
+ * @param {string} bucketName
+ * @param {string} prefix - S3 prefix/folder path
+ * @returns {Promise<{deleted: number}>}
+ */
+async function deleteS3Folder(bucketName, prefix) {
+	const listCommand = new ListObjectsV2Command({
+		Bucket: bucketName,
+		Prefix: prefix,
+	});
+
+	const response = await s3Client.send(listCommand);
+
+	if (!response.Contents || response.Contents.length === 0) {
+		logActionCond(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: 'shared-aws-delete-s3-folder',
+			resource: null,
+			details: { bucketName, prefix, deletedCount: 0 }
+		});
+		return { deleted: 0 };
+	}
+
+	const deleteCommand = new DeleteObjectsCommand({
+		Bucket: bucketName,
+		Delete: {
+			Objects: response.Contents.map(obj => ({ Key: obj.Key })),
+		},
+	});
+
+	const deleteResponse = await s3Client.send(deleteCommand);
+	const deletedCount = response.Contents.length;
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-delete-s3-folder',
+		resource: null,
+		details: { bucketName, prefix, deletedCount }
+	});
+
+	return { deleted: deletedCount };
+}
+
 module.exports = {
 	ec2Client,
 	ssmClient,
@@ -410,5 +454,6 @@ module.exports = {
 	getSignedUploadUrl,
 	getSignedDownloadUrl,
 	deleteS3Object,
+	deleteS3Folder,
 	putJsonObject,
 };

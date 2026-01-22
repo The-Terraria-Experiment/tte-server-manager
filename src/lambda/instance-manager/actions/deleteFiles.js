@@ -7,7 +7,7 @@ const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { validateResourceAccess } = require("../shared/utils/permissions");
 const {getDynamoItem} = require("../shared/utils/dynamo");
 const { successResponse, validationError } = require("../shared/utils/response");
-const { deleteS3Object, executeSSMCommand, getSSMCommandResult } = require("../shared/utils/aws");
+const { deleteS3Object, deleteS3Folder, executeSSMCommand, getSSMCommandResult } = require("../shared/utils/aws");
 
 /**
  * Delete file or folder from EC2 instance via SSM
@@ -68,7 +68,7 @@ async function handle(event) {
 		return validationError("Request body must be valid JSON");
 	}
 
-	const {pathRoot, path, fileName} = body;
+	const {pathRoot, path, fileName, isFolder} = body;
 
 	if (!pathRoot) {
 		return validationError("pathRoot parameter is required");
@@ -93,7 +93,11 @@ async function handle(event) {
 		const s3Key = pathComponents.join("/");
 
 		// Delete from S3
-		await deleteS3Object(bucketName, s3Key);
+		if (isFolder) {
+			await deleteS3Folder(bucketName, s3Key);
+		} else {
+			await deleteS3Object(bucketName, s3Key);
+		}
 
 		// Delete from instance
 		const baseLocalPath = process.env.BASE_ROOT;
