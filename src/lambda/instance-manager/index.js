@@ -43,6 +43,10 @@ const endpoints = {
 		action: require("./actions/uploadFiles"),
 		permRequired: PERMISSIONS.instance.files.write,
 	},
+	"DELETE /instance/{id}/files": {
+		action: require("./actions/deleteFiles"),
+		permRequired: PERMISSIONS.instance.files.write,
+	},
 	"PUT /instance/{id}/files": {
 		action: require("./actions/fileSync"),
 		permRequired: PERMISSIONS.instance.files.write,

@@ -6,7 +6,7 @@
 const {EC2Client, StartInstancesCommand, StopInstancesCommand, RebootInstancesCommand, DescribeInstancesCommand} = require("@aws-sdk/client-ec2");
 const {SSMClient, SendCommandCommand, GetCommandInvocationCommand} = require("@aws-sdk/client-ssm");
 const {SecretsManagerClient, GetSecretValueCommand} = require("@aws-sdk/client-secrets-manager");
-const {S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand} = require("@aws-sdk/client-s3");
+const {S3Client, ListObjectsV2Command, PutObjectCommand, GetObjectCommand, DeleteObjectCommand} = require("@aws-sdk/client-s3");
 const {getSignedUrl} = require("@aws-sdk/s3-request-presigner");
 const { logActionCond } = require("./cloudwatchLogger");
 const { CW_LOG_GENERAL } = require("../constants");
@@ -370,6 +370,28 @@ async function getSignedDownloadUrl(bucketName, key, expiresIn = 3600) {
 	return getSignedUrl(s3Client, command, {expiresIn});
 }
 
+/**
+ * Delete object from S3 bucket
+ * @param {string} bucketName
+ * @param {string} key - S3 object key/path
+ * @returns {Promise<void>}
+ */
+async function deleteS3Object(bucketName, key) {
+	const command = new DeleteObjectCommand({
+		Bucket: bucketName,
+		Key: key,
+	});
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-delete-s3-object',
+		resource: null,
+		details: { bucketName, key }
+	});
+
+	await s3Client.send(command);
+}
+
 module.exports = {
 	ec2Client,
 	ssmClient,
@@ -387,5 +409,6 @@ module.exports = {
 	getS3Object,
 	getSignedUploadUrl,
 	getSignedDownloadUrl,
+	deleteS3Object,
 	putJsonObject,
 };
