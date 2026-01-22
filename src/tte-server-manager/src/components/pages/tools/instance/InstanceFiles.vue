@@ -264,12 +264,12 @@ export default {
 			// Split path into components and construct final path
 			const pathParts = relativePath.split('/');
 			const fileName = pathParts.pop(); // Last part is filename
-			const pathString = pathParts.length > 0 ? pathParts.join("/") : "";
+			// const pathString = pathParts.length > 0 ? pathParts.join("/") : "";
 
 			// Request pre-signed URL from backend
 			const response = await post(`/instance/${this.selectedInstanceData.id}/files`, PERMISSIONS.instance.files.write, {
 				pathRoot: this.addFilePathRoot,
-				path: pathString,
+				path: this.addFilePath.join("/"),
 				fileName: fileName,
 			});
 
@@ -311,7 +311,7 @@ export default {
 			}
 		},
 
-		async deleteFile(path) {
+		async deleteFile() {
 			this.confirmDeletePopupOpen = false;
 			this.$validatePermissions(PERMISSIONS.instance.files.write);
 
@@ -322,9 +322,10 @@ export default {
 				await post(`/instance/${this.selectedInstanceData.id}/files/delete`, PERMISSIONS.instance.files.write, {
 					pathRoot: this.deleteDetails.pathRoot,
 					path: this.deleteDetails.path.slice(0, -1).join("/"),
-					filename: this.deleteDetails.path[this.deleteDetails.path.length-1]
+					fileName: this.deleteDetails.path[this.deleteDetails.path.length-1]
 				});
 				this.$alert.success("File deleted");
+				this.fetchInstanceFiles(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error deleting file");
 				console.error(e);
