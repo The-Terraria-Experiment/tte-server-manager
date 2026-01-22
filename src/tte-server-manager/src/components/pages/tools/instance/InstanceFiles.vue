@@ -319,7 +319,7 @@ export default {
 			this.loading.fileUpload = true;
 
 			try {
-				await deleteRequest(`/instance${this.selectedInstanceData.id}/files`, PERMISSIONS.instance.files.write, {
+				await post(`/instance/${this.selectedInstanceData.id}/files/delete`, PERMISSIONS.instance.files.write, {
 					pathRoot: this.deleteDetails.pathRoot,
 					path: this.deleteDetails.path.slice(0, -1).join("/"),
 					filename: this.deleteDetails.path[this.deleteDetails.path.length-1]
@@ -328,6 +328,8 @@ export default {
 			} catch (e) {
 				this.$alert.error("Error deleting file");
 				console.error(e);
+			} finally {
+				this.loading.fileUpload = false;
 			}
 		}
 	},

@@ -43,7 +43,7 @@ const endpoints = {
 		action: require("./actions/uploadFiles"),
 		permRequired: PERMISSIONS.instance.files.write,
 	},
-	"DELETE /instance/{id}/files": {
+	"POST /instance/{id}/files/delete": {
 		action: require("./actions/deleteFiles"),
 		permRequired: PERMISSIONS.instance.files.write,
 	},
