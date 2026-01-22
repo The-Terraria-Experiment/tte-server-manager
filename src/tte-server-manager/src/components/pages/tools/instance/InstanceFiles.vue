@@ -264,12 +264,11 @@ export default {
 			// Split path into components and construct final path
 			const pathParts = relativePath.split('/');
 			const fileName = pathParts.pop(); // Last part is filename
-			// const pathString = pathParts.length > 0 ? pathParts.join("/") : "";
 
 			// Request pre-signed URL from backend
 			const response = await post(`/instance/${this.selectedInstanceData.id}/files`, PERMISSIONS.instance.files.write, {
 				pathRoot: this.addFilePathRoot,
-				path: this.addFilePath.join("/"),
+				path: this.addFilePath.concat(pathParts).join("/"),
 				fileName: fileName,
 			});
 
