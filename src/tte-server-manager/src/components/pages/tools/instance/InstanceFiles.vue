@@ -35,7 +35,7 @@
 						<FileHierarchy 
 							class="mt-4 -ml-4"
 							:files="instanceFiles[path]"
-							@deleteClicked="(data) => { }"
+							@deleteClicked="($e) => openConfirmDeletePopup($e, path)"
 							@addClicked="($e) => openFileUploadPopup($e, path)"
 						/>
 					</div>
@@ -70,6 +70,8 @@
 				<p class="font-main font-semibold text-teal-4 cursor-pointer" @click="uploadFolderMode = !uploadFolderMode">Folder upload</p>
 			</div>
 
+			<p v-if="uploadFolderMode" class="font-main font-semibold text-white-0">Note: This will upload the selected folder as well.</p>
+
 			<FilePicker 
 				v-model="pickedFile" 
 				@cleared="onFileCleared" 
@@ -81,11 +83,30 @@
 			</div>
 		</div>
 	</Popup>
+
+	<Popup
+		body-class="h-1/3 w-11/12 sm:w-1/2 lg:w-1/4"
+		header-text="CONFIRM"
+		:open="confirmDeletePopupOpen"
+		@x-clicked="confirmDeletePopupOpen = false"
+		:buttons="[
+			{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmDeletePopupOpen = false } },
+			{ variant: BTN_VARIANT.DANGER, text: 'DELETE', onClick: deleteFile },
+		]"
+	>
+		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
+			<p class="text-white-0 py-2">
+				Are you sure you want to delete 
+				{{ deleteDetails.isFolder ? 'this folder? This includes any files and folders in it.' : 'this file?' }}
+			</p>
+			<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm text-white-0">{{ deleteDetails.pathRoot + "/" + deleteDetails.path.join("/") }}</div>
+		</div>
+	</Popup>
 </template>
 
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
-import { post, put } from '../../../../util/api';
+import { deleteRequest, post, put } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -123,6 +144,12 @@ export default {
 			addFilePath: null,
 			addFilePathRoot: null,
 			uploadFolderMode: false,
+			deleteDetails: {
+				path: null,
+				isFolder: false,
+				pathRoot: ""
+			},
+			confirmDeletePopupOpen: false,
 		}
 	},
 	computed: {
@@ -166,6 +193,14 @@ export default {
 			this.addFilePathRoot = null;
 			this.uploadFolderMode = false;
 			this.onFileCleared();
+		},
+
+		openConfirmDeletePopup(data, root) {
+			this.confirmDeletePopupOpen = true;
+			this.deleteDetails = {
+				...data,
+				pathRoot: root
+			};
 		},
 
 		onFileCleared() {
@@ -275,6 +310,26 @@ export default {
 				console.error(e);
 			}
 		},
+
+		async deleteFile(path) {
+			this.confirmDeletePopupOpen = false;
+			this.$validatePermissions(PERMISSIONS.instance.files.write);
+
+			if (this.loading.fileUpload) return;
+			this.loading.fileUpload = true;
+
+			try {
+				await deleteRequest(`/instance${this.selectedInstanceData.id}/files`, PERMISSIONS.instance.files.write, {
+					pathRoot: this.deleteDetails.pathRoot,
+					path: this.deleteDetails.path.slice(0, -1).join("/"),
+					filename: this.deleteDetails.path[this.deleteDetails.path.length-1]
+				});
+				this.$alert.success("File deleted");
+			} catch (e) {
+				this.$alert.error("Error deleting file");
+				console.error(e);
+			}
+		}
 	},
 }
 </script>

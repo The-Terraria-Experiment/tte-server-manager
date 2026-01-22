@@ -137,7 +137,7 @@ export function post(endpoint, permission, body, options = {}) {
  * @param {object} options
  * @return {Promise}
  */
-export function put(endpoint, body, permission, options = {}) {
+export function put(endpoint, permission, body, options = {}) {
 	return apiRequest('PUT', endpoint, permission, { body, ...options });
 }
 
@@ -146,8 +146,8 @@ export function put(endpoint, body, permission, options = {}) {
  * @param {string} endpoint
  * @param {string} permission
  * @param {object} options
- * @return {object}
+ * @return {Promise}
  */
-export function deleteRequest(endpoint, permission, options = {}) {
-	return apiRequest('DELETE', endpoint, permission, options);
+export function deleteRequest(endpoint, permission, body, options = {}) {
+	return apiRequest('DELETE', endpoint, permission, { body, ...options });
 }

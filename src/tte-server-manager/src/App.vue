@@ -27,7 +27,7 @@
 
 	<div 
 		v-if="['', '/', '/overview'].includes($route.path)"
-		:class="['absolute m-auto left-0 right-0 text-center text-blue-400 font-main font-semibold text-xs', isMobile ? 'bottom-20' : 'bottom-2']"
+		:class="['relative text-center text-blue-400 font-main font-semibold text-xs mt-4 sm:mt-0 sm:mb-4', isMobile ? 'bottom-20' : 'bottom-2']"
 	>
 		<a href="https://server.terrariaexperiment.click/terms-and-conditions-privacy-policy">Terms / Privacy Policy</a>
 	</div>
