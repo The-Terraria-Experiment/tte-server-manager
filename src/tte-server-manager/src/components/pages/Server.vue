@@ -39,7 +39,7 @@
 	/>
 
 	<SelectWorld 
-		v-if="selectedInstance && !selectedServerData.state && !autoRefreshAt" 
+		v-if="selectedInstance && !selectedServerData.state" 
 		:selected-instance="selectedInstance" 
 		:selected-server-data="selectedServerData" 
 		@autoRefreshAt="autoRefreshAt = $event"
