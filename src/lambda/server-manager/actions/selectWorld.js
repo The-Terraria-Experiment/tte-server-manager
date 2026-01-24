@@ -19,17 +19,15 @@ const { validateResourceAccess } = require("../shared/utils/permissions");
  * @param {number} port - Server port
  * @param {number} maxPlayers - Maximum player count
  * @param {string} password - Server password (optional)
- * @param {string} errLogDir - Directory for stderr log files (optional)
  * @returns {string} Properly formatted command
  */
-function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password, errLogDir) {
+function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 	// Validate and quote paths to handle spaces safely
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	const quotedTshockPath = `"${baseRoot}${tshockPath}"`;
 	const worldPathNormalized = path.posix.normalize(`${baseRoot}${worldPath}`);
 	const escapedPath = worldPathNormalized.replace(/"/g, '\\"');
 	const quotedWorldPath = `"${escapedPath}"`;
-	const errLogRoot = (errLogDir || "").trim().replace(/\/$/, "");
 
 	// Build command with flags
 	let command = `${quotedTshockPath} -world ${quotedWorldPath}`;
@@ -41,7 +39,16 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password, e
 		command += ` -password "${password}"`;
 	}
 
+	// Append stdout redirection into daily log file when configured
+	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
+	if (outLogRoot) {
+		const outLogPath = path.posix.join(outLogRoot, `${new Date().toISOString().slice(0, 10)}.log`);
+		const escapedOutLogPath = outLogPath.replace(/"/g, '\\"');
+		command += ` 1>> "${escapedOutLogPath}"`;
+	}
+
 	// Append stderr redirection into daily log file when configured
+	const errLogRoot = (process.env.TSHOCK_ERR_LOGS || "").trim().replace(/\/$/, "");
 	if (errLogRoot) {
 		const errLogPath = path.posix.join(errLogRoot, `${new Date().toISOString().slice(0, 10)}.log`);
 		const escapedErrLogPath = errLogPath.replace(/"/g, '\\"');
@@ -107,8 +114,7 @@ async function handle(event) {
 	}
 
 	// Build the command
-	const tshockErrorLogDir = process.env.TSHOCK_ERR_LOGS;
-	const command = buildTShockCommand(tshockPath, worldFilePath, port, maxPlayers, password, tshockErrorLogDir);
+	const command = buildTShockCommand(tshockPath, worldFilePath, port, maxPlayers, password);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
 		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
