@@ -39,26 +39,31 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 		command += ` -password "${password}"`;
 	}
 
-	// Append stdout redirection into daily log file when configured
+	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
 	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
 	if (outLogRoot) {
 		const outLogPath = path.posix.join(outLogRoot, `${new Date().toISOString().slice(0, 10)}.log`);
 		const escapedOutLogPath = outLogPath.replace(/"/g, '\\"');
 		command += ` 1>> "${escapedOutLogPath}"`;
+	} else {
+		command += " 1> /dev/null";
 	}
 
-	// Append stderr redirection into daily log file when configured
+	// Append stderr redirection into daily log file when configured (otherwise drop to /dev/null)
 	const errLogRoot = (process.env.TSHOCK_ERR_LOGS || "").trim().replace(/\/$/, "");
 	if (errLogRoot) {
 		const errLogPath = path.posix.join(errLogRoot, `${new Date().toISOString().slice(0, 10)}.log`);
 		const escapedErrLogPath = errLogPath.replace(/"/g, '\\"');
 		command += ` 2>> "${escapedErrLogPath}"`;
+	} else {
+		command += " 2> /dev/null";
 	}
 
-	// SSM runs as root; force working directory and user for TShock
+	// Run detached so SSM can exit while server keeps running
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
-	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${command}"`;
+	const detached = `nohup ${command} < /dev/null & disown`;
+	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${detached}"`;
 }
 
 async function handle(event) {
