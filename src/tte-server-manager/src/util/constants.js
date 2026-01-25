@@ -1,5 +1,6 @@
 export const BTN_VARIANT = {
 	PRIMARY: 'btn_variant_primary',
+	SECONDARY: 'btn_variant_secondary',
 	DANGER: 'btn_variant_danger',
 	SUBTLE: 'btn_variant_subtle'
 };

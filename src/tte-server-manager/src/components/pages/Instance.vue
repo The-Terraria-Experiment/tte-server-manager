@@ -17,7 +17,12 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" :refresh-at="autoRefreshAt" />
+		<RefreshButton 
+			class="mt-4"
+			:loading="serverStore.isLoadingStatus(selectedInstance)" 
+			@input="refresh" 
+			:refresh-at="autoRefreshAt" 
+		/>
 	</div>
 	
 	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
@@ -178,6 +183,9 @@ export default {
 	async mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			await this.fetchInstanceList();
+			if (!this.serverStore.getInstanceData(this.selectedInstance) && !this.serverStore.isLoadingStatus(this.selectedInstance) && this.$checkResourceAccess(`instance::${this.selectedInstance}`)) {
+				this.fetchInstanceStatus(this.selectedInstance);
+			}
 			if (this.$checkPermissions(PERMISSIONS.instance.files.read) && this.$checkResourceAccess(`instance::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}

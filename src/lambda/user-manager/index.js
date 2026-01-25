@@ -38,6 +38,10 @@ const endpoints = {
 	"POST /users/username": {
 		action: require("./actions/setUsername"),
 		permRequired: PERMISSIONS.access
+	},
+	"POST /users/dropcache": {
+		action: require("./actions/dropcache"),
+		permRequired: PERMISSIONS.system.dropcache
 	}
 };
 

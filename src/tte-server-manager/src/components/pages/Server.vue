@@ -17,7 +17,22 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.somethingIsLoading" @input="refresh" :refresh-at="autoRefreshAt" />
+		<div class="flex flex-col sm:flex-row gap-4 mt-4">
+			<RefreshButton
+				:loading="serverStore.somethingIsLoading"
+				@input="refresh"
+				:refresh-at="autoRefreshAt"
+			/>
+			<FlexButton
+				v-if="$checkPermissions(PERMISSIONS.system.dropcache)"
+				:variant="BTN_VARIANT.SECONDARY"
+				leftIcon="ban"
+				leftIconSize="5"
+				@input="dropTshockTokenCache"
+			>
+				DROP TSHOCK TOKEN CACHE
+			</FlexButton>
+		</div>
 	</div>
 	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
 		<template #header>
@@ -62,6 +77,8 @@ import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
+import FlexButton from '../common/FlexButton.vue';
+import { post } from '../../util/api';
 
 
 export default {
@@ -163,6 +180,18 @@ export default {
 					this.$alert.error("Error getting server status");
 					console.error(e);
 				}
+			}
+		},
+
+		async dropTshockTokenCache() {
+			this.$validatePermissions(PERMISSIONS.system.dropcache);
+
+			try {
+				await post("/server/dropcache", PERMISSIONS.system.dropcache);
+				this.$alert.success("TShock token cache dropped");
+			} catch (e) {
+				this.$alert.error("Error dropping token cache");
+				console.error(e);
 			}
 		}
 	},

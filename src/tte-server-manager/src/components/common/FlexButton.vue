@@ -3,7 +3,16 @@
 		:class="['cursor-pointer rounded-lg flex items-center gradientbg select-none', btnStyle]" 
 		@click="input"
 	>
-		<slot></slot>
+		<div v-if="variant === BTN_VARIANT.SECONDARY">
+			<div class="flex items-center">
+				<Spinner v-if="loading" class="h-4 w-4 text-teal-3" thickness="4" />
+				<Icon v-else :icon="leftIcon" color="text-teal-3" :size="leftIconSize" />
+				<p class="text-teal-3 ml-2 font-main font-bold flex">
+					<slot></slot>
+				</p>
+			</div>
+		</div>
+		<slot v-else></slot>
 	</div>
 </template>
 
@@ -15,16 +24,28 @@ export default {
 		variant: {
 			type: String,
 			default: BTN_VARIANT.SUBTLE,
-			validator: (val) => [BTN_VARIANT.PRIMARY, BTN_VARIANT.DANGER, BTN_VARIANT.SUBTLE].includes(val)
+			validator: (val) => Object.values(BTN_VARIANT).includes(val)
 		},
 		disabled: {
 			type: Boolean,
 			default: false
+		},
+		loading: {
+			type: Boolean,
+			default: false
+		},
+		leftIcon: {
+			type: String,
+			default: ""
+		},
+		leftIconSize: {
+			type: String,
+			default: "4"
 		}
 	},
 	data() {
 		return {
-
+			BTN_VARIANT,
 		}
 	},
 	computed: {
@@ -36,6 +57,8 @@ export default {
 			switch (this.variant) {
 				case BTN_VARIANT.PRIMARY:
 					return 'btn-primary-style';
+				case BTN_VARIANT.SECONDARY:
+					return 'bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2';
 				case BTN_VARIANT.DANGER:
 					return 'btn-danger-style';
 				case BTN_VARIANT.SUBTLE:

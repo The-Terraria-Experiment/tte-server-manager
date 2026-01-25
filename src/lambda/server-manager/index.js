@@ -63,6 +63,10 @@ const endpoints = {
 		action: null,
 		permRequired: PERMISSIONS.server.world.delete,
 	},
+	"POST /server/dropcache": {
+		action: require("./actions/dropTokenCache"),
+		permRequired: PERMISSIONS.system.dropcache
+	}
 };
 
 exports.handler = errorHandler(async (event, context) => {
