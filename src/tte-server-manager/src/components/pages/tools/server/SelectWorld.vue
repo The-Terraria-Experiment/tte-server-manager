@@ -53,7 +53,7 @@
 					/>
 				</div> -->
 
-				<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 mx-4 flex flex-col">
+				<div class="bg-gray-5 rounded-lg p-4 my-0 mx-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
 					<ValueInput
 						type="number"
@@ -77,14 +77,14 @@
 
 			<div class="flex justify-end p-4">
 				<FlexButton 
-					v-if="!startServerLoading"
+					v-if="!serverStore.loading.worldLaunch[selectedInstance]"
 					:variant="BTN_VARIANT.PRIMARY"
 					@input="startServer"
-					:disabled="!(selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !startServerLoading && !selectedServerData.state)"
+					:disabled="!(selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !serverStore.loading.worldLaunch[selectedInstance] && !selectedServerData.state)"
 				>
 					<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
 				</FlexButton>
-				<div v-else-if="startServerLoading" class="flex items-center">
+				<div v-else-if="serverStore.loading.worldLaunch[selectedInstance]" class="flex items-center">
 					<Spinner class="h-5 w-5 text-teal-3" />
 					<p class="font-main font-bold text-teal-4 mx-2">SERVER STARTING...</p>
 				</div>
@@ -137,7 +137,6 @@ export default {
 				...Array.from({ length: 10 }).map((_, i) => i.toString()),
 				'_'
 			],
-			startServerLoading: false,
 			statusPollInterval: null,
 		}
 	},
@@ -170,7 +169,7 @@ export default {
 		async startServer() {
 			this.$validatePermissions([PERMISSIONS.server.world.select, PERMISSIONS.server.status.start]);
 
-			if (this.startServerLoading) return;
+			if (this.serverStore.loading.worldLaunch[selectedInstance]) return;
 
 			if (this.selectWorld.port != 7777) {
 				this.$alert.warning("Currently, the port must be 7777.");
@@ -192,7 +191,7 @@ export default {
 				return;
 			}
 
-			this.startServerLoading = true;
+			this.serverStore.loading.worldLaunch[selectedInstance] = true;
 
 			try {
 				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.select, {
@@ -211,7 +210,7 @@ export default {
 					console.error(e);
 				}
 			} finally {
-				this.startServerLoading = false;
+				this.serverStore.loading.worldLaunch[selectedInstance] = false;
 			}
 		},
 

@@ -88,7 +88,7 @@
 
 		<StatusTile 
 			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-			collapsible
+			:collapsible="!!ruleEntryCount"
 			:perm-required="PERMISSIONS.server.status.read"
 		>
 			<template #header>
@@ -96,10 +96,10 @@
 				<p class="text-gray-6 ml-2 text-lg">Rules</p>
 			</template>
 			<template #summary>
-				<p class="text-2xl text-teal-4">{{ Object.keys(selectedServerData.rules || {}).length }} entries</p>
+				<p class="text-2xl text-teal-4">{{ ruleEntryCount }} entries</p>
 			</template>
 			<template #content>
-				<div class="grid info-grid font-mono m-4 bg-gray-4 rounded-lg text-white-0">
+				<div v-if="ruleEntryCount" class="grid info-grid font-mono m-4 bg-gray-4 rounded-lg text-white-0">
 					<template v-for="(value, rule, i) in selectedServerData.rules">
 						<div :class="['px-2 py-1', {'bg-gray-5': i%2}]">{{ rule }}</div>
 						<div :class="['px-2 py-1', {'bg-gray-5': i%2}]">{{ value }}</div>
@@ -164,6 +164,9 @@ export default {
 				return `${this.selectedServerData.playercount} player${plural(this.selectedServerData.playercount || 0)} online`
 			}
 			return 'Unknown';
+		},
+		ruleEntryCount() {
+			return Object.keys(this.selectedServerData.rules || {}).length;
 		}
 	},
 	methods: {

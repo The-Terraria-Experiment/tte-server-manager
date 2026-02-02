@@ -52,7 +52,7 @@ const endpoints = {
 		permRequired: PERMISSIONS.server.world.list,
 	},
 	"POST /server/{id}/world/create": {
-		action: null,
+		action: require("./actions/createWorld"),
 		permRequired: PERMISSIONS.server.world.create,
 	},
 	"POST /server/{id}/world/{worldId}/select": {
