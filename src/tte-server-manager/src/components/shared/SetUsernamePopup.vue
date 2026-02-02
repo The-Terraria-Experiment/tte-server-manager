@@ -29,7 +29,7 @@
 			</p>
 
 			<div class="flex justify-center w-full py-4 mt-2 md:mt-10">
-				<ValueInput placeholder="Enter username" v-model="updatedUsername" />
+				<ValueInput placeholder="Enter username" v-model="updatedUsername" maxlength="25" />
 			</div>
 		</div>
 	</Popup>
