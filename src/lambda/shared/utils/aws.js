@@ -436,6 +436,33 @@ async function deleteS3Folder(bucketName, prefix) {
 	return { deleted: deletedCount };
 }
 
+/**
+ * Sync a file from an EC2 instance to S3 using SSM (aws cli on instance)
+ * @param {string} instanceId
+ * @param {string} filePath
+ * @param {string} bucketName
+ * @param {string} key
+ * @returns {Promise<{commandId: string}>}
+ */
+async function syncInstanceFileToS3(instanceId, filePath, bucketName, key) {
+	if (!instanceId || !filePath || !bucketName || !key) {
+		throw new Error("instanceId, filePath, bucketName, and key are required");
+	}
+
+	const escapedFilePath = filePath.replace(/"/g, '\\"');
+	const s3Uri = `s3://${bucketName}/${key}`;
+	const command = `runuser -u ubuntu -- /bin/bash -lc "aws s3 cp \"${escapedFilePath}\" \"${s3Uri}\" --only-show-errors"`;
+
+	logActionCond(2, CW_LOG_GENERAL, {
+		userId: null,
+		action: 'shared-aws-sync-instance-file-to-s3',
+		resource: null,
+		details: { instanceId, filePath, bucketName, key }
+	});
+
+	return executeSSMCommand(instanceId, [command]);
+}
+
 module.exports = {
 	ec2Client,
 	ssmClient,
@@ -456,4 +483,5 @@ module.exports = {
 	deleteS3Object,
 	deleteS3Folder,
 	putJsonObject,
+	syncInstanceFileToS3,
 };
