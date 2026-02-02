@@ -1,5 +1,5 @@
 <template>
-	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8 terraria-bg']">
+	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
 		<div class="title-bg-gradient"></div>
 		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0">MANAGE GAME SERVER</h1>
 		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View and manage game server status</p>
@@ -17,7 +17,22 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.somethingIsLoading" @input="refresh" :refresh-at="autoRefreshAt" />
+		<div class="flex flex-col sm:flex-row gap-4 mt-4">
+			<RefreshButton
+				:loading="serverStore.somethingIsLoading"
+				@input="refresh"
+				:refresh-at="autoRefreshAt"
+			/>
+			<FlexButton
+				v-if="$checkPermissions(PERMISSIONS.system.dropcache)"
+				:variant="BTN_VARIANT.SECONDARY"
+				leftIcon="ban"
+				leftIconSize="5"
+				@input="dropTshockTokenCache"
+			>
+				DROP TSHOCK TOKEN CACHE
+			</FlexButton>
+		</div>
 	</div>
 	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
 		<template #header>
@@ -39,7 +54,14 @@
 	/>
 
 	<SelectWorld 
-		v-if="selectedInstance && !selectedServerData.state && !autoRefreshAt" 
+		v-if="selectedInstance && !selectedServerData.state" 
+		:selected-instance="selectedInstance" 
+		:selected-server-data="selectedServerData" 
+		@autoRefreshAt="autoRefreshAt = $event"
+	/>
+
+	<CreateWorld 
+		v-if="selectedInstance && !selectedServerData.state" 
 		:selected-instance="selectedInstance" 
 		:selected-server-data="selectedServerData" 
 		@autoRefreshAt="autoRefreshAt = $event"
@@ -62,6 +84,9 @@ import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
+import FlexButton from '../common/FlexButton.vue';
+import { post } from '../../util/api';
+import CreateWorld from './tools/server/CreateWorld.vue';
 
 
 export default {
@@ -73,6 +98,7 @@ export default {
 		SelectWorld,
 		MajorLoader,
 		ServerConfig,
+		CreateWorld,
 	},
 	props: {
 		
@@ -163,6 +189,18 @@ export default {
 					this.$alert.error("Error getting server status");
 					console.error(e);
 				}
+			}
+		},
+
+		async dropTshockTokenCache() {
+			this.$validatePermissions(PERMISSIONS.system.dropcache);
+
+			try {
+				await post("/server/dropcache", PERMISSIONS.system.dropcache);
+				this.$alert.success("TShock token cache dropped");
+			} catch (e) {
+				this.$alert.error("Error dropping token cache");
+				console.error(e);
 			}
 		}
 	},

@@ -52,7 +52,7 @@ const endpoints = {
 		permRequired: PERMISSIONS.server.world.list,
 	},
 	"POST /server/{id}/world/create": {
-		action: null,
+		action: require("./actions/createWorld"),
 		permRequired: PERMISSIONS.server.world.create,
 	},
 	"POST /server/{id}/world/{worldId}/select": {
@@ -63,6 +63,10 @@ const endpoints = {
 		action: null,
 		permRequired: PERMISSIONS.server.world.delete,
 	},
+	"POST /server/dropcache": {
+		action: require("./actions/dropTokenCache"),
+		permRequired: PERMISSIONS.system.dropcache
+	}
 };
 
 exports.handler = errorHandler(async (event, context) => {

@@ -193,4 +193,11 @@ async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 
 	return json;
 }
 
-module.exports = {callTShockAPI};
+function dropTokenCache() {
+	tokenCache.clear();
+}
+
+module.exports = {
+	callTShockAPI,
+	dropTokenCache,
+};

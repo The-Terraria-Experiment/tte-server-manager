@@ -41,15 +41,12 @@
 
 					<FlexButton
 						v-if="selectedServerData.state"
-						class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2"
+						:variant="BTN_VARIANT.SECONDARY"
+						leftIcon="arrow-rotate-right"
 						:disabled="false"
 						@input="reloadConfig"
 					>
-						<div class="flex items-center">
-							<Spinner v-if="false" class="h-4 w-4 text-teal-3" thickness="4" />
-							<Icon v-else icon="arrow-rotate-right" color="text-teal-3" size="4" />
-							<p class="text-teal-3 ml-2 font-main font-bold flex">RELOAD CONFIG IN TSHOCK</p>
-						</div>
+						RELOAD CONFIG IN TSHOCK
 					</FlexButton>
 				</div>
 

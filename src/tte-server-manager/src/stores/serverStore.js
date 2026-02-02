@@ -21,6 +21,7 @@ export const useServerStore = defineStore("serverstore", {
 			files: {},
 			serverStatus: {},
 			config: {},
+			worldLaunch: {}
 		},
 	}),
 	getters: {

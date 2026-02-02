@@ -127,10 +127,15 @@ async function checkResourceAccess(userSub, resource) {
 	return false;
 }
 
+function dropcache() {
+	userCache.clear();
+}
+
 
 module.exports = {
 	validatePermission,
 	checkPermission,
 	validateResourceAccess,
 	checkResourceAccess,
+	dropcache,
 };

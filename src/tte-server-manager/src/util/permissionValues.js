@@ -50,5 +50,8 @@ export const PERMISSIONS = {
 		logs: {
 			read: "users.logs.read",
 		}
+	},
+	system: {
+		dropcache: "system.dropcache"
 	}
 }

@@ -1,6 +1,6 @@
 <template>
 	<FlexButton 
-		class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 mt-4" 
+		class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2" 
 		@input="$emit('input')"
 		:disabled="loading"
 	>

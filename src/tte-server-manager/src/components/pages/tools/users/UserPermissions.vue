@@ -7,7 +7,17 @@
 			<p class="text-gray-6 ml-2 text-lg">User Permissions</p>
 		</template>
 		<template #summary>
-			<RefreshButton :loading="loading.permissions" @input="$emit('refreshAll')" />
+			<div class="flex flex-col sm:flex-row gap-4">
+				<RefreshButton :loading="loading.permissions" @input="$emit('refreshAll')" />
+				<FlexButton
+					v-if="$checkPermissions(PERMISSIONS.system.dropcache)"
+					:variant="BTN_VARIANT.SECONDARY"
+					leftIcon="user-slash"
+					@input="dropUserPermCache"
+				>
+					DROP PERM CACHE
+				</FlexButton>
+			</div>
 		</template>
 		<template #content>
 			<div class="grid overflow-x-auto pt-40 relative pr-20 text-sm" :style="userPermsCols" @scroll="updateUserTableScroll">
@@ -185,6 +195,17 @@ export default {
 			}
 			this.discardPermChanges();
 			this.loading.save = false;
+		},
+		async dropUserPermCache() {
+			this.$validatePermissions(PERMISSIONS.system.dropcache);
+
+			try {
+				await post("/users/dropcache", PERMISSIONS.system.dropcache);
+				this.$alert.success("Permission cache dropped");
+			} catch (e) {
+				this.$alert.error("Error dropping permission cache");
+				console.error(e);
+			}
 		}
 	},
 }

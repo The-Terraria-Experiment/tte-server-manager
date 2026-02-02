@@ -1,5 +1,5 @@
 <template>
-	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8 server-bg']">
+	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
 		<div class="title-bg-gradient"></div>
 		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0">MANAGE INSTANCE</h1>
 		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View machine status and manage files</p>
@@ -17,7 +17,12 @@
 			iconColor="text-white-1"
 		/>
 
-		<RefreshButton :loading="serverStore.isLoadingStatus(selectedInstance)" @input="refresh" :refresh-at="autoRefreshAt" />
+		<RefreshButton 
+			class="mt-4"
+			:loading="serverStore.isLoadingStatus(selectedInstance)" 
+			@input="refresh" 
+			:refresh-at="autoRefreshAt" 
+		/>
 	</div>
 	
 	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
@@ -178,6 +183,9 @@ export default {
 	async mounted() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			await this.fetchInstanceList();
+			if (!this.serverStore.getInstanceData(this.selectedInstance) && !this.serverStore.isLoadingStatus(this.selectedInstance) && this.$checkResourceAccess(`instance::${this.selectedInstance}`)) {
+				this.fetchInstanceStatus(this.selectedInstance);
+			}
 			if (this.$checkPermissions(PERMISSIONS.instance.files.read) && this.$checkResourceAccess(`instance::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
