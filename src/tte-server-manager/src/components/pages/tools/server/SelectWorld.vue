@@ -15,7 +15,7 @@
 		<template #content>
 			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
 			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
-				<div :class="['grid px-2 py-2', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
+				<div :class="['grid px-2 py-2 overflow-x-auto', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
 					<template v-if="!isMobile">
 						<div></div>
 						<div class="font-main font-semibold text-teal-6 pb-2">World File Name</div>
@@ -23,17 +23,17 @@
 					</template>
 					
 					<template v-for="(world, idx) in instanceWorldFiles">
-						<div :class="['p-2 rounded-l flex items-center', { 'bg-gray-4': !(idx%2)}]">
+						<div :class="['p-2 rounded-l flex items-center', getWorldFileBG(idx)]">
 							<Checkbox 
 								class="h-4 w-4" 
 								:value="selectWorld.selectedWorld === world.name"
-								@input="selectWorld.selectedWorld = world.name"
+								@input="selectWorldFile(world)"
 							/>
 						</div>
-						<div :class="['flex items-center', { 'bg-gray-4': !(idx%2)}]" @click="selectWorld.selectedWorld = world.name">
+						<div :class="['flex items-center rounded-r sm:rounded-none', getWorldFileBG(idx)]" @click="selectWorldFile(world)">
 							<p class="font-mono text-white-0 font-semibold text-sm cursor-pointer">{{ world.name }}</p>
 						</div>
-						<div v-if="!isMobile" :class="['flex items-center rounded-r pr-2', { 'bg-gray-4': !(idx%2)}]">
+						<div v-if="!isMobile" :class="['flex items-center rounded-r pr-2', getWorldFileBG(idx)]">
 							<p class="font-mono text-white-0 font-semibold text-sm">{{ formatFileSize(world.size) }}</p>
 						</div>
 					</template>
@@ -53,7 +53,7 @@
 					/>
 				</div> -->
 
-				<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 sm:mx-4 flex flex-col">
+				<div class="bg-gray-5 rounded-lg p-4 my-4 sm:my-0 mx-4 flex flex-col">
 					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
 					<ValueInput
 						type="number"
@@ -77,10 +77,10 @@
 
 			<div class="flex justify-end p-4">
 				<FlexButton 
-					v-if="selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !startServerLoading && !selectedServerData.state"
+					v-if="!startServerLoading"
 					:variant="BTN_VARIANT.PRIMARY"
 					@input="startServer"
-					:disabled="startServerLoading"
+					:disabled="!(selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !startServerLoading && !selectedServerData.state)"
 				>
 					<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
 				</FlexButton>
@@ -152,6 +152,21 @@ export default {
 	methods: {
 		formatFileSize,
 		plural,
+		selectWorldFile(world) {
+			if (this.selectWorld.selectedWorld === world.name) {
+				this.selectWorld.selectedWorld = null;
+			} else {
+				this.selectWorld.selectedWorld = world.name;
+			}
+		},
+		getWorldFileBG(index) {
+			const world = this.instanceWorldFiles[index];
+			if (this.selectWorld.selectedWorld === world.name) {
+				return 'bg-teal-2';
+			} else if (index % 2 === 0) {
+				return 'bg-gray-4';
+			}
+		},
 		async startServer() {
 			this.$validatePermissions([PERMISSIONS.server.world.select, PERMISSIONS.server.status.start]);
 
