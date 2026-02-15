@@ -79,6 +79,11 @@ jobs:
             --zip-file "fileb://src/lambda/dist/${{ matrix.lambda }}.zip"
           echo "✓ Deployed ${{ steps.func-name.outputs.name }}"
 
+      - name: Wait for update
+        run: |
+          aws lambda wait function-updated \
+            --function-name "${{ steps.func-name.outputs.name }}"
+
       - name: Publish version and update alias
         run: |
           VERSION=$(aws lambda publish-version \
@@ -94,8 +99,3 @@ jobs:
               --name "${{ steps.func-name.outputs.alias }}" \
               --function-version "$VERSION"
           echo "✓ Alias ${{ steps.func-name.outputs.alias }} -> $VERSION"
-
-      - name: Wait for update
-        run: |
-          aws lambda wait function-updated \
-            --function-name "${{ steps.func-name.outputs.name }}" || true
