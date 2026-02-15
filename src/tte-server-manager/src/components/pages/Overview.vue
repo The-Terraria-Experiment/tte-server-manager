@@ -2,6 +2,7 @@
 	<div class="w-full flex flex-col gap-4 sm:gap-8">
 		<StatusTile 
 			:perm-required="PERMISSIONS.system.notice.create"
+			:loading="noticeSaving"
 			collapsible
 			:class="[baseStore.siteEnabled ? 'gradient-tile-green' : 'gradient-tile-red']"
 		>
@@ -27,18 +28,22 @@
 					<FlexButton 
 						class="" 
 						:variant="disableSite ? BTN_VARIANT.DANGER : BTN_VARIANT.PRIMARY"
-						@input=""
+						@input="setGlobalNotice"
 					>
 						<p class="py-2 px-12">POST</p>
 					</FlexButton>
 				</div>
 				<div v-else class="p-4">
+					<div v-if="baseStore.globalNotice" class="font-main mb-4 bg-gray-3 p-2 rounded-md">
+						<p class="font-bold text-white-0">Current message:</p>
+						<p class="text-gray-8 italic">{{ baseStore.globalNotice }}</p>
+					</div>
 					<FlexButton 
 						class="" 
 						:variant="BTN_VARIANT.PRIMARY"
-						@input=""
+						@input="clearGlobalNotice"
 					>
-						<p class="py-2 px-12">CLEAR NOTICE & RE-ENABLE</p>
+						<p class="py-2 px-4 md:px-10">CLEAR NOTICE & RE-ENABLE</p>
 					</FlexButton>
 				</div>
 			</template>
@@ -75,6 +80,7 @@
 <script>
 import screen from '../../mixins/screen';
 import { useBaseStore } from '../../stores/baseStore';
+import { post } from '../../util/api';
 import { BTN_VARIANT } from '../../util/constants';
 import { PERMISSIONS } from '../../util/permissionValues';
 import Checkbox from '../common/Checkbox.vue';
@@ -104,7 +110,52 @@ export default {
 			PERMISSIONS,
 			baseStore: useBaseStore(),
 			announcement: "",
-			disableSite: false
+			disableSite: false,
+			noticeSaving: false
+		}
+	},
+	methods: {
+		async setGlobalNotice() {
+			this.$validatePermissions(PERMISSIONS.system.notice.create);
+
+			if (this.noticeSaving) return;
+			this.noticeSaving = true;
+
+			try {
+				await post("/system/postnotice", PERMISSIONS.system.notice.create, {
+					message: this.announcement,
+					disableSite: this.disableSite,
+				});
+				this.$alert.success("Notice saved");
+				this.baseStore.loadNotice();
+			} catch (e) {
+				console.error(e);
+				this.$alert.error("Error setting notice");
+			} finally {
+				this.noticeSaving = false;
+			}
+		},
+		async clearGlobalNotice() {
+			this.$validatePermissions(PERMISSIONS.system.notice.clear);
+
+			if (this.noticeSaving) return;
+			this.noticeSaving = true;
+
+			try {
+				await post("/system/clearnotice", PERMISSIONS.system.notice.clear);
+				this.$alert.success("Notice cleared");
+				this.baseStore.loadNotice();
+			} catch (e) {
+				console.error(e);
+				this.$alert.error("Error clearing notice");
+			} finally {
+				this.noticeSaving = false;
+			}
+		}
+	},
+	watch: {
+		"baseStore.globalNotice": function (value) {
+			this.announcement = value;
 		}
 	}
 }
