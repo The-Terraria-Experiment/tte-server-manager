@@ -4,6 +4,7 @@ const FUNC_NAMES = {
 	INST_MGR: "ttesm-instance-manager-prod",
 	SERV_MGR: "ttesm-server-manager-prod",
 	COG_LINK: "ttesm-cognito-user-link-prod",
+	SYS_MGR: "ttesm-system-manager-prod",
 };
 const CW_LOG_GENERAL = "ttesm-actions-general";
 

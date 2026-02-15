@@ -23,6 +23,7 @@
 		</div>
 
 		<SetUsernamePopup ref="namepopup" mustCreate />
+		<GlobalNoticePopup />
 	</div>
 
 	<div 
@@ -42,6 +43,7 @@ import screen from './mixins/screen';
 import SetUsernamePopup from './components/shared/SetUsernamePopup.vue';
 import { useUserStore } from './stores/userStore';
 import MajorLoader from './components/shared/MajorLoader.vue';
+import GlobalNoticePopup from './components/shared/GlobalNoticePopup.vue';
 
 export default {
 	mixins: [ screen ],
@@ -52,6 +54,7 @@ export default {
 		AlertStack,
 		SetUsernamePopup,
 		MajorLoader,
+		GlobalNoticePopup,
 	},
 	data() {
 		return {

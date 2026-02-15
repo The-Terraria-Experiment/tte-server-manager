@@ -1,5 +1,49 @@
 <template>
 	<div class="w-full flex flex-col gap-4 sm:gap-8">
+		<StatusTile 
+			:perm-required="PERMISSIONS.system.notice.create"
+			collapsible
+			:class="[baseStore.siteEnabled ? 'gradient-tile-green' : 'gradient-tile-red']"
+		>
+			<template #header>
+				<Icon icon="gauge" color="text-gray-6" size="4" />
+				<p class="text-gray-6 ml-2 text-lg">Site Status</p>
+			</template>
+			<template #summary>
+				<p class="text-2xl text-teal-4">{{ baseStore.siteEnabled ? 'ENABLED' : 'DISABLED' }}</p>
+			</template>
+			<template #content>
+				<div v-if="baseStore.siteEnabled" class="flex flex-col p-4 gap-4">
+					<LargeTextInput 
+						spellcheck="true"
+						class="bg-white-0 rounded-lg resize-none text-gray-1 h-20"
+						placeholder="Message"
+						v-model="announcement"
+					/>
+					<div class="flex items-center gap-2">
+						<Checkbox class="w-5 h-5" v-model="disableSite" />
+						<p class="font-main font-bold text-white-0">Disable site</p>
+					</div>
+					<FlexButton 
+						class="" 
+						:variant="disableSite ? BTN_VARIANT.DANGER : BTN_VARIANT.PRIMARY"
+						@input=""
+					>
+						<p class="py-2 px-12">POST</p>
+					</FlexButton>
+				</div>
+				<div v-else class="p-4">
+					<FlexButton 
+						class="" 
+						:variant="BTN_VARIANT.PRIMARY"
+						@input=""
+					>
+						<p class="py-2 px-12">CLEAR NOTICE & RE-ENABLE</p>
+					</FlexButton>
+				</div>
+			</template>
+		</StatusTile>
+
 		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
 			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">The Terraria Experiment Server Manager</h1>
 			<p class="font-main font-semibold text-white-0 mt-4">Welcome! Parts of this site are still under construction. There may be bugs, bad UI/UX, or broken tools.</p>
@@ -30,20 +74,26 @@
 
 <script>
 import screen from '../../mixins/screen';
+import { useBaseStore } from '../../stores/baseStore';
 import { BTN_VARIANT } from '../../util/constants';
+import { PERMISSIONS } from '../../util/permissionValues';
+import Checkbox from '../common/Checkbox.vue';
 import FlexButton from '../common/FlexButton.vue';
 import Icon from '../common/Icon.vue';
+import LargeTextInput from '../common/LargeTextInput.vue';
 import Spinner from '../common/Spinner.vue';
-import StatusTile from '../common/StatusTile.vue';
+import ValueInput from '../common/ValueInput.vue';
 
 
 export default {
 	mixins: [screen],
 	components: {
-		StatusTile,
 		Icon,
 		FlexButton,
 		Spinner,
+		ValueInput,
+		LargeTextInput,
+		Checkbox,
 	},
 	props: {
 
@@ -51,6 +101,10 @@ export default {
 	data() {
 		return {
 			BTN_VARIANT,
+			PERMISSIONS,
+			baseStore: useBaseStore(),
+			announcement: "",
+			disableSite: false
 		}
 	}
 }

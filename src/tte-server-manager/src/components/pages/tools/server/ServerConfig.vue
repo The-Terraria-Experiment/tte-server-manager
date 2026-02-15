@@ -57,7 +57,7 @@
 							:disabled="!$checkPermissions(PERMISSIONS.server.config.write)"
 							ref="configInput"
 							v-model="configText"
-							class="mt-4 rounded w-full min-h-100"
+							class="mt-4 rounded w-full min-h-100 bg-gray-1 text-white-1 "
 							@keydown.tab.prevent="insertTab"
 						/>
 					</div>

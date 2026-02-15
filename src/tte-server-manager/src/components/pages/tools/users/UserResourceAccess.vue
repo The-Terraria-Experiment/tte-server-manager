@@ -24,7 +24,7 @@
 				<div class="w-3/4 pr-2 font-mono pb-2 text-xs sm:text-md">
 					<LargeTextInput 
 						placeholder="Select a user to view resource permissions"
-						class="min-h-40 w-full rounded" 
+						class="min-h-40 w-full rounded bg-gray-1 text-white-1 " 
 						wrap="off"
 						v-model="userResourcePermissions"
 					/>

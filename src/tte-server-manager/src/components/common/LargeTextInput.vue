@@ -1,7 +1,7 @@
 <template>
 	<textarea 
 		spellcheck="false"
-		class="bg-gray-1 text-white-1 p-2"
+		class="p-2"
 		:placeholder="placeholder"
 		:disabled="disabled"
 		@beforeinput="validateInput"

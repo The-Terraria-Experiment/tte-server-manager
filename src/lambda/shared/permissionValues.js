@@ -52,7 +52,12 @@ const PERMISSIONS = {
 		}
 	},
 	system: {
-		dropcache: "system.dropcache"
+		dropcache: "system.dropcache",
+		notice: {
+			create: "system.notice.create",
+			clear: "system.notice.clear",
+			bypass: "system.notice.bypass",
+		}
 	}
 }
 
