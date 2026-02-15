@@ -36,9 +36,11 @@ async function logAction(functionName, actionLog) {
 	if (![...Object.values(FUNC_NAMES), CW_LOG_GENERAL].includes(functionName)) {
 		throw new Error(`Invalid function name '${functionName}'`);
 	}
+	
+	// todo: have the -prod be dynamic, on push to different branches, set an env var that specifies
 
 	try {
-		const logGroupName = `/aws/lambda/${functionName}/actions`;
+		const logGroupName = `/aws/lambda/${functionName}-prod/actions`;
 		const logStreamName = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 		const streamKey = `${logGroupName}/${logStreamName}`;
 
