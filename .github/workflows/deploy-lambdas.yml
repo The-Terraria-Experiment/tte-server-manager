@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - stage
     paths:
       - 'src/lambda/**'
       - '.github/workflows/deploy-lambdas.yml'
@@ -59,11 +60,17 @@ jobs:
       - name: Determine function name
         id: func-name
         run: |
-          # Map folder name to Lambda function name
-          # e.g., "ec2-manager" folder → "ec2-manager-dev" function
-          ENV_SUFFIX="${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}"
-          FUNC_NAME="ttesm-${{ matrix.lambda }}-${ENV_SUFFIX}"
+          # Map branch to alias and base function name (no env suffix)
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            LAMBDA_ALIAS="prod"
+          elif [ "${{ github.ref }}" = "refs/heads/stage" ]; then
+            LAMBDA_ALIAS="stage"
+          else
+            LAMBDA_ALIAS="dev"
+          fi
+          FUNC_NAME="ttesm-${{ matrix.lambda }}"
           echo "name=$FUNC_NAME" >> $GITHUB_OUTPUT
+          echo "alias=$LAMBDA_ALIAS" >> $GITHUB_OUTPUT
 
       - name: Deploy to Lambda
         run: |
@@ -75,4 +82,20 @@ jobs:
       - name: Wait for update
         run: |
           aws lambda wait function-updated \
-            --function-name "${{ steps.func-name.outputs.name }}" || true
+            --function-name "${{ steps.func-name.outputs.name }}"
+
+      - name: Publish version and update alias
+        run: |
+          VERSION=$(aws lambda publish-version \
+            --function-name "${{ steps.func-name.outputs.name }}" \
+            --query 'Version' \
+            --output text)
+          aws lambda update-alias \
+            --function-name "${{ steps.func-name.outputs.name }}" \
+            --name "${{ steps.func-name.outputs.alias }}" \
+            --function-version "$VERSION" \
+            || aws lambda create-alias \
+              --function-name "${{ steps.func-name.outputs.name }}" \
+              --name "${{ steps.func-name.outputs.alias }}" \
+              --function-version "$VERSION"
+          echo "✓ Alias ${{ steps.func-name.outputs.alias }} -> $VERSION"
