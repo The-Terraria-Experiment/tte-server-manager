@@ -1,4 +1,4 @@
-const PERM_TABLE = "ttesm-user-perms";
+const PERM_TABLE = process.env.PERM_TABLE || "ttesm-user-perms";
 const FUNC_NAMES = {
 	USER_MGR: "ttesm-user-manager",
 	INST_MGR: "ttesm-instance-manager",
