@@ -20,9 +20,9 @@ const pinia = createPinia();
 
 // Can't find a way to configure Amplify to use the custom Cognito domain, so we override it here
 // https://github.com/aws-amplify/amplify-cli/issues/1880#issuecomment-1980860528
-if (outputs?.auth?.oauth?.domain) {
+if (outputs?.auth?.oauth?.domain && import.meta.env.PROD) {
 	outputs.auth.oauth.domain = "sm.auth.terrariaexperiment.click";
-} else {
+} else if (import.meta.env.PROD) {
 	console.warn("OAuth domain does not exist");
 }
 if (outputs?.auth?.oauth) {

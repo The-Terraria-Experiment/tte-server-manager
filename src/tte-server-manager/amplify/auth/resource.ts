@@ -17,6 +17,7 @@ export const auth = defineAuth({
 				'http://localhost:5173/',
 				'https://server.terrariaexperiment.click/',
 				'https://stg-server.terrariaexperiment.click/',
+				'https://stg-server.terrariaexperiment.click/oauth2/idpresponse',
 				'https://sm.auth.terrariaexperiment.click/oauth2/idpresponse'
 			],
 			logoutUrls: [
