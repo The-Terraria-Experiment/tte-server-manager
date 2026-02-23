@@ -30,7 +30,7 @@ function buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil,
 	// 	command += ` -password "${password}"`;
 	// }
 
-	const input = `n${size}\n${difficulty}\n${evil}\n${name}\n${seed}\n1\n${maxPlayers}\n${port}\ny\n\n`;
+	const input = `n\n${size}\n${difficulty}\n${evil}\n${name}\n${seed}\n1\n${maxPlayers}\n${port}\ny\n\n`;
 
 	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
 	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
@@ -162,6 +162,11 @@ async function handle(event) {
 		return validationError("Password must contain only alphanumeric characters and underscores");
 	}
 
+	// Validate seed contains only alphanumeric characters, underscores, spaces
+	if (seed && !/^[a-zA-Z0-9_\s]+$/.test(seed)) {
+		return validationError("Seed must contain only alphanumeric characters, underscores, and spaces");
+	}
+
 	// Validate port contains only numeric characters
 	if (password && !/^[0-9]+$/.test(port)) {
 		return validationError("Password must contain only alphanumeric characters and underscores");
@@ -190,11 +195,7 @@ async function handle(event) {
 		return validationError("Evil must be a number between 1 and 3 inclusive");
 	}
 
-	if (isNaN(Number(seed))) {
-		return validationError("Seed must be a number");
-	}
-
-	if (!/^[0-9]+$/.test(worldName)) {
+	if (!/^[a-zA-Z0-9_]+$/.test(worldName)) {
 		return validationError("World name must only unclude alphanumeric characters and underscores");
 	}
 
