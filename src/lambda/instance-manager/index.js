@@ -3,7 +3,7 @@
  * Handles EC2 instance lifecycle operations (start, stop, restart, status)
  */
 
-const {validatePermission} = require("./shared/utils/permissions");
+const {validatePermission, getUserSub} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
 const {PERMISSIONS} = require("./shared/permissionValues");
@@ -60,7 +60,7 @@ const endpoints = {
 exports.handler = errorHandler(async (event, context) => {
 	console.log("Instance Manager:", { httpMethod: event.httpMethod, path: event.path });
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
+		userId: getUserSub(event) ?? "unknown",
 		action: "invoke",
 		resource: null,
 	});
@@ -78,7 +78,7 @@ exports.handler = errorHandler(async (event, context) => {
 	await validatePermission(event, action.permRequired);
 
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
+		userId: getUserSub(event) ?? "unknown",
 		action: "invoke-action",
 		status: 'permission-validated',
 		resource: routeKey,

@@ -11,8 +11,33 @@ const { getDynamoItem } = require("./dynamo");
 const userCache = new Map();
 
 /**
+ * Extract user sub from API Gateway event
+ * Handles both Cognito authorizer and Lambda authorizer formats:
+ * - Cognito: event.requestContext.authorizer.claims.sub
+ * - Lambda: event.requestContext.authorizer['claims.sub']
+ * @param {object} event - API Gateway event
+ * @returns {string|null} User sub or null if not found
+ */
+function getUserSub(event) {
+	const authorizer = event.requestContext?.authorizer;
+	if (!authorizer) return null;
+	
+	// Try Cognito format first (nested object)
+	if (authorizer.claims?.sub) {
+		return authorizer.claims.sub;
+	}
+	
+	// Try Lambda authorizer format (flat with dot notation)
+	if (authorizer['claims.sub']) {
+		return authorizer['claims.sub'];
+	}
+	
+	return null;
+}
+
+/**
  * Validate user has permission for resource/action
- * @param {object} event - API Gateway event (contains requestContext.authorizer.claims)
+ * @param {object} event - API Gateway event (contains requestContext.authorizer)
  * @param {string} permission - Permission to validate
  * @throws {Error} if permission denied
  */
@@ -20,7 +45,7 @@ async function validatePermission(event, permission) {
 	assertIsTruthyString(permission, "validatePermission requires permission value");
 	assertIsTruthy(event, "validatePermission requires a Gateway event");
 
-	const userSub = event.requestContext?.authorizer?.claims?.sub;
+	const userSub = getUserSub(event);
 	if (!userSub) {
 		logAction(CW_LOG_GENERAL, {
 			userId: userSub ?? 'unknown',
@@ -71,15 +96,15 @@ async function checkPermission(userSub, permission) {
 
 /**
  * Validate user has permission for resource/action
- * @param {object} event - API Gateway event (contains requestContext.authorizer.claims)
- * @param {string} permission - Permission to validate
+ * @param {object} event - API Gateway event (contains requestContext.authorizer)
+ * @param {string} resource - Resource to validate (e.g., 'instance::i-123', 'server::srv-456')
  * @throws {Error} if permission denied
  */
 async function validateResourceAccess(event, resource) {
 	assertIsTruthyString(resource, "validateResourceAccess requires resource value");
 	assertIsTruthy(event, "validateResourceAccess requires a Gateway event");
 
-	const userSub = event.requestContext?.authorizer?.claims?.sub;
+	const userSub = getUserSub(event);
 	if (!userSub) {
 		logAction(CW_LOG_GENERAL, {
 			userId: userSub ?? 'unknown',
@@ -133,6 +158,7 @@ function dropcache() {
 
 
 module.exports = {
+	getUserSub,
 	validatePermission,
 	checkPermission,
 	validateResourceAccess,

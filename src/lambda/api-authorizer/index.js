@@ -122,22 +122,19 @@ exports.handler = async (event) => {
 		});
 
 		// Generate Allow policy with user context
-		// NOTE: Wrap in 'claims' object to match Cognito authorizer structure
-		// Lambda functions expect: event.requestContext.authorizer.claims.sub
+		// NOTE: Lambda authorizer context values must be flat strings (no nested objects)
+		// We use dot notation keys to simulate Cognito's structure: claims.sub, claims.email, etc.
 		return generatePolicy(
 			payload.sub,
 			'Allow',
 			event.methodArn,
 			{
-				claims: {
-					sub: payload.sub,
-					email: payload.email || '',
-					email_verified: payload.email_verified || 'false',
-					'cognito:username': payload['cognito:username'] || payload.email || '',
-					// Include any other common Cognito claims your functions might use
-					aud: payload.aud || '',
-					token_use: payload.token_use || 'id',
-				}
+				'claims.sub': payload.sub,
+				'claims.email': payload.email || '',
+				'claims.email_verified': String(payload.email_verified || 'false'),
+				'claims.cognito:username': payload['cognito:username'] || payload.email || '',
+				'claims.aud': payload.aud || '',
+				'claims.token_use': payload.token_use || 'id',
 			}
 		);
 

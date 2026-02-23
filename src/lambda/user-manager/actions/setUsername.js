@@ -7,13 +7,14 @@ const {PERM_TABLE, FUNC_NAMES} = require("../shared/constants");
 const {logError} = require("../shared/middleware/errorHandler");
 const {updateDynamoItem} = require("../shared/utils/dynamo");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { getUserSub } = require("../shared/utils/permissions");
 
 async function handle(event) {
 	if (!event.parsedBody || !event.parsedBody.username) {
 		return logError(new Error("Missing data in setUsername"));
 	}
 
-	const userSub = event.requestContext.authorizer?.claims?.sub;
+	const userSub = getUserSub(event);
 
 	const updated = await updateDynamoItem(PERM_TABLE, `user#${userSub}`, {
 		updates: {
