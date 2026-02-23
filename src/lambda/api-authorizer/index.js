@@ -124,10 +124,17 @@ exports.handler = async (event) => {
 		// Generate Allow policy with user context
 		// NOTE: Lambda authorizer context values must be flat strings (no nested objects)
 		// We use dot notation keys to simulate Cognito's structure: claims.sub, claims.email, etc.
+		
+		// Build wildcard resource ARN - allow all methods in this stage
+		// Format: arn:aws:execute-api:region:account:apiId/stage/*/*
+		const arnParts = event.methodArn.split('/');
+		const apiGatewayArn = arnParts.slice(0, 2).join('/'); // arn:aws:execute-api:region:account:apiId/stage
+		const resourceArn = `${apiGatewayArn}/*/*`; // Allow all methods and paths
+		
 		return generatePolicy(
 			payload.sub,
 			'Allow',
-			event.methodArn,
+			resourceArn,
 			{
 				'claims.sub': payload.sub,
 				'claims.email': payload.email || '',
