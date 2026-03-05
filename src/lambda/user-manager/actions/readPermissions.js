@@ -3,12 +3,12 @@
  */
 
 const {successResponse} = require("../shared/utils/response");
-const { PERM_TABLE, FUNC_NAMES } = require("../shared/constants");
+const { FUNC_NAMES } = require("../shared/constants");
 const { scanDynamoTable } = require("../shared/utils/dynamo");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 
 async function handle(event) {
-	const allEntries = await scanDynamoTable(PERM_TABLE);
+	const allEntries = await scanDynamoTable(process.env.PERM_TABLE);
 
 	const filteredEntries = (allEntries || []).map(e => ({
 		permissions: e.permissions,

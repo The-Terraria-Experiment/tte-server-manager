@@ -3,7 +3,6 @@
  */
 
 const {successResponse} = require("../shared/utils/response");
-const { PERM_TABLE } = require("../shared/constants");
 const { getDynamoItem } = require("../shared/utils/dynamo");
 const { getUserSub } = require("../shared/utils/permissions");
 
@@ -15,7 +14,7 @@ async function handle(event) {
 		return successResponse({entries: []});
 	}
 	
-	const userPermissions = await getDynamoItem(PERM_TABLE, `user#${userSub}`);
+	const userPermissions = await getDynamoItem(process.env.PERM_TABLE, `user#${userSub}`);
 
 	return successResponse({entries: userPermissions || []});
 }

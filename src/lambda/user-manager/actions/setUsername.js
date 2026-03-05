@@ -3,7 +3,7 @@
  */
 
 const {successResponse} = require("../shared/utils/response");
-const {PERM_TABLE, FUNC_NAMES} = require("../shared/constants");
+const {FUNC_NAMES} = require("../shared/constants");
 const {logError} = require("../shared/middleware/errorHandler");
 const {updateDynamoItem} = require("../shared/utils/dynamo");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
@@ -16,7 +16,7 @@ async function handle(event) {
 
 	const userSub = getUserSub(event);
 
-	const updated = await updateDynamoItem(PERM_TABLE, `user#${userSub}`, {
+	const updated = await updateDynamoItem(process.env.PERM_TABLE, `user#${userSub}`, {
 		updates: {
 			displayName: event.parsedBody.username,
 		},
