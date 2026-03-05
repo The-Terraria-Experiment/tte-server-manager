@@ -84,6 +84,37 @@ jobs:
           aws lambda wait function-updated \
             --function-name "${{ steps.func-name.outputs.name }}"
 
+      - name: Apply alias-specific env vars
+        run: |
+          ALIAS="${{ steps.func-name.outputs.alias }}"
+
+          if [ "$ALIAS" = "stage" ]; then
+            PERM_TABLE_VALUE="ttesm-user-perms-stage"
+          else
+            PERM_TABLE_VALUE="ttesm-user-perms"
+          fi
+
+          CURRENT_VARS=$(aws lambda get-function-configuration \
+            --function-name "${{ steps.func-name.outputs.name }}" \
+            --query 'Environment.Variables' \
+            --output json)
+
+          if [ "$CURRENT_VARS" = "null" ] || [ -z "$CURRENT_VARS" ]; then
+            CURRENT_VARS='{}'
+          fi
+
+          UPDATED_VARS=$(echo "$CURRENT_VARS" | jq -c --arg perm "$PERM_TABLE_VALUE" '. + {PERM_TABLE: $perm}')
+          ENV_PAYLOAD=$(jq -cn --argjson vars "$UPDATED_VARS" '{Variables: $vars}')
+
+          aws lambda update-function-configuration \
+            --function-name "${{ steps.func-name.outputs.name }}" \
+            --environment "$ENV_PAYLOAD"
+
+          aws lambda wait function-updated \
+            --function-name "${{ steps.func-name.outputs.name }}"
+
+          echo "✓ Updated PERM_TABLE=$PERM_TABLE_VALUE for ${{ steps.func-name.outputs.name }}"
+
       - name: Publish version and update alias
         run: |
           VERSION=$(aws lambda publish-version \

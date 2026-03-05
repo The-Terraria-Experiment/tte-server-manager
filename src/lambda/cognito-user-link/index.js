@@ -5,7 +5,6 @@
  */
 
 const {putDynamoItem} = require("./shared/utils/dynamo");
-const {PERM_TABLE} = require("./shared/constants");
 const {PERMISSIONS} = require("./shared/permissionValues");
 const { logAction } = require("./shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("./shared/constants");
@@ -37,7 +36,7 @@ exports.handler = async (event, context) => {
 		};
 
 		// Write to DynamoDB
-		const success = await putDynamoItem(PERM_TABLE, userRecord);
+		const success = await putDynamoItem(process.env.PERM_TABLE, userRecord);
 
 		logAction(FUNC_NAMES.COG_LINK, {
 			userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",

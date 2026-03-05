@@ -3,7 +3,7 @@
  * Handles TShock game server operations (status, commands, TShock API)
  */
 
-const {validatePermission} = require("./shared/utils/permissions");
+const {validatePermission, getUserSub} = require("./shared/utils/permissions");
 const {errorHandler} = require("./shared/middleware/errorHandler");
 const {notFoundError} = require("./shared/utils/response");
 const {PERMISSIONS} = require("./shared/permissionValues");
