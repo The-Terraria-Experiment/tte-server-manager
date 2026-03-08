@@ -169,7 +169,7 @@ export default {
 		async startServer() {
 			this.$validatePermissions([PERMISSIONS.server.world.select, PERMISSIONS.server.status.start]);
 
-			if (this.serverStore.loading.worldLaunch[selectedInstance]) return;
+			if (this.serverStore.loading.worldLaunch[this.selectedInstance]) return;
 
 			if (this.selectWorld.port != 7777) {
 				this.$alert.warning("Currently, the port must be 7777.");
@@ -191,7 +191,7 @@ export default {
 				return;
 			}
 
-			this.serverStore.loading.worldLaunch[selectedInstance] = true;
+			this.serverStore.loading.worldLaunch[this.selectedInstance] = true;
 
 			try {
 				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.select, {
@@ -210,7 +210,7 @@ export default {
 					console.error(e);
 				}
 			} finally {
-				this.serverStore.loading.worldLaunch[selectedInstance] = false;
+				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 			}
 		},
 
