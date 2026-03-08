@@ -8,6 +8,7 @@ const {logError} = require("../shared/middleware/errorHandler");
 const {updateDynamoItem} = require("../shared/utils/dynamo");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { getUserSub } = require("../shared/utils/permissions");
+const { PERM_TABLE } = require("../shared/vars");
 
 async function handle(event) {
 	if (!event.parsedBody || !event.parsedBody.username) {
@@ -16,7 +17,7 @@ async function handle(event) {
 
 	const userSub = getUserSub(event);
 
-	const updated = await updateDynamoItem(process.env.PERM_TABLE, `user#${userSub}`, {
+	const updated = await updateDynamoItem(PERM_TABLE, `user#${userSub}`, {
 		updates: {
 			displayName: event.parsedBody.username,
 		},
