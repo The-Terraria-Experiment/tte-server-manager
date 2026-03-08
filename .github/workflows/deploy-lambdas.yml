@@ -89,9 +89,9 @@ jobs:
           ALIAS="${{ steps.func-name.outputs.alias }}"
 
           if [ "$ALIAS" = "stage" ]; then
-            PERM_TABLE_VALUE="ttesm-user-perms-stage"
+            ACTIVE_ENV_VALUE="stage"
           else
-            PERM_TABLE_VALUE="ttesm-user-perms"
+            ACTIVE_ENV_VALUE="prod"
           fi
 
           CURRENT_VARS=$(aws lambda get-function-configuration \
@@ -103,7 +103,7 @@ jobs:
             CURRENT_VARS='{}'
           fi
 
-          UPDATED_VARS=$(echo "$CURRENT_VARS" | jq -c --arg perm "$PERM_TABLE_VALUE" '. + {PERM_TABLE: $perm}')
+          UPDATED_VARS=$(echo "$CURRENT_VARS" | jq -c --arg env "$ACTIVE_ENV_VALUE" '. + {ACTIVE_ENV: $env}')
           ENV_PAYLOAD=$(jq -cn --argjson vars "$UPDATED_VARS" '{Variables: $vars}')
 
           aws lambda update-function-configuration \
@@ -113,7 +113,7 @@ jobs:
           aws lambda wait function-updated \
             --function-name "${{ steps.func-name.outputs.name }}"
 
-          echo "✓ Updated PERM_TABLE=$PERM_TABLE_VALUE for ${{ steps.func-name.outputs.name }}"
+          echo "✓ Updated ACTIVE_ENV=$ACTIVE_ENV_VALUE for ${{ steps.func-name.outputs.name }}"
 
       - name: Publish version and update alias
         run: |

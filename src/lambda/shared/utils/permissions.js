@@ -7,6 +7,7 @@ const { logAction } = require("./cloudwatchLogger");
 const { CW_LOG_GENERAL } = require("../constants");
 const { assertIsTruthyString, assertIsTruthy } = require("../middleware/assert");
 const { getDynamoItem } = require("./dynamo");
+const { PERM_TABLE } = require("../vars");
 
 const userCache = new Map();
 
@@ -77,7 +78,7 @@ async function validatePermission(event, permission) {
  */
 async function checkPermission(userSub, permission) {
 	if (!userCache.has(userSub)) {
-		const userData = await getDynamoItem(process.env.PERM_TABLE, `user#${userSub}`);
+		const userData = await getDynamoItem(PERM_TABLE, `user#${userSub}`);
 		userCache.set(userSub, userData);
 	}
 
@@ -136,7 +137,7 @@ async function validateResourceAccess(event, resource) {
  */
 async function checkResourceAccess(userSub, resource) {
 	if (!userCache.has(userSub)) {
-		const userData = await getDynamoItem(process.env.PERM_TABLE, `user#${userSub}`);
+		const userData = await getDynamoItem(PERM_TABLE, `user#${userSub}`);
 		userCache.set(userSub, userData);
 	}
 	
