@@ -39,11 +39,11 @@ async function logAction(functionName, actionLog) {
 	
 	const environment = "-" + process.env.ACTIVE_ENV;
 
+	const logGroupName = `/aws/lambda/${functionName}${environment}/actions`;
+	const logStreamName = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+	const streamKey = `${logGroupName}/${logStreamName}`;
+	
 	try {
-		const logGroupName = `/aws/lambda/${functionName}${environment}/actions`;
-		const logStreamName = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
-		const streamKey = `${logGroupName}/${logStreamName}`;
-
 		// Create log stream if it doesn't exist
 		if (!existingStreams.has(streamKey)) {
 			try {
@@ -89,7 +89,7 @@ async function logAction(functionName, actionLog) {
 		);
 	} catch (err) {
 		// Log to console as fallback if CloudWatch fails
-		console.error(`CloudWatch logging failed: ${err.message}`);
+		console.error(`CloudWatch logging to stream [${streamKey}] failed: ${err.message}`);
 		console.log('Action log fallback:', JSON.stringify(actionLog));
 	}
 }
