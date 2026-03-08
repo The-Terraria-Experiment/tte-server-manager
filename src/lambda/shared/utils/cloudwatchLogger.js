@@ -37,10 +37,10 @@ async function logAction(functionName, actionLog) {
 		throw new Error(`Invalid function name '${functionName}'`);
 	}
 	
-	// todo: have the -prod be dynamic, on push to different branches, set an env var that specifies
+	const environment = "-" + process.env.ACTIVE_ENV;
 
 	try {
-		const logGroupName = `/aws/lambda/${functionName}-prod/actions`;
+		const logGroupName = `/aws/lambda/${functionName}${environment}/actions`;
 		const logStreamName = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 		const streamKey = `${logGroupName}/${logStreamName}`;
 

@@ -1,9 +1,7 @@
 <template>
 	<Teleport to="body">
-		<!-- Persistent backdrop (opacity + blur) to avoid pop on mount -->
 		<div :class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[layer], { 'overlay-open': open, 'overlay-closed': !open }]" />
 		
-		<!-- Popup -->
 		<Transition
 			enter-active-class="popup-enter"
 			leave-active-class="popup-leave"
@@ -16,7 +14,6 @@
 					bodyClass
 				]"
 			>
-				<!-- Header -->
 				<div class="w-full h-12 flex justify-between items-center px-4 bg-gray-4">
 					<p class="font-main font-bold text-white-0 px-2">{{ headerText }}</p>
 					<div v-if="!xDisabled" class="cursor-pointer p-2" @click="xClicked">
@@ -24,12 +21,10 @@
 					</div>
 				</div>
 
-				<!-- Body -->
 				<div class="flex-1 overflow-y-auto">
 					<slot></slot>
 				</div>
 
-				<!-- Footer -->
 				<div 
 					v-if="buttons.length"
 					class="w-full bg-gray-4 py-2 flex justify-end px-4"
