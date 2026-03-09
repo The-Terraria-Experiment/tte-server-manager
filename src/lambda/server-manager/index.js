@@ -55,6 +55,10 @@ const endpoints = {
 		action: require("./actions/createWorld"),
 		permRequired: PERMISSIONS.server.world.create,
 	},
+	"GET /server/{id}/world/create/{jobId}/status": {
+		action: require("./actions/createWorldStatus"),
+		permRequired: PERMISSIONS.server.world.create,
+	},
 	"POST /server/{id}/world/{worldId}/select": {
 		action: require("./actions/selectWorld"),
 		permRequired: PERMISSIONS.server.world.select,
@@ -70,6 +74,10 @@ const endpoints = {
 };
 
 exports.handler = errorHandler(async (event, context) => {
+	if (event?.internalAction === "create-world-worker") {
+		return require("./actions/createWorld").handle(event, context);
+	}
+
 	console.log("Server Manager:", { httpMethod: event.httpMethod, path: event.path });
 	logAction(FUNC_NAMES.SERV_MGR, {
 		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
