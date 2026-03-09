@@ -9,7 +9,7 @@
 			<p class="text-gray-6 ml-2 text-lg">Create World</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">summary text</p>
+			<p class="text-2xl text-teal-4">{{ chosenCreateWorldText }}</p>
 		</template>
 		<template #content>
 			<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
@@ -155,6 +155,28 @@ export default {
 				{ id: 2, text: "Expert" },
 				{ id: 3, text: "Master" },
 			],
+			createWorldTexts: [
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"A new adventure awaits...",
+				"This is the one",
+				"Worlds without number",
+				"Simulator? I hardly know 'er",
+			],
+			chosenCreateWorldText: null
 		}
 	},
 	computed: {
@@ -209,6 +231,13 @@ export default {
 				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 			}
 		},
+		getRandomCreateText() {
+			const index = Math.floor(Math.random() * this.createWorldTexts.length);
+			return this.createWorldTexts[index];
+		}
+	},
+	mounted() {
+		this.chosenCreateWorldText = this.getRandomCreateText();
 	},
 	watch: {
 		worldFileLocationOptions(value) {
