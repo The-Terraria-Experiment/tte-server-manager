@@ -250,10 +250,12 @@ export default {
 
 					if (data.status === "completed") {
 						this.worldCreateProgress = 100;
-						this.worldCreateProgressMessage = data.message || "World created and uploaded";
-						this.$alert.success("World created and launched successfully");
-						setTimeout(() => this.$emit("refresh"), 500);
-						setTimeout(() => this.closeWorldCreatePopup(), 1200);
+						this.$alert.success("World created and saved successfully");
+						this.worldCreateProgressMessage = "Waiting for server launch";
+						setTimeout(() => {
+							setTimeout(() => this.$emit("refresh"), 500);
+							setTimeout(() => this.closeWorldCreatePopup(), 1200);
+						}, 7000);
 					} else {
 						this.$alert.error(data.error || data.message || "World creation failed");
 						this.closeWorldCreatePopup();
