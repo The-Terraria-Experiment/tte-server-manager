@@ -12,16 +12,14 @@ const { FUNC_NAMES } = require("../shared/constants");
 const { validateResourceAccess } = require("../shared/utils/permissions");
 
 
-function buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
+function buildTShockCommand(tshockPath, newWorldConfigPath) {
 	// Validate and quote paths to handle spaces safely
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	const quotedTshockPath = `"${baseRoot}${tshockPath}"`;
-	const worldPathNormalized = path.posix.normalize(`${baseRoot}${worldFolderPath}`);
-	const escapedPath = worldPathNormalized.replace(/"/g, '\\"');
-	const quotedWorldPath = `"${escapedPath}"`;
+	const escapedConfigPath = newWorldConfigPath.replace(/"/g, '\\"');
 
 	// Build command with flags
-	let command = `${quotedTshockPath} -worldselectpath ${quotedWorldPath}`;
+	let command = `${quotedTshockPath} -config "${escapedConfigPath} -autocreate 1"`; // The value of autocreate doesn't seem to matter, the parameter just needs to exist (love that)
 	// command += ` -port ${parseInt(port)}`;
 	// command += ` -maxplayers ${parseInt(maxPlayers)}`;
 
@@ -29,8 +27,6 @@ function buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil,
 	// if (password && password.trim()) {
 	// 	command += ` -password "${password}"`;
 	// }
-
-	const input = `n\n${size}\n${difficulty}\n${evil}\n${name}\n${seed}\n1\n${maxPlayers}\n${port}\ny\n\n`;
 
 	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
 	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
@@ -55,9 +51,36 @@ function buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil,
 	// Run detached so SSM can exit while server keeps running
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
-	command = `printf '${input}' | ${command}`;
 	const detached = `nohup ${command} < /dev/null & disown`;
 	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${detached}"`;
+}
+
+function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
+	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
+	const worldPath = path.posix.normalize(`${baseRoot}/${worldFolderPath}`);
+
+	const lines = [
+		`worldpath=${worldPath}`,
+		`world=${worldPath}/${name}`,
+		`maxplayers=${Number(maxPlayers)}`,
+		`port=${Number(port)}`,
+		// size/difficulty/evil may be off by 1 because WHY FRICKIN NOT HUH THANKS TSHOCK THAT'S NOT CONFUSING AND ENTIRELY UNDOCUMENTED
+		`seed=${size}.${difficulty - 1}.${evil - 1}.${seed || Date.now()}`, // compound seed, because that makes sense
+	];
+
+	// todo: write password to config
+
+	return lines.join("\n");
+}
+
+function buildWriteNewWorldConfigCommand(configPath, content) {
+	const escapedConfigPath = configPath.replace(/"/g, '\\"');
+	return `cat > "${escapedConfigPath}" <<'__NEW_WORLD_CONFIG__'\n${content}\n__NEW_WORLD_CONFIG__`;
+}
+
+function buildDeleteWorldConfigCommand(configPath) {
+	const escapedConfigPath = configPath.replace(/"/g, '\\"');
+	return `rm -f "${escapedConfigPath}"`;
 }
 
 async function waitForSSMCommand(instanceId, commandId, options = {}) {
@@ -168,13 +191,13 @@ async function handle(event) {
 	}
 
 	// Validate port contains only numeric characters
-	if (password && !/^[0-9]+$/.test(port)) {
-		return validationError("Password must contain only alphanumeric characters and underscores");
+	if (!/^[0-9]+$/.test(port)) {
+		return validationError("Port must contain only numeric characters");
 	}
 
 	// Validate player cap contains only numeric characters
-	if (password && !/^[0-9]+$/.test(maxPlayers)) {
-		return validationError("Password must contain only alphanumeric characters and underscores");
+	if (!/^[0-9]+$/.test(maxPlayers)) {
+		return validationError("Max players must contain only numeric characters");
 	}
 
 	// Get TShock executable path from environment
@@ -206,9 +229,11 @@ async function handle(event) {
 		return validationError("World file path does not fall within a designated world files folder");
 	}
 
-	// Build the command
-	const command = buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil, worldName, seed, maxPlayers, port, password);
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
+	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "") || baseRoot;
+	const newWorldConfigPath = path.posix.join(workingDir, "newworldconfig.txt");
+	const newWorldConfigContent = buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, worldName, seed, maxPlayers, port, password);
+	const command = buildTShockCommand(tshockPath, newWorldConfigPath);
 	const worldFolderNormalized = path.posix.normalize(`${baseRoot}/${worldFolderPath}`);
 	const worldFilePath = path.posix.join(worldFolderNormalized, `${worldName}.wld`);
 	const s3Key = path.posix.join(instanceId, worldFolderPath, `${worldName}.wld`);
@@ -224,7 +249,12 @@ async function handle(event) {
 	// Execute command on EC2 instance via SSM
 	// Note: Port forwarding may need to be handled at the security group level
 	// or via iptables on the EC2 instance if not already configured
+	let shouldDeleteConfig = false;
 	try {
+		const writeConfigCommand = buildWriteNewWorldConfigCommand(newWorldConfigPath, newWorldConfigContent);
+		await runSSMCommandAndWait(instanceId, [writeConfigCommand], { pollDelayMs: 1000, maxPolls: 30 });
+		shouldDeleteConfig = true;
+
 		const result = await executeSSMCommand(instanceId, [command]);
 
 		logAction(FUNC_NAMES.SERV_MGR, {
@@ -258,6 +288,21 @@ async function handle(event) {
 		});
 	} catch (error) {
 		return validationError(`Failed to execute command: ${error.message}`);
+	} finally {
+		if (shouldDeleteConfig) {
+			try {
+				const deleteConfigCommand = buildDeleteWorldConfigCommand(newWorldConfigPath);
+				await runSSMCommandAndWait(instanceId, [deleteConfigCommand], { pollDelayMs: 1000, maxPolls: 20 });
+			} catch (cleanupError) {
+				logAction(FUNC_NAMES.SERV_MGR, {
+					userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+					action: "create-world",
+					status: 'cleanup-failed',
+					resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+					details: { newWorldConfigPath, cleanupError: cleanupError.message }
+				});
+			}
+		}
 	}
 }
 
