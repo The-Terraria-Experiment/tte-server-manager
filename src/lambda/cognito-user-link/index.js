@@ -9,11 +9,12 @@ const {PERMISSIONS} = require("./shared/permissionValues");
 const { logAction } = require("./shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("./shared/constants");
 const { PERM_TABLE } = require("./shared/vars");
+const { getUserSub } = require("./shared/utils/permissions");
 
 exports.handler = async (event, context) => {
 	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
 	logAction(FUNC_NAMES.COG_LINK, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
+		userId: getUserSub(event) ?? "unknown",
 		action: "invoke",
 		resource: null,
 	});
@@ -40,7 +41,7 @@ exports.handler = async (event, context) => {
 		const success = await putDynamoItem(PERM_TABLE, userRecord);
 
 		logAction(FUNC_NAMES.COG_LINK, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
+			userId: getUserSub(event) ?? "unknown",
 			action: "account-create",
 			resource: null,
 		});

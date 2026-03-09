@@ -8,7 +8,7 @@ const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
-const { validateResourceAccess } = require("../shared/utils/permissions");
+const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
 
 /**
  * Safely construct TShock command with flags
@@ -136,7 +136,7 @@ async function handle(event) {
 	const command = buildTShockCommand(tshockPath, worldFilePath, port, maxPlayers, password);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "select-world",
 		status: 'command-built',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
@@ -150,7 +150,7 @@ async function handle(event) {
 		const result = await executeSSMCommand(instanceId, [command]);
 
 		logAction(FUNC_NAMES.SERV_MGR, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+			userId: getUserSub(event) ?? 'unknown',
 			action: "select-world",
 			status: 'ssm-dispatched',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
@@ -174,7 +174,7 @@ async function handle(event) {
 		});
 	} catch (error) {
 		logAction(FUNC_NAMES.SERV_MGR, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+			userId: getUserSub(event) ?? 'unknown',
 			action: "select-world",
 			status: 'ssm-dispatch-failed',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

@@ -2,7 +2,7 @@
  * Stop EC2 instance
  */
 
-const { validateResourceAccess } = require("../shared/utils/permissions");
+const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
 const { FUNC_NAMES } = require("../shared/constants");
 const {stopInstance} = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
@@ -20,7 +20,7 @@ async function handle(event) {
 	await stopInstance(instanceId);
 
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "stop",
 		status: 'ok',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

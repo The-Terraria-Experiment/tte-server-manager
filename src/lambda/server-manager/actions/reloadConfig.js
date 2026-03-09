@@ -4,7 +4,7 @@
 
 const { FUNC_NAMES } = require("../shared/constants");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
-const { validateResourceAccess } = require("../shared/utils/permissions");
+const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
 const {successResponse, errorResponse, validationError,} = require("../shared/utils/response");
 const { callTShockAPI } = require("./tshockApi");
 
@@ -18,7 +18,7 @@ async function handle(event) {
 	await validateResourceAccess(event, `server::${serverId}`);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "reload-config",
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 		details: { serverId }
@@ -33,7 +33,7 @@ async function handle(event) {
 			return errorResponse(`Instance ${serverId} has no reachable public IP`, 503, 'INSTANCE_IP_UNAVAILABLE');
 		}
 
-		const result = await callTShockAPI(event.requestContext?.authorizer?.claims?.sub, ip, "/v3/server/reload");
+		const result = await callTShockAPI(getUserSub(event), ip, "/v3/server/reload");
 	} catch (e) {
 		return errorResponse(e.message || 'Failed to fetch server status');
 	}

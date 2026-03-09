@@ -400,7 +400,7 @@ async function handle(event) {
 	}
 
 	await validateResourceAccess(event, `server::${instanceId}`);
-	const requestedBy = getUserSub(event) || event.requestContext?.authorizer?.claims?.sub || null;
+	const requestedBy = getUserSub(event) || null;
 
 	// Extract body parameters
 	const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
