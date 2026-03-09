@@ -7,6 +7,7 @@ const { FUNC_NAMES } = require("../shared/constants");
 const { scanDynamoTable } = require("../shared/utils/dynamo");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { PERM_TABLE } = require("../shared/vars");
+const { getUserSub } = require("../shared/utils/permissions");
 
 async function handle(event) {
 	const allEntries = await scanDynamoTable(PERM_TABLE);
@@ -20,7 +21,7 @@ async function handle(event) {
 	}));
 
 	logAction(FUNC_NAMES.USER_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "read-permissions",
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 	});

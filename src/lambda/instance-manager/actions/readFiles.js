@@ -2,7 +2,7 @@
  * List files in S3 for a specific instance
  */
 
-const { validateResourceAccess } = require("../shared/utils/permissions");
+const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
 const { FUNC_NAMES } = require("../shared/constants");
 const {listS3Objects} = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
@@ -33,7 +33,7 @@ async function handle(event) {
 	const worldPaths = instanceData?.worldPaths || [];
 
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "read-files",
 		status: 'ok',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

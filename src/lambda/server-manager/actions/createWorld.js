@@ -52,11 +52,28 @@ function buildTShockCommand(tshockPath, newWorldConfigPath) {
 		command += " 2> /dev/null";
 	}
 
+	// Choose launch strategy. systemd-run detaches cleanly from SSM process tracking.
+	const launchMode = (process.env.TSHOCK_LAUNCH_MODE || "auto").toLowerCase();
+
 	// Run detached so SSM can exit while server keeps running
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
-	const detached = `nohup ${command} < /dev/null & disown`;
-	return `runuser -u ubuntu -- /bin/bash -lc '${cdRoot} && ${detached}'`;
+	const legacyDetached = `nohup ${command} < /dev/null & echo "TShock launch dispatched (legacy)"`;
+	const legacyLaunch = `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${legacyDetached}'`;
+
+	const serviceScript = `${cdRoot} && exec ${command} < /dev/null`;
+	const escapedServiceScript = serviceScript.replace(/'/g, `'"'"'`);
+	const systemdLaunch = `systemd-run --unit "tshock-$(date +%s)-$$" --uid ubuntu --working-directory "${workingDir}" --collect --quiet /bin/bash -c '${escapedServiceScript}' && echo "TShock launch dispatched (systemd-run)"`;
+
+	if (launchMode === "legacy") {
+		return legacyLaunch;
+	}
+
+	if (launchMode === "systemd") {
+		return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else echo "systemd-run not available" >&2; exit 127; fi`;
+	}
+
+	return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else ${legacyLaunch}; fi`;
 }
 
 function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
@@ -295,9 +312,14 @@ async function runCreateWorldWorker(workerEvent) {
 	logAction(FUNC_NAMES.SERV_MGR, {
 		userId: requestedBy ?? 'unknown',
 		action: "create-world-worker",
-		status: 'tshock-started',
+		status: 'tshock-dispatched',
 		resource: `internal:create-world-worker:${instanceId}`,
-		details: { commandId: result.commandId, worldFilePath, port, tshockPath }
+		details: {
+			commandId: result.commandId,
+			worldFilePath,
+			port,
+			tshockPath,
+		}
 	});
 
 	await updateWorldCreateJob(jobUid, {
@@ -378,7 +400,7 @@ async function handle(event) {
 	}
 
 	await validateResourceAccess(event, `server::${instanceId}`);
-	const requestedBy = getUserSub(event) || event.requestContext?.authorizer?.claims?.sub || null;
+	const requestedBy = getUserSub(event) || null;
 
 	// Extract body parameters
 	const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;

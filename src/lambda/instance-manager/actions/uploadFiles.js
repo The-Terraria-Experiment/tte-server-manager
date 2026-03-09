@@ -8,6 +8,7 @@ const {getSignedUploadUrl} = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const {getDynamoItem} = require("../shared/utils/dynamo");
 const {successResponse, validationError} = require("../shared/utils/response");
+const { getUserSub } = require("../shared/utils/permissions");
 
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;
@@ -60,7 +61,7 @@ async function handle(event) {
 		const uploadUrl = await getSignedUploadUrl(bucketName, s3Key, 3600);
 
 		logAction(FUNC_NAMES.INST_MGR, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+			userId: getUserSub(event) ?? 'unknown',
 			action: "upload-files",
 			status: 'ok',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
