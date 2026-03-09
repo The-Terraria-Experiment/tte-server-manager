@@ -52,12 +52,28 @@ function buildTShockCommand(tshockPath, newWorldConfigPath) {
 		command += " 2> /dev/null";
 	}
 
+	// Choose launch strategy. systemd-run detaches cleanly from SSM process tracking.
+	const launchMode = (process.env.TSHOCK_LAUNCH_MODE || "auto").toLowerCase();
+
 	// Run detached so SSM can exit while server keeps running
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
-	// In SSM's non-interactive shell, plain nohup backgrounding is the most reliable detach pattern.
-	const detached = `nohup ${command} < /dev/null & echo "TShock launch dispatched"`;
-	return `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${detached}'`;
+	const legacyDetached = `nohup ${command} < /dev/null & echo "TShock launch dispatched (legacy)"`;
+	const legacyLaunch = `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${legacyDetached}'`;
+
+	const serviceScript = `${cdRoot} && exec ${command} < /dev/null`;
+	const escapedServiceScript = serviceScript.replace(/'/g, `'"'"'`);
+	const systemdLaunch = `systemd-run --unit "tshock-$(date +%s)-$$" --uid ubuntu --working-directory "${workingDir}" --collect --quiet /bin/bash -c '${escapedServiceScript}' && echo "TShock launch dispatched (systemd-run)"`;
+
+	if (launchMode === "legacy") {
+		return legacyLaunch;
+	}
+
+	if (launchMode === "systemd") {
+		return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else echo "systemd-run not available" >&2; exit 127; fi`;
+	}
+
+	return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else ${legacyLaunch}; fi`;
 }
 
 function previewText(value, maxLength = 400) {
