@@ -78,11 +78,6 @@ function buildWriteNewWorldConfigCommand(configPath, content) {
 	return `cat > "${escapedConfigPath}" <<'__NEW_WORLD_CONFIG__'\n${content}\n__NEW_WORLD_CONFIG__`;
 }
 
-function buildDeleteWorldConfigCommand(configPath) {
-	const escapedConfigPath = configPath.replace(/"/g, '\\"');
-	return `rm -f "${escapedConfigPath}"`;
-}
-
 async function waitForSSMCommand(instanceId, commandId, options = {}) {
 	const pollDelayMs = Number(options.pollDelayMs ?? 1000);
 	const maxPolls = Number(options.maxPolls ?? 30);
@@ -249,11 +244,9 @@ async function handle(event) {
 	// Execute command on EC2 instance via SSM
 	// Note: Port forwarding may need to be handled at the security group level
 	// or via iptables on the EC2 instance if not already configured
-	let shouldDeleteConfig = false;
 	try {
 		const writeConfigCommand = buildWriteNewWorldConfigCommand(newWorldConfigPath, newWorldConfigContent);
 		await runSSMCommandAndWait(instanceId, [writeConfigCommand], { pollDelayMs: 1000, maxPolls: 30 });
-		shouldDeleteConfig = true;
 
 		const result = await executeSSMCommand(instanceId, [command]);
 
@@ -288,21 +281,6 @@ async function handle(event) {
 		});
 	} catch (error) {
 		return validationError(`Failed to execute command: ${error.message}`);
-	} finally {
-		if (shouldDeleteConfig) {
-			try {
-				const deleteConfigCommand = buildDeleteWorldConfigCommand(newWorldConfigPath);
-				await runSSMCommandAndWait(instanceId, [deleteConfigCommand], { pollDelayMs: 1000, maxPolls: 20 });
-			} catch (cleanupError) {
-				logAction(FUNC_NAMES.SERV_MGR, {
-					userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
-					action: "create-world",
-					status: 'cleanup-failed',
-					resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
-					details: { newWorldConfigPath, cleanupError: cleanupError.message }
-				});
-			}
-		}
 	}
 }
 
