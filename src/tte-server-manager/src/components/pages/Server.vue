@@ -57,7 +57,7 @@
 		v-if="selectedInstance && !selectedServerData.state" 
 		:selected-instance="selectedInstance" 
 		:selected-server-data="selectedServerData" 
-		@autoRefreshAt="autoRefreshAt = $event"
+		@autoRefreshAt="autoRefreshAt = $event"	
 	/>
 
 	<CreateWorld 
@@ -65,6 +65,7 @@
 		:selected-instance="selectedInstance" 
 		:selected-server-data="selectedServerData" 
 		@autoRefreshAt="autoRefreshAt = $event"
+		@refresh="refresh"
 	/>
 
 	<ServerConfig 

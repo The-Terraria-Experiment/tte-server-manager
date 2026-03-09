@@ -301,7 +301,7 @@ async function runCreateWorldWorker(workerEvent) {
 
 	await updateWorldCreateJob(jobUid, {
 		step: "waiting-for-world-file",
-		message: "Waiting for world file to be created",
+		message: "Building world file",
 		progress: 45,
 		commandId: result.commandId,
 	});

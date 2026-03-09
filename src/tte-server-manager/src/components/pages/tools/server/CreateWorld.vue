@@ -1,121 +1,117 @@
 <template>
-	<StatusTile
-		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
-		collapsible
-		:perm-required="PERMISSIONS.server.world.create"
-	>
-		<template #header>
-			<Icon icon="earth" color="text-gray-6" size="4" />
-			<p class="text-gray-6 ml-2 text-lg">Create World</p>
-		</template>
-		<template #summary>
-			<p class="text-2xl text-teal-4">{{ chosenCreateWorldText }}</p>
-		</template>
-		<template #content>
-			<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
-			<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3 gap-4 mx-4">
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">World Size</p>
-					<Dropdown
-						inputClass="bg-teal-3 text-white-1"
-						iconColor="text-white-1"
-						:options="worldSizeDropdownOptions"
-						v-model="newWorldData.size"
-					/>
+	<div>
+		<StatusTile
+			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			collapsible
+			:perm-required="PERMISSIONS.server.world.create"
+		>
+			<template #header>
+				<Icon icon="earth" color="text-gray-6" size="4" />
+				<p class="text-gray-6 ml-2 text-lg">Create World</p>
+			</template>
+			<template #summary>
+				<p class="text-2xl text-teal-4">World creation available</p>
+			</template>
+			<template #content>
+				<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
+				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3 gap-4 mx-4">
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">World Size</p>
+						<Dropdown
+							inputClass="bg-teal-3 text-white-1"
+							iconColor="text-white-1"
+							:options="worldSizeDropdownOptions"
+							v-model="newWorldData.size"
+						/>
+					</div>
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">World Evil</p>
+						<Dropdown
+							inputClass="bg-teal-3 text-white-1"
+							iconColor="text-white-1"
+							:options="worldEvilDropdownOptions"
+							v-model="newWorldData.evil"
+						/>
+					</div>
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">Difficulty</p>
+						<Dropdown
+							inputClass="bg-teal-3 text-white-1"
+							iconColor="text-white-1"
+							:options="difficultyDropdownOptions"
+							v-model="newWorldData.difficulty"
+						/>
+					</div>
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">World Name</p>
+						<ValueInput
+							placeholder="World name"
+							v-model="newWorldData.name"
+						/>
+					</div>
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">World File Location</p>
+						<Dropdown
+							inputClass="bg-teal-3 text-white-1"
+							iconColor="text-white-1"
+							:options="worldFileLocationOptions"
+							v-model="newWorldData.worldFileLocation"
+						/>
+					</div>
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">World Seed</p>
+						<ValueInput
+							placeholder="Seed value"
+							maxlength="50"
+							v-model="newWorldData.seed"
+						/>
+					</div>
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
+						<ValueInput
+							type="number"
+							max="500"
+							min="1"
+							placeholder="Value between 1 and 500"
+							v-model="newWorldData.maxPlayers"
+						/>
+					</div>
 				</div>
-
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">World Evil</p>
-					<Dropdown
-						inputClass="bg-teal-3 text-white-1"
-						iconColor="text-white-1"
-						:options="worldEvilDropdownOptions"
-						v-model="newWorldData.evil"
-					/>
+				<div class="flex justify-end p-4">
+					<FlexButton
+						v-if="!serverStore.loading.worldLaunch[selectedInstance]"
+						:variant="BTN_VARIANT.PRIMARY"
+						@input="createWorld"
+						:disabled="!(newWorldData.name && newWorldData.maxPlayers && newWorldData.worldFileLocation)"
+					>
+						<p class="font-main font-bold py-2 px-4 md:px-10">CREATE & LAUNCH WORLD</p>
+					</FlexButton>
+					<div v-else class="flex items-center">
+						<Spinner class="h-5 w-5 text-teal-3" />
+						<p class="font-main font-bold text-teal-4 mx-2">CREATING WORLD...</p>
+					</div>
 				</div>
-
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">Difficulty</p>
-					<Dropdown
-						inputClass="bg-teal-3 text-white-1"
-						iconColor="text-white-1"
-						:options="difficultyDropdownOptions"
-						v-model="newWorldData.difficulty"
-					/>
+			</template>
+		</StatusTile>
+		<Popup
+			:open="worldCreatePopupOpen"
+			xDisabled
+			headerText="Creating & Launching World"
+			bodyClass="w-[95%] sm:w-[34rem] h-[18rem]"
+		>
+			<div class="p-5 flex flex-col justify-between h-full">
+				<div>
+					<div class="flex items-center justify-center mb-4">
+						<Spinner class="h-5 w-5 text-teal-4" />
+						<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStatusLabel }}</p>
+					</div>
+					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateProgressMessage }}</p>
+					<p class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ worldCreateProgress }}%</p>
 				</div>
-
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">World Name</p>
-					<ValueInput
-						placeholder="World name"
-						v-model="newWorldData.name"
-					/>
-				</div>
-
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">World File Location</p>
-					<Dropdown
-						inputClass="bg-teal-3 text-white-1"
-						iconColor="text-white-1"
-						:options="worldFileLocationOptions"
-						v-model="newWorldData.worldFileLocation"
-					/>
-				</div>
-
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">World Seed</p>
-					<ValueInput
-						placeholder="Seed value"
-						maxlength="50"
-						v-model="newWorldData.seed"
-					/>
-				</div>
-
-				<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
-					<ValueInput
-						type="number"
-						max="500"
-						min="1"
-						placeholder="Value between 1 and 500"
-						v-model="newWorldData.maxPlayers"
-					/>
-				</div>
+				<p v-if="worldCreateJobId" class="font-mono text-gray-6 text-xs mt-1 text-center">Job: {{ worldCreateJobId }}</p>
 			</div>
-
-			<div class="flex justify-end p-4">
-				<FlexButton 
-					v-if="!serverStore.loading.worldLaunch[selectedInstance]"
-					:variant="BTN_VARIANT.PRIMARY"
-					@input="createWorld"
-					:disabled="!(newWorldData.name && newWorldData.maxPlayers && newWorldData.worldFileLocation)"
-				>
-					<p class="font-main font-bold py-2 px-4 md:px-10">CREATE & LAUNCH WORLD</p>
-				</FlexButton>
-				<div v-else class="flex items-center">
-					<Spinner class="h-5 w-5 text-teal-3" />
-					<p class="font-main font-bold text-teal-4 mx-2">CREATING WORLD...</p>
-				</div>
-			</div>
-		</template>
-	</StatusTile>
-
-	<Popup
-		:open="worldCreatePopupOpen"
-		xDisabled
-		headerText="Creating & Launching World"
-		bodyClass="w-[95%] sm:w-[34rem] h-[18rem]"
-	>
-		<div class="p-5 flex flex-col h-full">
-			<div class="flex items-center mb-4">
-				<Spinner class="h-5 w-5 text-teal-3" />
-				<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStatusLabel }}</p>
-			</div>
-			<p class="font-main text-gray-7 text-sm sm:text-base">{{ worldCreateProgressMessage }}</p>
-			<p class="font-mono text-gray-6 text-xs mt-3">Progress: {{ worldCreateProgress }}%</p>
-			<p v-if="worldCreateJobId" class="font-mono text-gray-6 text-xs mt-1">Job: {{ worldCreateJobId }}</p>
-		</div>
-	</Popup>
+		</Popup>
+	</div>
 </template>
 
 <script>
@@ -153,7 +149,7 @@ export default {
 				difficulty: 3,
 				evil: 1,
 				name: "",
-				seed: "for the worthy",
+				seed: "fortheworthy",
 				maxPlayers: 16,
 				port: 7777,
 				worldFileLocation: null
@@ -256,6 +252,7 @@ export default {
 						this.worldCreateProgress = 100;
 						this.worldCreateProgressMessage = data.message || "World created and uploaded";
 						this.$alert.success("World created and launched successfully");
+						setTimeout(() => this.$emit("refresh"), 500);
 						setTimeout(() => this.closeWorldCreatePopup(), 1200);
 					} else {
 						this.$alert.error(data.error || data.message || "World creation failed");

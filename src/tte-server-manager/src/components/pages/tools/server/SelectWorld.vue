@@ -98,7 +98,6 @@ import screen from '../../../../mixins/screen';
 import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
-import delay from '../../../../util/delay';
 import { formatFileSize, plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import { getDateOffset } from '../../../../util/timeutils';
