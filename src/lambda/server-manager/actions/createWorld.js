@@ -57,8 +57,62 @@ function buildTShockCommand(tshockPath, newWorldConfigPath) {
 	const cdRoot = `cd "${workingDir}"`;
 	// In SSM's non-interactive shell, plain nohup backgrounding is the most reliable detach pattern.
 	const detached = `nohup ${command} < /dev/null & echo "TShock launch dispatched"`;
-	return `runuser -u ubuntu -- /bin/bash -lc '${cdRoot} && ${detached}'`;
+	return `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${detached}'`;
 }
+
+// start temp
+
+function previewText(value, maxLength = 400) {
+	if (!value) {
+		return "";
+	}
+	const text = String(value).trim();
+	return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+async function probeSSMCommandStatus(instanceId, commandId, options = {}) {
+	const attempts = Number(options.attempts ?? Number(process.env.SSM_LAUNCH_PROBE_ATTEMPTS || 3));
+	const delayMs = Number(options.delayMs ?? Number(process.env.SSM_LAUNCH_PROBE_DELAY_MS || 1000));
+	let lastResult = null;
+
+	for (let i = 0; i < attempts; i++) {
+		try {
+			lastResult = await getSSMCommandResult(commandId, instanceId);
+		} catch (error) {
+			return {
+				settled: false,
+				probeError: error.message,
+				probeAttempts: i + 1,
+			};
+		}
+
+		if (["Success", "Failed", "Cancelled", "TimedOut", "Cancelling"].includes(lastResult.status)) {
+			return {
+				settled: true,
+				status: lastResult.status,
+				exitCode: lastResult.exitCode,
+				stdoutPreview: previewText(lastResult.stdout),
+				stderrPreview: previewText(lastResult.stderr),
+				probeAttempts: i + 1,
+			};
+		}
+
+		if (i < attempts - 1) {
+			await delay(delayMs);
+		}
+	}
+
+	return {
+		settled: false,
+		status: lastResult?.status || "Unknown",
+		exitCode: lastResult?.exitCode ?? null,
+		stdoutPreview: previewText(lastResult?.stdout),
+		stderrPreview: previewText(lastResult?.stderr),
+		probeAttempts: attempts,
+	};
+}
+
+// end temp
 
 function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
@@ -291,14 +345,24 @@ async function runCreateWorldWorker(workerEvent) {
 		progress: 25,
 	});
 
+	const launchedAt = new Date().toISOString();
 	const result = await executeSSMCommand(instanceId, [command]);
+	const launchProbe = await probeSSMCommandStatus(instanceId, result.commandId);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
 		userId: requestedBy ?? 'unknown',
 		action: "create-world-worker",
-		status: 'tshock-started',
+		status: 'tshock-dispatched',
 		resource: `internal:create-world-worker:${instanceId}`,
-		details: { commandId: result.commandId, worldFilePath, port, tshockPath }
+		details: {
+			commandId: result.commandId,
+			launchedAt,
+			worldFilePath,
+			port,
+			tshockPath,
+			launchCommandPreview: previewText(command, 600),
+			launchProbe,
+		}
 	});
 
 	await updateWorldCreateJob(jobUid, {
@@ -306,6 +370,9 @@ async function runCreateWorldWorker(workerEvent) {
 		message: "Building world file",
 		progress: 45,
 		commandId: result.commandId,
+		launchProbeStatus: launchProbe.status || (launchProbe.settled ? "Unknown" : "InProgress"),
+		launchProbeSettled: Boolean(launchProbe.settled),
+		launchProbeError: launchProbe.probeError || null,
 	});
 
 	const pollAttempts = Number(process.env.WORLD_CREATE_POLL_ATTEMPTS || 30);

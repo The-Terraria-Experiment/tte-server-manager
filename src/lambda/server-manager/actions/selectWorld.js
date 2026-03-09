@@ -64,8 +64,62 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 	const cdRoot = `cd "${workingDir}"`;
 	// In SSM's non-interactive shell, plain nohup backgrounding is the most reliable detach pattern.
 	const detached = `nohup ${command} < /dev/null & echo "TShock launch dispatched"`;
-	return `runuser -u ubuntu -- /bin/bash -lc '${cdRoot} && ${detached}'`;
+	return `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${detached}'`;
 }
+
+//start temp
+
+function previewText(value, maxLength = 400) {
+	if (!value) {
+		return "";
+	}
+	const text = String(value).trim();
+	return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
+}
+
+async function probeSSMCommandStatus(instanceId, commandId, options = {}) {
+	const attempts = Number(options.attempts ?? Number(process.env.SSM_LAUNCH_PROBE_ATTEMPTS || 3));
+	const delayMs = Number(options.delayMs ?? Number(process.env.SSM_LAUNCH_PROBE_DELAY_MS || 1000));
+	let lastResult = null;
+
+	for (let i = 0; i < attempts; i++) {
+		try {
+			lastResult = await getSSMCommandResult(commandId, instanceId);
+		} catch (error) {
+			return {
+				settled: false,
+				probeError: error.message,
+				probeAttempts: i + 1,
+			};
+		}
+
+		if (["Success", "Failed", "Cancelled", "TimedOut", "Cancelling"].includes(lastResult.status)) {
+			return {
+				settled: true,
+				status: lastResult.status,
+				exitCode: lastResult.exitCode,
+				stdoutPreview: previewText(lastResult.stdout),
+				stderrPreview: previewText(lastResult.stderr),
+				probeAttempts: i + 1,
+			};
+		}
+
+		if (i < attempts - 1) {
+			await delay(delayMs);
+		}
+	}
+
+	return {
+		settled: false,
+		status: lastResult?.status || "Unknown",
+		exitCode: lastResult?.exitCode ?? null,
+		stdoutPreview: previewText(lastResult?.stdout),
+		stderrPreview: previewText(lastResult?.stderr),
+		probeAttempts: attempts,
+	};
+}
+
+// end temp
 
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;
@@ -134,13 +188,24 @@ async function handle(event) {
 	// Note: Port forwarding may need to be handled at the security group level
 	// or via iptables on the EC2 instance if not already configured
 	try {
+		const launchedAt = new Date().toISOString();
 		const result = await executeSSMCommand(instanceId, [command]);
+		const probe = await probeSSMCommandStatus(instanceId, result.commandId);
 
 		logAction(FUNC_NAMES.SERV_MGR, {
 			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
 			action: "select-world",
+			status: 'ssm-dispatched',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
-			details: { commandId: result.commandId, worldFilePath, port, tshockPath }
+			details: {
+				commandId: result.commandId,
+				launchedAt,
+				worldFilePath,
+				port,
+				tshockPath,
+				launchCommandPreview: previewText(command, 600),
+				probe,
+			}
 		});
 
 		// await delay(500);
@@ -154,6 +219,19 @@ async function handle(event) {
 			// output,
 		});
 	} catch (error) {
+		logAction(FUNC_NAMES.SERV_MGR, {
+			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+			action: "select-world",
+			status: 'ssm-dispatch-failed',
+			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+			details: {
+				worldFilePath,
+				port,
+				tshockPath,
+				error: error.message,
+				launchCommandPreview: previewText(command, 600),
+			}
+		});
 		return validationError(`Failed to execute command: ${error.message}`);
 	}
 }
