@@ -66,6 +66,7 @@ function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, nam
 	const lines = [
 		`worldpath=${worldPath}`,
 		`world=${worldPath}/${name}.wld`,
+		`worldname=${name}`,
 		`maxplayers=${Number(maxPlayers)}`,
 		`port=${Number(port)}`,
 		// size/difficulty/evil may be off by 1 because WHY FRICKIN NOT HUH THANKS TSHOCK THAT'S NOT CONFUSING AND ENTIRELY UNDOCUMENTED
