@@ -63,7 +63,7 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
 	const detached = `nohup ${command} < /dev/null & disown`;
-	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${detached}"`;
+	return `runuser -u ubuntu -- /bin/bash -lc '${cdRoot} && ${detached}'`;
 }
 
 async function handle(event) {
