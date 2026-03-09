@@ -62,7 +62,8 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 	// Run detached so SSM can exit while server keeps running
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
-	const detached = `nohup ${command} < /dev/null & disown`;
+	// In SSM's non-interactive shell, plain nohup backgrounding is the most reliable detach pattern.
+	const detached = `nohup ${command} < /dev/null & echo "TShock launch dispatched"`;
 	return `runuser -u ubuntu -- /bin/bash -lc '${cdRoot} && ${detached}'`;
 }
 
