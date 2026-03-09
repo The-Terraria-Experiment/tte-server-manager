@@ -56,7 +56,7 @@ function buildTShockCommand(tshockPath, newWorldConfigPath) {
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
 	const detached = `nohup ${command} < /dev/null & disown`;
-	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${detached}"`;
+	return `runuser -u ubuntu -- /bin/bash -lc '${cdRoot} && ${detached}'`;
 }
 
 function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
