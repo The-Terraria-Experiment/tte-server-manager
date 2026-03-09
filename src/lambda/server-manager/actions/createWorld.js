@@ -60,8 +60,6 @@ function buildTShockCommand(tshockPath, newWorldConfigPath) {
 	return `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${detached}'`;
 }
 
-// start temp
-
 function previewText(value, maxLength = 400) {
 	if (!value) {
 		return "";
@@ -71,19 +69,29 @@ function previewText(value, maxLength = 400) {
 }
 
 async function probeSSMCommandStatus(instanceId, commandId, options = {}) {
-	const attempts = Number(options.attempts ?? Number(process.env.SSM_LAUNCH_PROBE_ATTEMPTS || 3));
-	const delayMs = Number(options.delayMs ?? Number(process.env.SSM_LAUNCH_PROBE_DELAY_MS || 1000));
+	const attempts = Number(options.attempts ?? Number(process.env.SSM_LAUNCH_PROBE_ATTEMPTS || 6));
+	const delayMs = Number(options.delayMs ?? Number(process.env.SSM_LAUNCH_PROBE_DELAY_MS || 1500));
 	let lastResult = null;
+	let lastError = null;
+	const statusHistory = [];
+	const errorHistory = [];
 
 	for (let i = 0; i < attempts; i++) {
 		try {
 			lastResult = await getSSMCommandResult(commandId, instanceId);
+			lastError = null;
+			statusHistory.push(lastResult?.status || "Unknown");
 		} catch (error) {
-			return {
-				settled: false,
-				probeError: error.message,
-				probeAttempts: i + 1,
-			};
+			lastError = error;
+			errorHistory.push({
+				attempt: i + 1,
+				name: error?.name || "Error",
+				message: error?.message || "Unknown",
+			});
+			if (i < attempts - 1) {
+				await delay(delayMs);
+			}
+			continue;
 		}
 
 		if (["Success", "Failed", "Cancelled", "TimedOut", "Cancelling"].includes(lastResult.status)) {
@@ -94,6 +102,8 @@ async function probeSSMCommandStatus(instanceId, commandId, options = {}) {
 				stdoutPreview: previewText(lastResult.stdout),
 				stderrPreview: previewText(lastResult.stderr),
 				probeAttempts: i + 1,
+				statusHistory,
+				errorHistory,
 			};
 		}
 
@@ -108,11 +118,12 @@ async function probeSSMCommandStatus(instanceId, commandId, options = {}) {
 		exitCode: lastResult?.exitCode ?? null,
 		stdoutPreview: previewText(lastResult?.stdout),
 		stderrPreview: previewText(lastResult?.stderr),
+		probeError: lastError?.message || null,
 		probeAttempts: attempts,
+		statusHistory,
+		errorHistory,
 	};
 }
-
-// end temp
 
 function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
