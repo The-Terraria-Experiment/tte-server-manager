@@ -76,71 +76,6 @@ function buildTShockCommand(tshockPath, newWorldConfigPath) {
 	return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else ${legacyLaunch}; fi`;
 }
 
-function previewText(value, maxLength = 400) {
-	if (!value) {
-		return "";
-	}
-	const text = String(value).trim();
-	return text.length > maxLength ? `${text.slice(0, maxLength)}...` : text;
-}
-
-async function probeSSMCommandStatus(instanceId, commandId, options = {}) {
-	const attempts = Number(options.attempts ?? Number(process.env.SSM_LAUNCH_PROBE_ATTEMPTS || 6));
-	const delayMs = Number(options.delayMs ?? Number(process.env.SSM_LAUNCH_PROBE_DELAY_MS || 1500));
-	let lastResult = null;
-	let lastError = null;
-	const statusHistory = [];
-	const errorHistory = [];
-
-	for (let i = 0; i < attempts; i++) {
-		try {
-			lastResult = await getSSMCommandResult(commandId, instanceId);
-			lastError = null;
-			statusHistory.push(lastResult?.status || "Unknown");
-		} catch (error) {
-			lastError = error;
-			errorHistory.push({
-				attempt: i + 1,
-				name: error?.name || "Error",
-				message: error?.message || "Unknown",
-			});
-			if (i < attempts - 1) {
-				await delay(delayMs);
-			}
-			continue;
-		}
-
-		if (["Success", "Failed", "Cancelled", "TimedOut", "Cancelling"].includes(lastResult.status)) {
-			return {
-				settled: true,
-				status: lastResult.status,
-				exitCode: lastResult.exitCode,
-				stdoutPreview: previewText(lastResult.stdout),
-				stderrPreview: previewText(lastResult.stderr),
-				probeAttempts: i + 1,
-				statusHistory,
-				errorHistory,
-			};
-		}
-
-		if (i < attempts - 1) {
-			await delay(delayMs);
-		}
-	}
-
-	return {
-		settled: false,
-		status: lastResult?.status || "Unknown",
-		exitCode: lastResult?.exitCode ?? null,
-		stdoutPreview: previewText(lastResult?.stdout),
-		stderrPreview: previewText(lastResult?.stderr),
-		probeError: lastError?.message || null,
-		probeAttempts: attempts,
-		statusHistory,
-		errorHistory,
-	};
-}
-
 function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	const worldPath = path.posix.normalize(`${baseRoot}/${worldFolderPath}`);
@@ -372,9 +307,7 @@ async function runCreateWorldWorker(workerEvent) {
 		progress: 25,
 	});
 
-	const launchedAt = new Date().toISOString();
 	const result = await executeSSMCommand(instanceId, [command]);
-	const launchProbe = await probeSSMCommandStatus(instanceId, result.commandId);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
 		userId: requestedBy ?? 'unknown',
@@ -383,12 +316,9 @@ async function runCreateWorldWorker(workerEvent) {
 		resource: `internal:create-world-worker:${instanceId}`,
 		details: {
 			commandId: result.commandId,
-			launchedAt,
 			worldFilePath,
 			port,
 			tshockPath,
-			launchCommandPreview: previewText(command, 600),
-			launchProbe,
 		}
 	});
 
@@ -397,9 +327,6 @@ async function runCreateWorldWorker(workerEvent) {
 		message: "Building world file",
 		progress: 45,
 		commandId: result.commandId,
-		launchProbeStatus: launchProbe.status || (launchProbe.settled ? "Unknown" : "InProgress"),
-		launchProbeSettled: Boolean(launchProbe.settled),
-		launchProbeError: launchProbe.probeError || null,
 	});
 
 	const pollAttempts = Number(process.env.WORLD_CREATE_POLL_ATTEMPTS || 30);
