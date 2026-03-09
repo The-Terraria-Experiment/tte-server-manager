@@ -112,32 +112,39 @@ async function waitForWorldFileReady(instanceId, filePath, options = {}) {
 	let stableTicks = 0;
 
 	for (let i = 0; i < attempts; i++) {
-		const result = await runSSMCommandAndWait(instanceId, [statCommand], { pollDelayMs: 1000, maxPolls: 20 });
-		const output = (result.stdout || "").trim();
-		if (!output || output === "MISSING") {
-			stableTicks = 0;
-			await delay(delayMs);
-			continue;
-		}
-
-		const size = Number(output);
-		if (!Number.isFinite(size) || size <= 0) {
-			stableTicks = 0;
-			await delay(delayMs);
-			continue;
-		}
-
-		if (lastSize !== null && size === lastSize) {
-			stableTicks += 1;
-			if (stableTicks >= stableCount) {
-				return { size };
+		try {
+			const result = await runSSMCommandAndWait(instanceId, [statCommand], { pollDelayMs: 3000, maxPolls: 25 });
+			const output = (result.stdout || "").trim();
+			if (!output || output === "MISSING") {
+				stableTicks = 0;
+				await delay(delayMs);
+				continue;
 			}
-		} else {
-			stableTicks = 0;
-			lastSize = size;
-		}
 
-		await delay(delayMs);
+			const size = Number(output);
+			if (!Number.isFinite(size) || size <= 0) {
+				stableTicks = 0;
+				await delay(delayMs);
+				continue;
+			}
+
+			if (lastSize !== null && size === lastSize) {
+				stableTicks += 1;
+				if (stableTicks >= stableCount) {
+					return { size };
+				}
+			} else {
+				stableTicks = 0;
+				lastSize = size;
+			}
+
+			await delay(delayMs);
+		} catch (error) {
+			// Command failed (e.g., exit code 2 when file not found), just keep polling
+			stableTicks = 0;
+			await delay(delayMs);
+			continue;
+		}
 	}
 
 	throw new Error("World file did not become ready in time");
