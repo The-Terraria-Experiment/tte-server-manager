@@ -70,7 +70,7 @@ function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, nam
 		`maxplayers=${Number(maxPlayers)}`,
 		`port=${Number(port)}`,
 		// size/difficulty/evil may be off by 1 because WHY FRICKIN NOT HUH THANKS TSHOCK THAT'S NOT CONFUSING AND ENTIRELY UNDOCUMENTED
-		`seed=${size}.${difficulty - 1}.${evil - 1}.${seed || Date.now()}`, // compound seed, because that makes sense
+		`seed=${size}.${difficulty}.${evil}.${seed || Date.now()}`, // compound seed, because that makes sense
 	];
 
 	// todo: write password to config
