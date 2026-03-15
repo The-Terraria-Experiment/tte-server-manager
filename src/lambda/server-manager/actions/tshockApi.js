@@ -162,6 +162,9 @@ async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 
 	params.set('token', token);
 	if (data) {
 		for (const [key, value] of Object.entries(data)) {
+			if (value === undefined) {
+				continue;
+			}
 			params.set(key, value);
 		}
 	}
