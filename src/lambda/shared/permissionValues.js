@@ -20,6 +20,12 @@ const PERMISSIONS = {
 			start: "server.status.start",
 			stop: "server.status.stop",
 		},
+		player: {
+			ban: "server.player.ban",
+			kick: "server.player.kick",
+			kill: "server.player.kill",
+			mute: "server.player.mute",
+		}
 	},
 	instance: {
 		list: "instance.list",
