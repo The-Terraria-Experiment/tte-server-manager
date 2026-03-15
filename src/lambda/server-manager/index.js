@@ -80,7 +80,7 @@ exports.handler = errorHandler(async (event, context) => {
 
 	console.log("Server Manager:", { httpMethod: event.httpMethod, path: event.path });
 	logAction(FUNC_NAMES.SERV_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
+		userId: getUserSub(event) ?? "unknown",
 		action: "invoke",
 		resource: null,
 	});
@@ -98,7 +98,7 @@ exports.handler = errorHandler(async (event, context) => {
 	await validatePermission(event, action.permRequired);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? "unknown",
+		userId: getUserSub(event) ?? "unknown",
 		action: "invoke-action",
 		status: 'permission-validated',
 		resource: routeKey,

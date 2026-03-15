@@ -6,6 +6,7 @@ const { FUNC_NAMES } = require("../shared/constants");
 const {getMultipleInstanceStatus} = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const {successResponse} = require("../shared/utils/response");
+const { getUserSub } = require("../shared/utils/permissions");
 
 async function handle(event) {
 	const instanceIds = (process.env.EC2_INSTANCE_IDS || "").split(",").filter(Boolean);
@@ -21,7 +22,7 @@ async function handle(event) {
 	}));
 
 	logAction(FUNC_NAMES.INST_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "list",
 		status: 'ok',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

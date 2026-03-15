@@ -28,7 +28,7 @@ const endpoints = {
 exports.handler = errorHandler(async (event, context) => {
 	console.log("System Manager:", { httpMethod: event.httpMethod, path: event.path });
 	logAction(FUNC_NAMES.SYS_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? "[none]",
+		userId: getUserSub(event) ?? "[none]",
 		action: "invoke",
 		resource: null,
 	});
@@ -55,7 +55,7 @@ exports.handler = errorHandler(async (event, context) => {
 	}
 
 	logAction(FUNC_NAMES.SYS_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? "[none]",
+		userId: getUserSub(event) ?? "[none]",
 		action: "invoke-action",
 		status: 'permission-validated',
 		resource: routeKey,

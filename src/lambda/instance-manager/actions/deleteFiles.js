@@ -4,7 +4,7 @@
 
 const { FUNC_NAMES } = require("../shared/constants");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
-const { validateResourceAccess } = require("../shared/utils/permissions");
+const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
 const {getDynamoItem} = require("../shared/utils/dynamo");
 const { successResponse, validationError } = require("../shared/utils/response");
 const { deleteS3Object, deleteS3Folder, executeSSMCommand, getSSMCommandResult } = require("../shared/utils/aws");
@@ -106,7 +106,7 @@ async function handle(event) {
 		const result = await deleteFileFromInstance(instanceId, localPath);
 
 		logAction(FUNC_NAMES.INST_MGR, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+			userId: getUserSub(event) ?? 'unknown',
 			action: "delete-file",
 			status: 'ok',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,

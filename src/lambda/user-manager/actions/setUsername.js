@@ -24,7 +24,7 @@ async function handle(event) {
 	});
 
 	logAction(FUNC_NAMES.USER_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "set-username",
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 		details: { newDisplayName: updated.displayName }

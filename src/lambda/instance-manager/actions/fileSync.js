@@ -12,7 +12,7 @@ const { FUNC_NAMES } = require('../shared/constants');
 const {executeSSMCommand, listS3Objects, getSignedDownloadUrl} = require('../shared/utils/aws');
 const { logAction } = require('../shared/utils/cloudwatchLogger');
 const {successResponse} = require('../shared/utils/response');
-const { validateResourceAccess } = require('../shared/utils/permissions');
+const { validateResourceAccess, getUserSub } = require('../shared/utils/permissions');
 
 /**
  * Sync files from S3 to instance
@@ -122,7 +122,7 @@ async function handle(event) {
 		const result = await syncFilesToInstance(instanceId, bucket, baseLocalPath);
 
 		logAction(FUNC_NAMES.INST_MGR, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+			userId: getUserSub(event) ?? 'unknown',
 			action: "file-sync",
 			status: 'ok',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
