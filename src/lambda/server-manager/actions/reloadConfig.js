@@ -3,6 +3,7 @@
  */
 
 const { FUNC_NAMES } = require("../shared/constants");
+const { getInstanceStatus } = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { validateResourceAccess } = require("../shared/utils/permissions");
 const {successResponse, errorResponse, validationError,} = require("../shared/utils/response");
