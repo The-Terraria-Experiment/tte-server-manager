@@ -70,7 +70,23 @@ const endpoints = {
 	"POST /server/dropcache": {
 		action: require("./actions/dropTokenCache"),
 		permRequired: PERMISSIONS.system.dropcache
-	}
+	},
+	"POST /server/{id}/players/ban": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.ban
+	},
+	"POST /server/{id}/players/kick": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.kick
+	},
+	"POST /server/{id}/players/kill": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.kill
+	},
+	"POST /server/{id}/players/mute": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.mute
+	},
 };
 
 exports.handler = errorHandler(async (event, context) => {
