@@ -3,6 +3,7 @@
 		class="grow mt-4 sm:mt-8 gradient-tile"
 		:collapsible="!!banData.length"
 		:perm-required="PERMISSIONS.server.status.read"
+		:loading="loadingEntries"
 	>
 		<template #header>
 			<Icon icon="people-group" color="text-gray-6" size="4" />
@@ -68,7 +69,8 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			banData: [],
-			loadingDeleteBan: false
+			loadingDeleteBan: false,
+			loadingEntries: false,
 		}
 	},
 	computed: {
@@ -100,12 +102,17 @@ export default {
 			}
 		},
 		async getBanData() {
+			if (this.loadingEntries) return;
+			this.loadingEntries = true;
+
 			try {
 				const bans = await get(`/server/${this.selectedInstance}/bans`, PERMISSIONS.server.player.ban);
 				this.banData = bans.result.bans;
 			} catch (e) {
 				console.error(e);
 				this.$alert.error("Failed to fetch ban list");
+			} finally {
+				this.loadingEntries = false;
 			}
 		},
 		async destroyBan(ticketNumber) {
