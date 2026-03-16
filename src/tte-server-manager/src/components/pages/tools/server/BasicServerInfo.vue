@@ -300,7 +300,8 @@ export default {
 				kickLoading: false,
 				killLoading: false,
 				muteLoading: false
-			}
+			},
+			playerDataCache: {},
 		}
 	},
 	computed: {
@@ -358,6 +359,7 @@ export default {
 
 			try {
 				await this.readPlayer();
+				this.managePlayerStatus.playerLoading = false;
 			} catch (e) {
 				this.manageOptions.selectedPlayer = null;
 				console.error(e);
@@ -370,6 +372,8 @@ export default {
 			this.managePlayerPopupOpen = false;
 			this.manageOptions.banEnd = null;
 			this.manageOptions.banStart = null;
+			this.manageOptions.selectedPlayer = null;
+			this.manageOptions.selectedPlayerFullData = null;
 		},
 
 		async readPlayer() {
@@ -378,7 +382,15 @@ export default {
 			if (this.managePlayerStatus.playerLoading) return;
 			this.managePlayerStatus.playerLoading = true;
 
-			this.manageOptions.selectedPlayerFullData = await get(`/server/${this.selectedInstance}/players/${this.manageOptions.selectedPlayer.nickname}`, PERMISSIONS.server.player.read);
+			const playerName = this.manageOptions.selectedPlayer.nickname;
+
+			if (this.playerDataCache[playerName]) {
+				return this.playerDataCache[playerName];
+			}
+
+			const result = await get(`/server/${this.selectedInstance}/players/${playerName}`, PERMISSIONS.server.player.read);
+			this.manageOptions.selectedPlayerFullData = result;
+			this.playerDataCache[playerName] = result;
 		},
 
 		async banPlayer() {
