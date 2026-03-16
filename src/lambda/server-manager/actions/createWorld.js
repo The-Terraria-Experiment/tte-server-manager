@@ -16,21 +16,25 @@ const { SYSTEM_TABLE } = require("../shared/vars");
 const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 
-function buildTShockCommand(tshockPath, newWorldConfigPath) {
+function buildTShockCommand(tshockPath, worldFilePath, size, difficulty, evil, seed, maxPlayers, port, password) {
 	// Validate and quote paths to handle spaces safely
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	const quotedTshockPath = `"${baseRoot}${tshockPath}"`;
-	const escapedConfigPath = newWorldConfigPath.replace(/"/g, '\\"');
+	const escapedWorldPath = worldFilePath.replace(/"/g, '\\"');
 
-	// Build command with flags
-	let command = `${quotedTshockPath} -config "${escapedConfigPath}" -autocreate 1`;
-	// command += ` -port ${parseInt(port)}`;
-	// command += ` -maxplayers ${parseInt(maxPlayers)}`;
+	// TShock world-gen args are order-sensitive.
+	let command = `${quotedTshockPath} -autocreate ${Number(size)} -world "${escapedWorldPath}" -difficulty ${Number(difficulty)} -worldevil ${Number(evil)}`;
+	if (seed) {
+		const escapedSeed = String(seed).replace(/"/g, '\\"');
+		command += ` -seed "${escapedSeed}"`;
+	}
+	command += ` -port ${Number(port)} -maxplayers ${Number(maxPlayers)}`;
 
 	// Only add password flag if provided and non-empty
-	// if (password && password.trim()) {
-	// 	command += ` -password "${password}"`;
-	// }
+	if (password && password.trim()) {
+		const escapedPassword = password.replace(/"/g, '\\"');
+		command += ` -password "${escapedPassword}"`;
+	}
 
 	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
 	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
@@ -74,30 +78,6 @@ function buildTShockCommand(tshockPath, newWorldConfigPath) {
 	}
 
 	return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else ${legacyLaunch}; fi`;
-}
-
-function buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
-	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
-	const worldPath = path.posix.normalize(`${baseRoot}/${worldFolderPath}`);
-
-	const lines = [
-		`worldpath=${worldPath}`,
-		`world=${worldPath}/${name}.wld`,
-		`worldname=${name}`,
-		`maxplayers=${Number(maxPlayers)}`,
-		`port=${Number(port)}`,
-		// size/difficulty/evil may be off by 1 because WHY FRICKIN NOT HUH THANKS TSHOCK THAT'S NOT CONFUSING AND ENTIRELY UNDOCUMENTED
-		`seed=${size}.${difficulty}.${evil - 1}.${seed || Date.now()}`, // compound seed, because that makes sense
-	];
-
-	// todo: write password to config
-
-	return lines.join("\n");
-}
-
-function buildWriteNewWorldConfigCommand(configPath, content) {
-	const escapedConfigPath = configPath.replace(/"/g, '\\"');
-	return `cat > "${escapedConfigPath}" <<'__NEW_WORLD_CONFIG__'\n${content}\n__NEW_WORLD_CONFIG__`;
 }
 
 async function waitForSSMCommand(instanceId, commandId, options = {}) {
@@ -280,31 +260,19 @@ async function runCreateWorldWorker(workerEvent) {
 	}
 
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
-	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "") || baseRoot;
-	const newWorldConfigPath = path.posix.join(workingDir, "newworldconfig.txt");
-	const newWorldConfigContent = buildNewWorldConfigContent(worldFolderPath, size, difficulty, evil, worldName, seed, maxPlayers, port, password);
-	const command = buildTShockCommand(tshockPath, newWorldConfigPath);
 	const worldFolderNormalized = path.posix.normalize(`${baseRoot}/${worldFolderPath}`);
 	const worldFilePath = path.posix.join(worldFolderNormalized, `${worldName}.wld`);
+	const command = buildTShockCommand(tshockPath, worldFilePath, size, difficulty, evil, seed, maxPlayers, port, password);
 	const s3Key = path.posix.join(instanceId, worldFolderPath, `${worldName}.wld`);
 
 	await updateWorldCreateJob(jobUid, {
 		status: "running",
-		step: "writing-config",
-		message: "Writing world configuration file",
-		progress: 10,
+		step: "starting-tshock",
+		message: "Launching TShock world generation",
+		progress: 20,
 		instanceId,
 		worldFilePath,
 		s3Key,
-	});
-
-	const writeConfigCommand = buildWriteNewWorldConfigCommand(newWorldConfigPath, newWorldConfigContent);
-	await runSSMCommandAndWait(instanceId, [writeConfigCommand], { pollDelayMs: 1000, maxPolls: 30 });
-
-	await updateWorldCreateJob(jobUid, {
-		step: "starting-tshock",
-		message: "Launching TShock world generation",
-		progress: 25,
 	});
 
 	const result = await executeSSMCommand(instanceId, [command]);
