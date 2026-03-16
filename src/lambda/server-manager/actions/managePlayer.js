@@ -2,6 +2,7 @@
  * Manage players on the server (ban, mute, etc)
  */
 
+const { FUNC_NAMES } = require("../shared/constants");
 const { getInstanceStatus } = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { validateResourceAccess, getUserSub, validatePermission } = require("../shared/utils/permissions");
