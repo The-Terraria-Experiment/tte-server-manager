@@ -87,6 +87,10 @@ const endpoints = {
 		action: require("./actions/managePlayer"),
 		permRequired: PERMISSIONS.server.player.mute
 	},
+	"GET /server/{id}/players/{player}": {
+		action: require("./actions/readPlayer"),
+		permRequired: PERMISSIONS.server.player.read
+	}
 };
 
 exports.handler = errorHandler(async (event, context) => {

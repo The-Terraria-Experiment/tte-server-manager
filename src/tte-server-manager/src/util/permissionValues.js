@@ -21,6 +21,7 @@ export const PERMISSIONS = {
 			stop: "server.status.stop",
 		},
 		player: {
+			read: "server.player.read",
 			ban: "server.player.ban",
 			kick: "server.player.kick",
 			kill: "server.player.kill",

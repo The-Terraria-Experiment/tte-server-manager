@@ -130,7 +130,17 @@
 		header-text="MANAGE PLAYER"
 		@x-clicked="closeManagePlayerPopup"
 	>
-		<div class="px-2 py-3 h-full w-full flex flex-col gap-4">
+		<div v-if="managePlayerStatus.playerLoading" class="p-4 h-full w-full">
+			<div class="flex items-center justify-center">
+				<Spinner class="h-6 w-6 text-teal-4 mr-2" />
+				<p class="font-main font-bold text-teal-4">Loading player data...</p>
+			</div>
+		</div>
+		<div class="px-2 py-3 h-full w-full flex flex-col gap-4" v-else>
+			<div class="font-main font-bold p-2 bg-gray-4 rounded-xl pl-3">
+				<span class="italic text-gray-7 mr-2">Player:</span> 
+				<span class="text-teal-5">{{ manageOptions.selectedPlayer.nickname }}</span>
+			</div>
 			<div 
 				class="p-2 bg-gray-4 rounded-xl" 
 				v-if="$checkPermissions(PERMISSIONS.server.player.ban)"
@@ -237,7 +247,7 @@
 </template>
 
 <script>
-import { post } from '../../../../util/api';
+import { get, post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -282,8 +292,10 @@ export default {
 				kickReason: "",
 				killedBy: "",
 				selectedPlayer: null,
+				selectedPlayerFullData: null,
 			},
 			managePlayerStatus: {
+				playerLoading: false,
 				banLoading: false,
 				kickLoading: false,
 				killLoading: false,
@@ -336,19 +348,37 @@ export default {
 			}
 		},
 
-		openManagePlayerPopup(player) {
+		async openManagePlayerPopup(player) {
 			if (!this.$checkPermissions([PERMISSIONS.server.player.ban, PERMISSIONS.server.player.kick, PERMISSIONS.server.player.kill, PERMISSIONS.server.player.mute], false)) {
 				return;
 			}
 
-			this.managePlayerPopupOpen = true;
 			this.manageOptions.selectedPlayer = player;
+			this.managePlayerPopupOpen = true;
+
+			try {
+				await this.readPlayer();
+			} catch (e) {
+				this.manageOptions.selectedPlayer = null;
+				console.error(e);
+				this.$alert.error("Failed to read player data");
+				this.managePlayerPopupOpen = false;
+			}
 		},
 
 		closeManagePlayerPopup() {
 			this.managePlayerPopupOpen = false;
 			this.manageOptions.banEnd = null;
 			this.manageOptions.banStart = null;
+		},
+
+		async readPlayer() {
+			this.$validatePermissions(PERMISSIONS.server.player.read);
+
+			if (this.managePlayerStatus.playerLoading) return;
+			this.managePlayerStatus.playerLoading = true;
+
+			this.manageOptions.selectedPlayerFullData = await get(`/server/${this.selectedInstance}/players/${this.manageOptions.selectedPlayer.nickname}`, PERMISSIONS.server.player.read);
 		},
 
 		async banPlayer() {
@@ -359,7 +389,7 @@ export default {
 
 			try {
 				const response = await post(`/server/${this.selectedInstance}/players/ban`, PERMISSIONS.server.player.ban, {
-					playerID: null,
+					playerID: this.manageOptions.selectedPlayer.nickname,
 					reason: this.manageOptions.banReason || undefined,
 					banStart: this.manageOptions.banStart || undefined,
 					banEnd: this.manageOptions.banEnd || undefined,
@@ -374,7 +404,7 @@ export default {
 			}
 		},
 
-		kickPlayer() {
+		async kickPlayer() {
 			this.$validatePermissions(PERMISSIONS.server.player.kick);
 
 			if (this.managePlayerStatus.kickLoading) return;
@@ -382,7 +412,7 @@ export default {
 
 			try {
 				const response = await post(`/server/${this.selectedInstance}/players/kick`, PERMISSIONS.server.player.kick, {
-					playerID: null,
+					playerID: this.manageOptions.selectedPlayer.nickname,
 					reason: this.manageOptions.banReason || undefined,
 				});
 
@@ -395,7 +425,7 @@ export default {
 			}
 		},
 
-		killPlayer() {
+		async killPlayer() {
 			this.$validatePermissions(PERMISSIONS.server.player.kill);
 
 			if (this.managePlayerStatus.killLoading) return;
@@ -403,7 +433,7 @@ export default {
 
 			try {
 				const response = await post(`/server/${this.selectedInstance}/players/kill`, PERMISSIONS.server.player.kill, {
-					playerID: null,
+					playerID: this.manageOptions.selectedPlayer.nickname,
 					reason: this.manageOptions.banReason || undefined,
 				});
 
@@ -416,7 +446,7 @@ export default {
 			}
 		},
 
-		mutePlayer() {
+		async mutePlayer() {
 			this.$validatePermissions(PERMISSIONS.server.player.mute);
 
 			if (this.managePlayerStatus.muteLoading) return;
@@ -424,7 +454,7 @@ export default {
 
 			try {
 				const response = await post(`/server/${this.selectedInstance}/players/mute`, PERMISSIONS.server.player.mute, {
-					playerID: null,
+					playerID: this.manageOptions.selectedPlayer.nickname,
 				});
 
 				this.$alert.success("Player muted");
