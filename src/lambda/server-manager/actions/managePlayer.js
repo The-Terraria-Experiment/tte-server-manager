@@ -2,7 +2,6 @@
  * Manage players on the server (ban, mute, etc)
  */
 
-const { PERMISSIONS } = require("../shared/permissionValues");
 const { getInstanceStatus } = require("../shared/utils/aws");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { validateResourceAccess, getUserSub, validatePermission } = require("../shared/utils/permissions");
@@ -24,23 +23,6 @@ async function handle(event) {
 	}
 
 	await validateResourceAccess(event, `server::${serverId}`);
-
-	switch (action) {
-		case "ban":
-			await validatePermission(event, PERMISSIONS.server.player.ban);
-			break;
-		case "kick":
-			await validatePermission(event, PERMISSIONS.server.player.kick);
-			break;
-		case "kill":
-			await validatePermission(event, PERMISSIONS.server.player.kill);
-			break;
-		case "mute":
-			await validatePermission(event, PERMISSIONS.server.player.mute);
-			break;
-		default:
-			return errorResponse("Invalid action " + action);
-	}
 
 	try {
 		// For now, treat serverId as the EC2 instance ID to obtain IP
