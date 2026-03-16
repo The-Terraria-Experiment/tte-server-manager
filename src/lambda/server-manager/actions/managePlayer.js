@@ -67,11 +67,64 @@ function resolvePlayerIdentifier(inputPlayer, playersResponse) {
 	return String(inputPlayer);
 }
 
+function addBanIdentifier(identifiers, prefix, value) {
+	if (value === undefined || value === null) {
+		return;
+	}
+
+	const normalizedValue = String(value).trim();
+	if (!normalizedValue) {
+		return;
+	}
+
+	const identifier = `${prefix}${normalizedValue}`;
+	if (!identifiers.includes(identifier)) {
+		identifiers.push(identifier);
+	}
+}
+
+function normalizeOptionalBoolean(value, defaultValue = true) {
+	if (value === undefined || value === null) {
+		return defaultValue;
+	}
+
+	if (typeof value === 'boolean') {
+		return value;
+	}
+
+	if (typeof value === 'string') {
+		const normalizedValue = value.trim().toLowerCase();
+		if (['true', '1', 'yes', 'y', 'on'].includes(normalizedValue)) {
+			return true;
+		}
+
+		if (['false', '0', 'no', 'n', 'off'].includes(normalizedValue)) {
+			return false;
+		}
+	}
+
+	return defaultValue;
+}
+
+function buildBanIdentifiers(playerDetails, fallbackPlayerID, includeIpBan) {
+	const identifiers = [];
+
+	addBanIdentifier(identifiers, 'acc:', playerDetails?.username ?? playerDetails?.account ?? playerDetails?.user);
+	addBanIdentifier(identifiers, 'uuid:', playerDetails?.uuid ?? playerDetails?.UUID);
+	if (includeIpBan) {
+		addBanIdentifier(identifiers, 'ip:', playerDetails?.ip);
+	}
+	addBanIdentifier(identifiers, 'name:', playerDetails?.nickname ?? playerDetails?.name ?? fallbackPlayerID);
+
+	return identifiers;
+}
+
 async function handle(event) {
 	const serverId = event.pathParameters?.id;
 	const { resource } = event;
 	const action = resource.split("/").pop();
-	const { playerID, reason, banStart, banEnd } = event.parsedBody;
+	const { playerID, reason, banStart, banEnd, includeIpBan: includeIpBanRaw } = event.parsedBody;
+	const includeIpBan = normalizeOptionalBoolean(includeIpBanRaw, true);
 
 	if (!serverId) {
 		return notFoundError("Server ID");
@@ -99,7 +152,32 @@ async function handle(event) {
 
 		switch (action) {
 			case "ban":
-				result = await callTShockAPI(getUserSub(event), ip, "/v3/bans/create", { identifier: resolvedPlayerID, reason, start: banStart, end: banEnd });
+				{
+					const playerDetails = await callTShockAPI(getUserSub(event), ip, "/v4/players/read", { player: resolvedPlayerID });
+					const banIdentifiers = buildBanIdentifiers(playerDetails, playerID, includeIpBan);
+
+					if (banIdentifiers.length === 0) {
+						return errorResponse(`Unable to resolve a valid TShock ban identifier for player ${playerID}`, 500, 'BAN_IDENTIFIER_UNRESOLVED');
+					}
+
+					const banResults = [];
+					for (const identifier of banIdentifiers) {
+						const banResult = await callTShockAPI(getUserSub(event), ip, "/v3/bans/create", {
+							identifier,
+							reason,
+							start: banStart,
+							end: banEnd,
+						});
+
+						banResults.push({ identifier, result: banResult });
+					}
+
+					result = {
+						resolvedPlayerID,
+						banIdentifiers,
+						banResults,
+					};
+				}
 				break;
 			case "kick":
 				result = await callTShockAPI(getUserSub(event), ip, "/v2/players/kick", { player: resolvedPlayerID, reason });
@@ -118,7 +196,7 @@ async function handle(event) {
 			userId: getUserSub(event) ?? 'unknown',
 			action: `${action}-player`,
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
-			details: { action, serverId, playerID, resolvedPlayerID, result }
+			details: { action, serverId, playerID, resolvedPlayerID, includeIpBan, result }
 		});
 
 		return successResponse({ success: true });

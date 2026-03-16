@@ -168,6 +168,10 @@
 						<Icon icon="edit" color="text-white-1" size="5" />
 					</div>
 				</div>
+				<label class="py-2 px-3 bg-gray-3 rounded-md font-main font-bold text-white-0 my-2 flex items-center select-none">
+					<Checkbox v-model="manageOptions.includeIpBan" class="h-5 w-5 mr-2" />
+					IP Ban
+				</label>
 				<ValueInput class="w-full" placeholder="Ban Reason (optional)" v-model="manageOptions.banReason" />
 				<div class="flex justify-end mt-6">
 					<Spinner v-if="managePlayerStatus.banLoading" class="h-6 w-6 text-teal-4 mr-4 mb-2" />
@@ -252,6 +256,7 @@ import { BTN_VARIANT } from '../../../../util/constants';
 import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import { getDateOffset } from '../../../../util/timeutils';
+import Checkbox from '../../../common/Checkbox.vue';
 import DateTimePickerPopup from '../../../common/DateTimePickerPopup.vue';
 import FlexButton from '../../../common/FlexButton.vue';
 import Icon from '../../../common/Icon.vue';
@@ -263,6 +268,7 @@ export default {
 	components: {
 		Popup,
 		DateTimePickerPopup,
+		Checkbox,
 	},
 	emits: ['autoRefreshAt'],
 	props: {
@@ -288,6 +294,7 @@ export default {
 			manageOptions: {
 				banStart: null,
 				banEnd: null,
+				includeIpBan: true,
 				banReason: "",
 				kickReason: "",
 				killedBy: "",
@@ -357,21 +364,22 @@ export default {
 			this.manageOptions.selectedPlayer = player;
 			this.managePlayerPopupOpen = true;
 
-			try {
-				await this.readPlayer();
-				this.managePlayerStatus.playerLoading = false;
-			} catch (e) {
-				this.manageOptions.selectedPlayer = null;
-				console.error(e);
-				this.$alert.error("Failed to read player data");
-				this.managePlayerPopupOpen = false;
-			}
+			// try {
+			// 	await this.readPlayer();
+			// 	this.managePlayerStatus.playerLoading = false;
+			// } catch (e) {
+			// 	this.manageOptions.selectedPlayer = null;
+			// 	console.error(e);
+			// 	this.$alert.error("Failed to read player data");
+			// 	this.managePlayerPopupOpen = false;
+			// }
 		},
 
 		closeManagePlayerPopup() {
 			this.managePlayerPopupOpen = false;
 			this.manageOptions.banEnd = null;
 			this.manageOptions.banStart = null;
+			this.manageOptions.includeIpBan = true;
 			this.manageOptions.selectedPlayer = null;
 			this.manageOptions.selectedPlayerFullData = null;
 		},
@@ -405,6 +413,7 @@ export default {
 					reason: this.manageOptions.banReason || undefined,
 					banStart: this.manageOptions.banStart || undefined,
 					banEnd: this.manageOptions.banEnd || undefined,
+					includeIpBan: this.manageOptions.includeIpBan,
 				});
 
 				this.$alert.success("Player banned");
@@ -425,7 +434,7 @@ export default {
 			try {
 				const response = await post(`/server/${this.selectedInstance}/players/kick`, PERMISSIONS.server.player.kick, {
 					playerID: this.manageOptions.selectedPlayer.nickname,
-					reason: this.manageOptions.banReason || undefined,
+					reason: this.manageOptions.kickReason || undefined,
 				});
 
 				this.$alert.success("Player kicked");
@@ -446,7 +455,7 @@ export default {
 			try {
 				const response = await post(`/server/${this.selectedInstance}/players/kill`, PERMISSIONS.server.player.kill, {
 					playerID: this.manageOptions.selectedPlayer.nickname,
-					reason: this.manageOptions.banReason || undefined,
+					reason: this.manageOptions.killedBy || undefined,
 				});
 
 				this.$alert.success("Player killed");
