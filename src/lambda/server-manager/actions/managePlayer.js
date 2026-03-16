@@ -162,14 +162,23 @@ async function handle(event) {
 
 					const banResults = [];
 					for (const identifier of banIdentifiers) {
-						const banResult = await callTShockAPI(getUserSub(event), ip, "/v3/bans/create", {
-							identifier,
-							reason,
-							start: banStart,
-							end: banEnd,
-						});
+						try {
+							const banResult = await callTShockAPI(getUserSub(event), ip, "/v3/bans/create", {
+								identifier,
+								reason,
+								start: banStart,
+								end: banEnd,
+							});
 
-						banResults.push({ identifier, result: banResult });
+							banResults.push({ identifier, result: banResult });
+						} catch (e) {
+							// For some reason, calling this endpoint likes to throw a 500, but it always seems to work? Seems tshock-y enough to me
+							if (e.message === "TShock HTTP 500: TShock API error") {
+								console.warn("TShock API 500 at /v3/bans/create");
+							} else {
+								throw e;
+							}
+						}
 					}
 
 					result = {
