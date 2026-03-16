@@ -31,7 +31,7 @@ export default {
 		Popup,
 		DateTimePicker,
 	},
-	emits: ['update:modelValue', 'close'],
+	emits: ['update:modelValue', 'close', 'cancel'],
 	props: {
 		modelValue: {
 			type: String,
