@@ -81,7 +81,7 @@ async function handle(event) {
 
 		return successResponse({ success: true });
 	} catch (err) {
-		return errorResponse(err.message || 'Failed to fetch server status');
+		return errorResponse(err.message || 'Failed to fetch perform user management action');
 	}
 }
 
