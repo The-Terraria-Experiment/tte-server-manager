@@ -45,7 +45,7 @@ async function handle(event) {
 			details: {ip, instanceId: serverId, status},
 		});
 
-		return successResponse({server: status, players: playerData});
+		return successResponse({ success: true });
 	} catch (err) {
 		return errorResponse(err.message || "Failed to destroy ban entry");
 	}
