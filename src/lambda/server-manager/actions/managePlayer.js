@@ -71,7 +71,7 @@ async function handle(event) {
 	const serverId = event.pathParameters?.id;
 	const { resource } = event;
 	const action = resource.split("/").pop();
-	const { playerID, reason, banStart, banEnd } = event.body;
+	const { playerID, reason, banStart, banEnd } = event.parsedBody;
 
 	if (!serverId) {
 		return notFoundError("Server ID");

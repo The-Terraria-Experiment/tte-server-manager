@@ -98,6 +98,15 @@ exports.handler = errorHandler(async (event, context) => {
 		return require("./actions/createWorld").handle(event, context);
 	}
 
+	if (event.body && typeof event.body === 'string' || event.body instanceof String) {
+		try {
+			event.parsedBody = JSON.parse(event.body);
+		} catch (e) {
+			console.warn("Failed to parse event body. Event body: ", event.body);
+			event.parsedBody = event.body;
+		}
+	}
+
 	console.log("Server Manager:", { httpMethod: event.httpMethod, path: event.path });
 	logAction(FUNC_NAMES.SERV_MGR, {
 		userId: getUserSub(event) ?? "unknown",
