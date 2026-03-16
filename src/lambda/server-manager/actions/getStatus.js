@@ -30,6 +30,8 @@ async function handle(event) {
 		// Call TShock API /v2/server/status on port 3891
 		const status = await callTShockAPI(getUserSub(event), ip, "/v2/server/status", { players: true, rules: true });
 
+		const playerData = await callTShockAPI(getUserSub(event), ip, "/v2/players/list");
+
 		logAction(FUNC_NAMES.SERV_MGR, {
 			userId: getUserSub(event) ?? 'unknown',
 			action: "get-status",
@@ -37,7 +39,7 @@ async function handle(event) {
 			details: { ip, instanceId: serverId, status }
 		});
 
-		return successResponse({server: status});
+		return successResponse({server: status, players: playerData});
 	} catch (err) {
 		return errorResponse(err.message || 'Failed to fetch server status');
 	}

@@ -50,7 +50,7 @@ export default {
 			default: false
 		},
 		inputClass: {
-			type: String,
+			type: [String, Array],
 			default: ''
 		},
 		iconColor: {

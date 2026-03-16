@@ -70,12 +70,49 @@ const endpoints = {
 	"POST /server/dropcache": {
 		action: require("./actions/dropTokenCache"),
 		permRequired: PERMISSIONS.system.dropcache
+	},
+	"POST /server/{id}/players/ban": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.ban
+	},
+	"POST /server/{id}/players/kick": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.kick
+	},
+	"POST /server/{id}/players/kill": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.kill
+	},
+	"POST /server/{id}/players/mute": {
+		action: require("./actions/managePlayer"),
+		permRequired: PERMISSIONS.server.player.mute
+	},
+	"GET /server/{id}/players/{player}": {
+		action: require("./actions/readPlayer"),
+		permRequired: PERMISSIONS.server.player.read
+	},
+	"GET /server/{id}/bans": {
+		action: require("./actions/getBans"),
+		permRequired: PERMISSIONS.server.player.ban
+	},
+	"POST /server/{id}/bans/delete": {
+		action: require("./actions/deleteBan"),
+		permRequired: PERMISSIONS.server.player.ban
 	}
 };
 
 exports.handler = errorHandler(async (event, context) => {
 	if (event?.internalAction === "create-world-worker") {
 		return require("./actions/createWorld").handle(event, context);
+	}
+
+	if (event.body && typeof event.body === 'string' || event.body instanceof String) {
+		try {
+			event.parsedBody = JSON.parse(event.body);
+		} catch (e) {
+			console.warn("Failed to parse event body. Event body: ", event.body);
+			event.parsedBody = event.body;
+		}
 	}
 
 	console.log("Server Manager:", { httpMethod: event.httpMethod, path: event.path });
