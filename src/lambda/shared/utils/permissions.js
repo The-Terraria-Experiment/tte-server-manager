@@ -6,10 +6,58 @@
 const { logAction } = require("./cloudwatchLogger");
 const { CW_LOG_GENERAL } = require("../constants");
 const { assertIsTruthyString, assertIsTruthy } = require("../middleware/assert");
-const { getDynamoItem } = require("./dynamo");
-const { PERM_TABLE } = require("../vars");
+const { getDynamoItem, updateDynamoItem } = require("./dynamo");
+const { PERM_TABLE, SYSTEM_TABLE } = require("../vars");
 
 const userCache = new Map();
+const PERMISSION_CACHE_VERSION_UID = "cache#permissions";
+const PERMISSION_CACHE_VERSION_POLL_MS = Number(process.env.PERMISSION_CACHE_VERSION_POLL_MS || 30 * 1000);
+
+let lastSeenCacheVersion = null;
+let lastVersionCheckAt = 0;
+
+async function refreshCacheVersionIfNeeded() {
+	const now = Date.now();
+	if (lastSeenCacheVersion !== null && now - lastVersionCheckAt < PERMISSION_CACHE_VERSION_POLL_MS) {
+		return;
+	}
+
+	lastVersionCheckAt = now;
+	const cacheVersionItem = await getDynamoItem(SYSTEM_TABLE, PERMISSION_CACHE_VERSION_UID);
+	const currentVersion = String(cacheVersionItem?.version || "0");
+
+	if (lastSeenCacheVersion === null) {
+		lastSeenCacheVersion = currentVersion;
+		return;
+	}
+
+	if (lastSeenCacheVersion !== currentVersion) {
+		dropcache();
+		lastSeenCacheVersion = currentVersion;
+	}
+}
+
+async function bumpPermissionCacheVersion() {
+	const newVersion = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+	const updatedAt = new Date().toISOString();
+
+	const updated = await updateDynamoItem(SYSTEM_TABLE, PERMISSION_CACHE_VERSION_UID, {
+		updates: {
+			version: newVersion,
+			updatedAt,
+		}
+	});
+
+	if (!updated) {
+		throw new Error("Failed to bump permission cache version");
+	}
+
+	dropcache();
+	lastSeenCacheVersion = newVersion;
+	lastVersionCheckAt = Date.now();
+
+	return newVersion;
+}
 
 /**
  * Extract user sub from API Gateway event
@@ -77,6 +125,8 @@ async function validatePermission(event, permission) {
  * Check if user has specific permission
  */
 async function checkPermission(userSub, permission) {
+	await refreshCacheVersionIfNeeded();
+
 	if (!userCache.has(userSub)) {
 		const userData = await getDynamoItem(PERM_TABLE, `user#${userSub}`);
 		userCache.set(userSub, userData);
@@ -136,6 +186,8 @@ async function validateResourceAccess(event, resource) {
  * Check if user has specific permission
  */
 async function checkResourceAccess(userSub, resource) {
+	await refreshCacheVersionIfNeeded();
+
 	if (!userCache.has(userSub)) {
 		const userData = await getDynamoItem(PERM_TABLE, `user#${userSub}`);
 		userCache.set(userSub, userData);
@@ -165,4 +217,5 @@ module.exports = {
 	validateResourceAccess,
 	checkResourceAccess,
 	dropcache,
+	bumpPermissionCacheVersion,
 };
