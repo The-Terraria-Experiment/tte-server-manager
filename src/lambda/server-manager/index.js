@@ -90,6 +90,14 @@ const endpoints = {
 	"GET /server/{id}/players/{player}": {
 		action: require("./actions/readPlayer"),
 		permRequired: PERMISSIONS.server.player.read
+	},
+	"GET /server/{id}/bans": {
+		action: require("./actions/getBans"),
+		permRequired: PERMISSIONS.server.player.ban
+	},
+	"POST /server/{id}/bans/delete": {
+		action: require("./actions/deleteBan"),
+		permRequired: PERMISSIONS.server.player.ban
 	}
 };
 
