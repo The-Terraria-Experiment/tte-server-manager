@@ -51,6 +51,7 @@
 		:selected-server-data="selectedServerData"
 		:selected-instance="selectedInstance"
 		@autoRefreshAt="autoRefreshAt = $event"
+		@refresh="refresh"
 	/>
 
 	<SelectWorld 

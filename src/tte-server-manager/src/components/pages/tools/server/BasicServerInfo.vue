@@ -270,7 +270,7 @@ export default {
 		DateTimePickerPopup,
 		Checkbox,
 	},
-	emits: ['autoRefreshAt'],
+	emits: ['autoRefreshAt', "refresh"],
 	props: {
 		selectedServerData: {
 			type: Object,
@@ -363,19 +363,12 @@ export default {
 
 			this.manageOptions.selectedPlayer = player;
 			this.managePlayerPopupOpen = true;
-
-			// try {
-			// 	await this.readPlayer();
-			// 	this.managePlayerStatus.playerLoading = false;
-			// } catch (e) {
-			// 	this.manageOptions.selectedPlayer = null;
-			// 	console.error(e);
-			// 	this.$alert.error("Failed to read player data");
-			// 	this.managePlayerPopupOpen = false;
-			// }
 		},
 
 		closeManagePlayerPopup() {
+			this.manageOptions.banReason = "";
+			this.manageOptions.kickReason = "";
+			this.manageOptions.killedBy = "";
 			this.managePlayerPopupOpen = false;
 			this.manageOptions.banEnd = null;
 			this.manageOptions.banStart = null;
@@ -417,6 +410,7 @@ export default {
 				});
 
 				this.$alert.success("Player banned");
+				this.$emit("refresh");
 			} catch (e) {
 				console.error(e);
 				this.$alert.error("Failed to ban player");
@@ -438,6 +432,7 @@ export default {
 				});
 
 				this.$alert.success("Player kicked");
+				this.$emit("refresh");
 			} catch (e) {
 				console.error(e);
 				this.$alert.error("Failed to kick player");
