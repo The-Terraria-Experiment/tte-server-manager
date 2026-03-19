@@ -23,7 +23,7 @@ function buildTShockCommand(tshockPath, worldFilePath, size, difficulty, evil, s
 	const escapedWorldPath = worldFilePath.replace(/"/g, '\\"');
 
 	// TShock world-gen args are order-sensitive.
-	let command = `${quotedTshockPath} -autocreate ${Number(size)} -world "${escapedWorldPath}" -difficulty ${Number(difficulty)} -worldevil ${Number(evil)}`;
+	let command = `${quotedTshockPath} -autocreate ${Number(size)} -world "${escapedWorldPath}" -difficulty ${Number(difficulty) - 1} -worldevil ${Number(evil) - 1}`;
 	if (seed) {
 		const escapedSeed = String(seed).replace(/"/g, '\\"');
 		command += ` -seed "${escapedSeed}"`;
