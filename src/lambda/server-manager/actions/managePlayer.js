@@ -4,7 +4,7 @@
 
 const { FUNC_NAMES } = require("../shared/constants");
 const { getInstanceStatus } = require("../shared/utils/aws");
-const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { logAction, logError } = require("../shared/utils/cloudwatchLogger");
 const { validateResourceAccess, getUserSub, validatePermission } = require("../shared/utils/permissions");
 const { errorResponse, notFoundError, successResponse } = require("../shared/utils/response");
 const { callTShockAPI } = require("./tshockApi");
@@ -210,7 +210,13 @@ async function handle(event) {
 
 		return successResponse({ success: true });
 	} catch (err) {
-		return errorResponse(err.message || 'Failed to fetch perform user management action');
+		logError(FUNC_NAMES.SERV_MGR, {
+			userId: getUserSub(event) ?? 'unknown',
+			action: `manage-player`,
+			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+			details: { error: err, event }
+		});
+		return errorResponse(err.message || 'Failed to perform user management action');
 	}
 }
 
