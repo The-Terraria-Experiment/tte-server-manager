@@ -22,8 +22,14 @@ function buildTShockCommand(tshockPath, worldFilePath, size, difficulty, evil, s
 	const quotedTshockPath = `"${baseRoot}${tshockPath}"`;
 	const escapedWorldPath = worldFilePath.replace(/"/g, '\\"');
 
+	const evilMap = {
+		1: "random",
+		2: "corrupt",
+		3: "crimson"
+	};
+
 	// TShock world-gen args are order-sensitive.
-	let command = `${quotedTshockPath} -autocreate ${Number(size)} -world "${escapedWorldPath}" -difficulty ${Number(difficulty) - 1} -worldevil ${Number(evil) - 1}`;
+	let command = `${quotedTshockPath} -autocreate ${Number(size)} -world "${escapedWorldPath}" -difficulty ${Number(difficulty) - 1} -worldevil ${evilMap[evil]}`;
 	if (seed) {
 		const escapedSeed = String(seed).replace(/"/g, '\\"');
 		command += ` -seed "${escapedSeed}"`;
