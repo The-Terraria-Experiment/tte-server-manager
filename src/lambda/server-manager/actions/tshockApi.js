@@ -13,11 +13,31 @@
 const {getSecret} = require("../shared/utils/aws");
 const http = require("http");
 const { successResponse } = require("../shared/utils/response");
-const { logAction } = require("../shared/utils/cloudwatchLogger");
+const { logAction, logActionCond } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
 
 // Simple per-IP token cache for Lambda warm containers
 const tokenCache = new Map(); // ip -> { token, expiresAtMs }
+
+function truncate(value, maxLen = 300) {
+	const text = String(value ?? "");
+	if (text.length <= maxLen) {
+		return text;
+	}
+	return `${text.slice(0, maxLen)}...`;
+}
+
+function getNetworkErrorDetails(error) {
+	return {
+		message: error?.message || null,
+		name: error?.name || null,
+		code: error?.code || null,
+		errno: error?.errno || null,
+		syscall: error?.syscall || null,
+		address: error?.address || null,
+		port: error?.port || null,
+	};
+}
 
 /**
  * Perform an HTTP request and parse JSON body
@@ -90,7 +110,12 @@ function parseTokenResponse(json) {
 async function getAuthTokenForIp(ipAddress, secretName) {
 	const cached = tokenCache.get(ipAddress);
 	if (cached && cached.expiresAtMs && cached.expiresAtMs > Date.now()) {
-		return cached.token;
+		return {
+			token: cached.token,
+			expiresAtMs: cached.expiresAtMs,
+			source: 'cache',
+			cacheHit: true,
+		};
 	}
 
 	const rawSecret = await getSecret(secretName);
@@ -103,7 +128,12 @@ async function getAuthTokenForIp(ipAddress, secretName) {
 	if (username && password) {
 		const { token, expiresAtMs } = await createTemporaryToken(ipAddress, username, password);
 		tokenCache.set(ipAddress, { token, expiresAtMs });
-		return token;
+		return {
+			token,
+			expiresAtMs,
+			source: 'temp-token',
+			cacheHit: false,
+		};
 	}
 
 	// Fallback: use static token from secret (string or field)
@@ -112,8 +142,14 @@ async function getAuthTokenForIp(ipAddress, secretName) {
 		throw new Error('TShock secret must contain either {username,password} or {token}');
 	}
 	// Cache static token without expiration (or with long TTL)
-	tokenCache.set(ipAddress, { token, expiresAtMs: Date.now() + 24 * 60 * 60 * 1000 });
-	return token;
+	const expiresAtMs = Date.now() + 24 * 60 * 60 * 1000;
+	tokenCache.set(ipAddress, { token, expiresAtMs });
+	return {
+		token,
+		expiresAtMs,
+		source: 'static-token',
+		cacheHit: false,
+	};
 }
 
 /**
@@ -146,10 +182,42 @@ async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 
 		throw new Error("TSHOCK_SECRET_NAME is not set");
 	}
 	let token;
+	let tokenMeta;
 	try {
-		token = await getAuthTokenForIp(ipAddress, secretName);
+		tokenMeta = await getAuthTokenForIp(ipAddress, secretName);
+		token = tokenMeta.token;
+
+		logActionCond(5, FUNC_NAMES.SERV_MGR, {
+			userId,
+			action: "tshock-token-ready",
+			status: 'token-ready',
+			resource: null,
+			details: {
+				ipAddress,
+				apiPort: process.env.TSHOCK_API_PORT,
+				endpoint,
+				tokenSource: tokenMeta?.source || 'unknown',
+				cacheHit: Boolean(tokenMeta?.cacheHit),
+				tokenExpiresInMs: tokenMeta?.expiresAtMs ? tokenMeta.expiresAtMs - Date.now() : null,
+			}
+		});
 	} catch (e) {
 		if (e.message.includes("ECONNREFUSED")) {
+			logActionCond(5, FUNC_NAMES.SERV_MGR, {
+				userId,
+				action: "tshock-conn-refused",
+				status: 'econnrefused',
+				resource: null,
+				details: {
+					phase: 'token-acquire',
+					target: {
+						ipAddress,
+						apiPort: process.env.TSHOCK_API_PORT,
+						endpoint,
+					},
+					error: getNetworkErrorDetails(e),
+				}
+			});
 			return successResponse({ server: { status: false } });
 		}
 		throw e;
@@ -170,6 +238,7 @@ async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 
 	}
 	
 	const url = `${baseUrl}${endpoint}?${params.toString()}`;
+	const requestStartMs = Date.now();
 
 	const headers = {
 		"Content-Type": "application/json",
@@ -184,10 +253,63 @@ async function callTShockAPI(userId, ipAddress, endpoint, data = null, method = 
 	} catch (e) {
 		// If the token cache includes a token, but the server has been shut down, it will fail here instead
 		if (e.message.includes("ECONNREFUSED")) {
+			logActionCond(5, FUNC_NAMES.SERV_MGR, {
+				userId,
+				action: "tshock-conn-refused",
+				status: 'econnrefused',
+				resource: null,
+				details: {
+					phase: 'api-call',
+					target: {
+						ipAddress,
+						apiPort: process.env.TSHOCK_API_PORT,
+						endpoint,
+						method,
+					},
+					requestDurationMs: Date.now() - requestStartMs,
+					error: getNetworkErrorDetails(e),
+				}
+			});
 			return successResponse({ server: { status: false } });
 		}
+
+		logActionCond(5, FUNC_NAMES.SERV_MGR, {
+			userId,
+			action: "tshock-call-failed",
+			status: 'request-error',
+			resource: null,
+			details: {
+				target: {
+					ipAddress,
+					apiPort: process.env.TSHOCK_API_PORT,
+					endpoint,
+					method,
+				},
+				requestDurationMs: Date.now() - requestStartMs,
+				error: getNetworkErrorDetails(e),
+			}
+		});
 		throw e;
 	}
+
+	logActionCond(5, FUNC_NAMES.SERV_MGR, {
+		userId,
+		action: "tshock-response",
+		status: statusCode < 200 || statusCode >= 300 ? 'non-2xx' : 'ok',
+		resource: null,
+		details: {
+			target: {
+				ipAddress,
+				apiPort: process.env.TSHOCK_API_PORT,
+				endpoint,
+				method,
+			},
+			requestDurationMs: Date.now() - requestStartMs,
+			statusCode,
+			responseKeys: json ? Object.keys(json).slice(0, 20) : [],
+			responseMessage: truncate(json?.message || json?.error || null),
+		}
+	});
 
 	if (statusCode < 200 || statusCode >= 300) {
 		const message = json?.message || 'TShock API error';

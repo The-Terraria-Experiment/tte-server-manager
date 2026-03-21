@@ -3,12 +3,39 @@
  */
 
 const {successResponse, validationError} = require("../shared/utils/response");
-const { executeSSMCommand } = require("../shared/utils/aws");
+const { executeSSMCommand, getSSMCommandResult } = require("../shared/utils/aws");
 const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
+const { delay } = require("../shared/utils/delay");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
 const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
+
+async function waitForSSMCommand(instanceId, commandId, options = {}) {
+	const pollDelayMs = Number(options.pollDelayMs ?? 1000);
+	const maxPolls = Number(options.maxPolls ?? 20);
+
+	for (let i = 0; i < maxPolls; i++) {
+		await delay(pollDelayMs);
+		const result = await getSSMCommandResult(commandId, instanceId);
+		if (result.status === "Success") {
+			return result;
+		}
+		if (["Failed", "Cancelled", "TimedOut", "Cancelling"].includes(result.status)) {
+			throw new Error(`SSM command ${commandId} ${result.status}: ${result.stderr || result.stdout}`);
+		}
+	}
+
+	throw new Error(`SSM command ${commandId} timed out`);
+}
+
+function buildPreLaunchGuardCommand(tshockPath) {
+	const normalizedPath = String(tshockPath || "").trim();
+	const binaryName = path.posix.basename(normalizedPath).replace(/[^a-zA-Z0-9._-]/g, "");
+	const searchPattern = ["TerrariaServer", "TShock", binaryName].filter(Boolean).join("|");
+
+	return `if pgrep -af '${searchPattern}' >/dev/null 2>&1; then echo 'TSHOCK_ALREADY_RUNNING'; else echo 'TSHOCK_CLEAR_TO_START'; fi`;
+}
 
 /**
  * Safely construct TShock command with flags
@@ -134,6 +161,7 @@ async function handle(event) {
 
 	// Build the command
 	const command = buildTShockCommand(tshockPath, worldFilePath, port, maxPlayers, password);
+	const preLaunchGuardCommand = buildPreLaunchGuardCommand(tshockPath);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
 		userId: getUserSub(event) ?? 'unknown',
@@ -147,6 +175,26 @@ async function handle(event) {
 	// Note: Port forwarding may need to be handled at the security group level
 	// or via iptables on the EC2 instance if not already configured
 	try {
+		const guardDispatch = await executeSSMCommand(instanceId, [preLaunchGuardCommand]);
+		const guardResult = await waitForSSMCommand(instanceId, guardDispatch.commandId, { pollDelayMs: 1000, maxPolls: 20 });
+		const guardOutput = (guardResult.stdout || "").trim();
+
+		if (guardOutput.includes("TSHOCK_ALREADY_RUNNING")) {
+			logAction(FUNC_NAMES.SERV_MGR, {
+				userId: getUserSub(event) ?? 'unknown',
+				action: "select-world",
+				status: 'pre-launch-guard-blocked',
+				resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+				details: {
+					instanceId,
+					commandId: guardDispatch.commandId,
+					guardOutput,
+				}
+			});
+
+			return validationError("A TShock process is already running on this instance. Stop the current server before launching another world.");
+		}
+
 		const result = await executeSSMCommand(instanceId, [command]);
 
 		logAction(FUNC_NAMES.SERV_MGR, {
