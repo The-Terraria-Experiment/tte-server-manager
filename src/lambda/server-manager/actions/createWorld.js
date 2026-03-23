@@ -4,33 +4,43 @@
 
 const {successResponse, validationError} = require("../shared/utils/response");
 const { executeSSMCommand, getSSMCommandResult, syncInstanceFileToS3 } = require("../shared/utils/aws");
-const { getDynamoItem } = require("../shared/utils/dynamo");
+const { getDynamoItem, putDynamoItem, updateDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 const { delay } = require("../shared/utils/delay");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
-const { validateResourceAccess } = require("../shared/utils/permissions");
+const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
+const { SYSTEM_TABLE } = require("../shared/vars");
+
+const lambdaClient = new LambdaClient({ region: process.env.AWS_REGION });
 
 
-function buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil, name, seed, maxPlayers, port, password) {
+function buildTShockCommand(tshockPath, worldFilePath, size, difficulty, evil, seed, maxPlayers, port, password) {
 	// Validate and quote paths to handle spaces safely
 	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	const quotedTshockPath = `"${baseRoot}${tshockPath}"`;
-	const worldPathNormalized = path.posix.normalize(`${baseRoot}${worldFolderPath}`);
-	const escapedPath = worldPathNormalized.replace(/"/g, '\\"');
-	const quotedWorldPath = `"${escapedPath}"`;
+	const escapedWorldPath = worldFilePath.replace(/"/g, '\\"');
 
-	// Build command with flags
-	let command = `${quotedTshockPath} -worldselectpath ${quotedWorldPath}`;
-	// command += ` -port ${parseInt(port)}`;
-	// command += ` -maxplayers ${parseInt(maxPlayers)}`;
+	const evilMap = {
+		1: "random",
+		2: "corrupt",
+		3: "crimson"
+	};
+
+	// TShock world-gen args are order-sensitive.
+	let command = `${quotedTshockPath} -autocreate ${Number(size)} -world "${escapedWorldPath}" -difficulty ${Number(difficulty) - 1} -worldevil ${evilMap[evil]}`;
+	if (seed) {
+		const escapedSeed = String(seed).replace(/"/g, '\\"');
+		command += ` -seed "${escapedSeed}"`;
+	}
+	command += ` -port ${Number(port)} -maxplayers ${Number(maxPlayers)}`;
 
 	// Only add password flag if provided and non-empty
-	// if (password && password.trim()) {
-	// 	command += ` -password "${password}"`;
-	// }
-
-	const input = `n\n${size}\n${difficulty}\n${evil}\n${name}\n${seed}\n1\n${maxPlayers}\n${port}\ny\n\n`;
+	if (password && password.trim()) {
+		const escapedPassword = password.replace(/"/g, '\\"');
+		command += ` -password "${escapedPassword}"`;
+	}
 
 	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
 	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
@@ -52,12 +62,28 @@ function buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil,
 		command += " 2> /dev/null";
 	}
 
+	// Choose launch strategy. systemd-run detaches cleanly from SSM process tracking.
+	const launchMode = (process.env.TSHOCK_LAUNCH_MODE || "auto").toLowerCase();
+
 	// Run detached so SSM can exit while server keeps running
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
-	command = `printf '${input}' | ${command}`;
-	const detached = `nohup ${command} < /dev/null & disown`;
-	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${detached}"`;
+	const legacyDetached = `nohup ${command} < /dev/null & echo "TShock launch dispatched (legacy)"`;
+	const legacyLaunch = `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${legacyDetached}'`;
+
+	const serviceScript = `${cdRoot} && exec ${command} < /dev/null`;
+	const escapedServiceScript = serviceScript.replace(/'/g, `'"'"'`);
+	const systemdLaunch = `systemd-run --unit "tshock-$(date +%s)-$$" --uid ubuntu --working-directory "${workingDir}" --collect --quiet /bin/bash -c '${escapedServiceScript}' && echo "TShock launch dispatched (systemd-run)"`;
+
+	if (launchMode === "legacy") {
+		return legacyLaunch;
+	}
+
+	if (launchMode === "systemd") {
+		return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else echo "systemd-run not available" >&2; exit 127; fi`;
+	}
+
+	return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else ${legacyLaunch}; fi`;
 }
 
 async function waitForSSMCommand(instanceId, commandId, options = {}) {
@@ -88,13 +114,13 @@ async function waitForWorldFileReady(instanceId, filePath, options = {}) {
 	const delayMs = Number(options.delayMs ?? 5000);
 	const stableCount = Number(options.stableCount ?? 2);
 	const escapedPath = filePath.replace(/"/g, '\\"');
-	const statCommand = `if [ -f "${escapedPath}" ]; then stat -c %s "${escapedPath}"; else echo MISSING; exit 2; fi`;
+	const statCommand = `if [ -f "${escapedPath}" ]; then stat -c %s "${escapedPath}"; else echo "MISSING"; fi`;
 
 	let lastSize = null;
 	let stableTicks = 0;
 
 	for (let i = 0; i < attempts; i++) {
-		const result = await runSSMCommandAndWait(instanceId, [statCommand], { pollDelayMs: 1000, maxPolls: 20 });
+		const result = await runSSMCommandAndWait(instanceId, [statCommand], { pollDelayMs: 5000, maxPolls: 25 });
 		const output = (result.stdout || "").trim();
 		if (!output || output === "MISSING") {
 			stableTicks = 0;
@@ -125,7 +151,222 @@ async function waitForWorldFileReady(instanceId, filePath, options = {}) {
 	throw new Error("World file did not become ready in time");
 }
 
+function buildJobUid(jobId) {
+	return `world-create#${jobId}`;
+}
+
+function createJobId() {
+	return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeBody(body) {
+	return {
+		worldFolderPath: body.worldFolderPath,
+		port: body.port,
+		maxPlayers: body.maxPlayers,
+		password: body.password,
+		size: body.size,
+		difficulty: body.difficulty,
+		evil: body.evil,
+		seed: body.seed,
+		worldName: body.worldName,
+	};
+}
+
+async function updateWorldCreateJob(jobUid, updates) {
+	await updateDynamoItem(SYSTEM_TABLE, jobUid, {
+		updates: {
+			...updates,
+			updatedAt: new Date().toISOString(),
+		}
+	});
+}
+
+async function invokeCreateWorldWorker(payload) {
+	const functionName = process.env.AWS_LAMBDA_FUNCTION_NAME;
+	if (!functionName) {
+		throw new Error("AWS_LAMBDA_FUNCTION_NAME env var missing");
+	}
+
+	await lambdaClient.send(new InvokeCommand({
+		FunctionName: functionName,
+		InvocationType: "Event",
+		Payload: Buffer.from(JSON.stringify(payload)),
+	}));
+}
+
+function validateCreateWorldInput(body) {
+	const {worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName} = body;
+
+	if (!worldFolderPath) {
+		throw new Error("World file path is required");
+	}
+	if (!port) {
+		throw new Error("Port is required");
+	}
+	if (!maxPlayers) {
+		throw new Error("Max players is required");
+	}
+	if (!worldName) {
+		throw new Error("World name is required");
+	}
+
+	if (password && !/^[a-zA-Z0-9_]+$/.test(password)) {
+		throw new Error("Password must contain only alphanumeric characters and underscores");
+	}
+
+	if (seed && !/^[a-zA-Z0-9_\s]+$/.test(seed)) {
+		throw new Error("Seed must contain only alphanumeric characters, underscores, and spaces");
+	}
+
+	if (!/^[0-9]+$/.test(port)) {
+		throw new Error("Port must contain only numeric characters");
+	}
+
+	if (!/^[0-9]+$/.test(maxPlayers)) {
+		throw new Error("Max players must contain only numeric characters");
+	}
+
+	if (isNaN(Number(size)) || size < 1 || size > 3) {
+		throw new Error("Size must be a number between 1 and 3 inclusive");
+	}
+
+	if (isNaN(Number(difficulty)) || difficulty < 1 || difficulty > 4) {
+		throw new Error("Difficulty must be a number between 1 and 4 inclusive");
+	}
+
+	if (isNaN(Number(evil)) || evil < 1 || evil > 3) {
+		throw new Error("Evil must be a number between 1 and 3 inclusive");
+	}
+
+	if (!/^[a-zA-Z0-9_]+$/.test(worldName)) {
+		throw new Error("World name must only include alphanumeric characters and underscores");
+	}
+}
+
+async function runCreateWorldWorker(workerEvent) {
+	const { instanceId, jobUid, requestedBy, body } = workerEvent;
+	const {worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName} = body;
+
+	const worldsBucket = process.env.S3_FILESTORE_NAME;
+	if (!worldsBucket) {
+		throw new Error("Worlds S3 bucket not configured (S3_FILESTORE_NAME env var missing)");
+	}
+
+	const tshockPath = process.env.TSHOCK_PATH;
+	if (!tshockPath) {
+		throw new Error("TShock executable path not configured (TSHOCK_PATH env var missing)");
+	}
+
+	const instanceData = await getDynamoItem(process.env.INSTANCE_TABLE_NAME, `inst#${instanceId}`);
+	const worldPaths = instanceData?.worldPaths || [];
+
+	if (!worldPaths.some(validPath => worldFolderPath === validPath)) {
+		throw new Error("World file path does not fall within a designated world files folder");
+	}
+
+	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
+	const worldFolderNormalized = path.posix.normalize(`${baseRoot}/${worldFolderPath}`);
+	const worldFilePath = path.posix.join(worldFolderNormalized, `${worldName}.wld`);
+	const command = buildTShockCommand(tshockPath, worldFilePath, size, difficulty, evil, seed, maxPlayers, port, password);
+	const s3Key = path.posix.join(instanceId, worldFolderPath, `${worldName}.wld`);
+
+	await updateWorldCreateJob(jobUid, {
+		status: "running",
+		step: "starting-tshock",
+		message: "Launching TShock world generation",
+		progress: 20,
+		instanceId,
+		worldFilePath,
+		s3Key,
+	});
+
+	const result = await executeSSMCommand(instanceId, [command]);
+
+	logAction(FUNC_NAMES.SERV_MGR, {
+		userId: requestedBy ?? 'unknown',
+		action: "create-world-worker",
+		status: 'tshock-dispatched',
+		resource: `internal:create-world-worker:${instanceId}`,
+		details: {
+			commandId: result.commandId,
+			worldFilePath,
+			port,
+			tshockPath,
+		}
+	});
+
+	await updateWorldCreateJob(jobUid, {
+		step: "waiting-for-world-file",
+		message: "Building world file",
+		progress: 45,
+		commandId: result.commandId,
+	});
+
+	const pollAttempts = Number(process.env.WORLD_CREATE_POLL_ATTEMPTS || 30);
+	const pollDelayMs = Number(process.env.WORLD_CREATE_POLL_DELAY_MS || 5000);
+	const stableCount = Number(process.env.WORLD_CREATE_STABLE_COUNT || 2);
+
+	await waitForWorldFileReady(instanceId, worldFilePath, {
+		attempts: pollAttempts,
+		delayMs: pollDelayMs,
+		stableCount,
+	});
+
+	await updateWorldCreateJob(jobUid, {
+		step: "uploading-world",
+		message: "Uploading created world file to S3",
+		progress: 75,
+	});
+
+	const upload = await syncInstanceFileToS3(instanceId, worldFilePath, worldsBucket, s3Key);
+	await waitForSSMCommand(instanceId, upload.commandId, { pollDelayMs: 1000, maxPolls: 60 });
+
+	await updateWorldCreateJob(jobUid, {
+		status: "completed",
+		step: "done",
+		message: "World created and uploaded successfully",
+		progress: 100,
+		uploadCommandId: upload.commandId,
+		finishedAt: new Date().toISOString(),
+	});
+
+	return {
+		commandId: result.commandId,
+		uploadCommandId: upload.commandId,
+		worldFilePath,
+		s3Key,
+	};
+}
+
 async function handle(event) {
+	if (event?.internalAction === "create-world-worker") {
+		try {
+			await runCreateWorldWorker(event);
+			return { ok: true };
+		} catch (error) {
+			if (event?.jobUid) {
+				await updateWorldCreateJob(event.jobUid, {
+					status: "failed",
+					step: "failed",
+					message: error.message || "World creation failed",
+					error: error.message || "World creation failed",
+					finishedAt: new Date().toISOString(),
+				});
+			}
+
+			logAction(FUNC_NAMES.SERV_MGR, {
+				userId: event?.requestedBy ?? 'unknown',
+				action: "create-world-worker",
+				status: 'failed',
+				resource: `internal:create-world-worker:${event?.instanceId ?? 'unknown'}`,
+				details: { error: error.message }
+			});
+
+			return { ok: false, error: error.message };
+		}
+	}
+
 	const instanceId = event.pathParameters?.id;
 
 	if (!instanceId) {
@@ -133,131 +374,59 @@ async function handle(event) {
 	}
 
 	await validateResourceAccess(event, `server::${instanceId}`);
+	const requestedBy = getUserSub(event) || null;
 
 	// Extract body parameters
 	const body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
-	const {worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName} = body;
 
-	// Validate required parameters
-	if (!worldFolderPath) {
-		return validationError("World file path is required");
-	}
-	if (!port) {
-		return validationError("Port is required");
-	}
-	if (!maxPlayers) {
-		return validationError("Max players is required");
-	}
-	if (!worldName) {
-		return validationError("World name is required");
-	}
-
-	const worldsBucket = process.env.S3_FILESTORE_NAME;
-	if (!worldsBucket) {
-		return validationError("Worlds S3 bucket not configured (S3_FILESTORE_NAME env var missing)");
-	}
-
-	// Validate password contains only alphanumeric characters and underscores
-	if (password && !/^[a-zA-Z0-9_]+$/.test(password)) {
-		return validationError("Password must contain only alphanumeric characters and underscores");
-	}
-
-	// Validate seed contains only alphanumeric characters, underscores, spaces
-	if (seed && !/^[a-zA-Z0-9_\s]+$/.test(seed)) {
-		return validationError("Seed must contain only alphanumeric characters, underscores, and spaces");
-	}
-
-	// Validate port contains only numeric characters
-	if (password && !/^[0-9]+$/.test(port)) {
-		return validationError("Password must contain only alphanumeric characters and underscores");
-	}
-
-	// Validate player cap contains only numeric characters
-	if (password && !/^[0-9]+$/.test(maxPlayers)) {
-		return validationError("Password must contain only alphanumeric characters and underscores");
-	}
-
-	// Get TShock executable path from environment
-	const tshockPath = process.env.TSHOCK_PATH;
-	if (!tshockPath) {
-		return validationError("TShock executable path not configured (TSHOCK_PATH env var missing)");
-	}
-
-	if (isNaN(Number(size)) || size < 1 || size > 3) {
-		return validationError("Size must be a number between 1 and 3 inclusive");
-	}
-
-	if (isNaN(Number(difficulty)) || difficulty < 1 || difficulty > 4) {
-		return validationError("Difficulty must be a number between 1 and 4 inclusive");
-	}
-
-	if (isNaN(Number(evil)) || evil < 1 || evil > 3) {
-		return validationError("Evil must be a number between 1 and 3 inclusive");
-	}
-
-	if (!/^[a-zA-Z0-9_]+$/.test(worldName)) {
-		return validationError("World name must only unclude alphanumeric characters and underscores");
-	}
-
-	const instanceData = await getDynamoItem(process.env.INSTANCE_TABLE_NAME, `inst#${instanceId}`);
-	const worldPaths = instanceData?.worldPaths || [];
-
-	if (!worldPaths.some(validPath => worldFolderPath === validPath)) {
-		return validationError("World file path does not fall within a designated world files folder");
-	}
-
-	// Build the command
-	const command = buildTShockCommand(tshockPath, worldFolderPath, size, difficulty, evil, worldName, seed, maxPlayers, port, password);
-	const baseRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
-	const worldFolderNormalized = path.posix.normalize(`${baseRoot}/${worldFolderPath}`);
-	const worldFilePath = path.posix.join(worldFolderNormalized, `${worldName}.wld`);
-	const s3Key = path.posix.join(instanceId, worldFolderPath, `${worldName}.wld`);
-
-	logAction(FUNC_NAMES.SERV_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
-		action: "create-world",
-		status: 'command-built',
-		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
-		details: { command }
-	});
-
-	// Execute command on EC2 instance via SSM
-	// Note: Port forwarding may need to be handled at the security group level
-	// or via iptables on the EC2 instance if not already configured
 	try {
-		const result = await executeSSMCommand(instanceId, [command]);
+		validateCreateWorldInput(body);
+
+		const jobId = createJobId();
+		const jobUid = buildJobUid(jobId);
+		const createdAt = new Date().toISOString();
+
+		await putDynamoItem(SYSTEM_TABLE, {
+			uid: jobUid,
+			type: "world-create-job",
+			instanceId,
+			requestedBy,
+			status: "queued",
+			step: "queued",
+			message: "World creation job queued",
+			progress: 0,
+			createdAt,
+			updatedAt: createdAt,
+			request: normalizeBody(body),
+		});
+
+		await invokeCreateWorldWorker({
+			internalAction: "create-world-worker",
+			jobUid,
+			instanceId,
+			requestedBy,
+			body: normalizeBody(body),
+		});
 
 		logAction(FUNC_NAMES.SERV_MGR, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
-			action: "select-world",
+			userId: requestedBy ?? 'unknown',
+			action: "create-world",
+			status: 'queued',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
-			details: { commandId: result.commandId, worldFilePath, port, tshockPath }
+			details: { jobId, jobUid, instanceId }
 		});
 
-		const pollAttempts = Number(process.env.WORLD_CREATE_POLL_ATTEMPTS || 30);
-		const pollDelayMs = Number(process.env.WORLD_CREATE_POLL_DELAY_MS || 5000);
-		const stableCount = Number(process.env.WORLD_CREATE_STABLE_COUNT || 2);
-
-		await waitForWorldFileReady(instanceId, worldFilePath, {
-			attempts: pollAttempts,
-			delayMs: pollDelayMs,
-			stableCount,
-		});
-
-		const upload = await syncInstanceFileToS3(instanceId, worldFilePath, worldsBucket, s3Key);
-		await waitForSSMCommand(instanceId, upload.commandId, { pollDelayMs: 1000, maxPolls: 60 });
-
-		// await delay(500);
-		// const output = await getSSMCommandResult(result.commandId, instanceId);
 		return successResponse({
-			message: "TShock server starting (world uploaded)",
+			message: "World creation started",
 			instanceId,
-			commandId: result.commandId,
-			worldFilePath,
-			s3Key,
+			jobId,
+			jobUid,
+			status: "queued",
+			statusEndpoint: `/server/${instanceId}/world/create/${jobId}/status`,
+			progressMessage: "World creation job queued",
 		});
 	} catch (error) {
-		return validationError(`Failed to execute command: ${error.message}`);
+		return validationError(`Failed to queue world creation: ${error.message}`);
 	}
 }
 

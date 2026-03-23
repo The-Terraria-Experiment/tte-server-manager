@@ -8,6 +8,7 @@ const {logError} = require("../shared/middleware/errorHandler");
 const {updateDynamoItem} = require("../shared/utils/dynamo");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { PERM_TABLE } = require("../shared/vars");
+const { getUserSub, bumpPermissionCacheVersion } = require("../shared/utils/permissions");
 
 async function handle(event) {
 	if (!event.parsedBody || !event.parsedBody.resourceAccess || !event.parsedBody.userID) {
@@ -23,14 +24,16 @@ async function handle(event) {
 		},
 	});
 
+	const cacheVersion = await bumpPermissionCacheVersion();
+
 	logAction(FUNC_NAMES.USER_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "write-resource-permissions",
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 		details: { updatedUser: updateUser, permissions: deduplicated }
 	});
 
-	return successResponse({permissions: updated?.resourceAccess, updateUser});
+	return successResponse({permissions: updated?.resourceAccess, updateUser, cacheVersion});
 }
 
 module.exports = {handle};

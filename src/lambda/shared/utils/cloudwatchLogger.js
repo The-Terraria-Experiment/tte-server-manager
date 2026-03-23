@@ -20,26 +20,25 @@ const cloudwatchClient = new CloudWatchLogsClient({ region: process.env.AWS_REGI
 const existingStreams = new Set();
 
 /**
- * Logs an action to CloudWatch custom log group
+ * Logs an entry to CloudWatch custom log group by type
  * @param {string} functionName - Lambda function name (e.g., 'instance-manager', 'server-manager')
- * @param {object} actionLog - Log object with action details
- * @param {string} actionLog.userId - User sub/ID performing the action
- * @param {string} actionLog.action - Action name (e.g., 'START_INSTANCE', 'EXECUTE_COMMAND')
- * @param {string} actionLog.resource - Resource being acted upon (e.g., instance ID, server ID)
- * @param {object} actionLog.details - Additional details about the action
- * @param {number} actionLog.timestamp - Timestamp (defaults to now)
- * @param {string} actionLog.status - 'SUCCESS' | 'FAILED' | 'DENIED'
- * @param {string} [actionLog.error] - Error message if status is FAILED
+ * @param {'actions'|'errors'} logType - Log type suffix for the log group path
+ * @param {object} logPayload - Structured log payload
+ * @param {number} [logPayload.timestamp] - Timestamp (defaults to now)
  * @returns {Promise<void>}
  */
-async function logAction(functionName, actionLog) {
+async function logEntry(functionName, logType, logPayload) {
 	if (![...Object.values(FUNC_NAMES), CW_LOG_GENERAL].includes(functionName)) {
 		throw new Error(`Invalid function name '${functionName}'`);
+	}
+
+	if (!['actions', 'errors'].includes(logType)) {
+		throw new Error(`Invalid log type '${logType}'`);
 	}
 	
 	const environment = "-" + process.env.ACTIVE_ENV;
 
-	const logGroupName = `/aws/lambda/${functionName}${environment}/actions`;
+	const logGroupName = `/aws/lambda/${functionName}${environment}/${logType}`;
 	const logStreamName = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 	const streamKey = `${logGroupName}/${logStreamName}`;
 	
@@ -63,16 +62,10 @@ async function logAction(functionName, actionLog) {
 			}
 		}
 
-		// Prepare log message with structured format
-		const timestamp = actionLog.timestamp || Date.now();
+		const timestamp = logPayload.timestamp || Date.now();
 		const logMessage = {
 			timestamp,
-			userId: actionLog.userId,
-			action: actionLog.action,
-			resource: actionLog.resource,
-			status: actionLog.status || 'ok',
-			details: actionLog.details || {},
-			...(actionLog.error && { error: actionLog.error }),
+			...logPayload,
 		};
 
 		await cloudwatchClient.send(
@@ -90,8 +83,59 @@ async function logAction(functionName, actionLog) {
 	} catch (err) {
 		// Log to console as fallback if CloudWatch fails
 		console.error(`CloudWatch logging to stream [${streamKey}] failed: ${err.message}`);
-		console.log('Action log fallback:', JSON.stringify(actionLog));
+		console.log('CloudWatch log fallback:', JSON.stringify(logPayload));
 	}
+}
+
+/**
+ * Logs an action to CloudWatch custom action log group
+ * @param {string} functionName - Lambda function name (e.g., 'instance-manager', 'server-manager')
+ * @param {object} actionLog - Log object with action details
+ * @param {string} actionLog.userId - User sub/ID performing the action
+ * @param {string} actionLog.action - Action name (e.g., 'START_INSTANCE', 'EXECUTE_COMMAND')
+ * @param {string} actionLog.resource - Resource being acted upon (e.g., instance ID, server ID)
+ * @param {object} actionLog.details - Additional details about the action
+ * @param {number} actionLog.timestamp - Timestamp (defaults to now)
+ * @param {string} actionLog.status - 'SUCCESS' | 'FAILED' | 'DENIED'
+ * @param {string} [actionLog.error] - Error message if status is FAILED
+ * @returns {Promise<void>}
+ */
+async function logAction(functionName, actionLog) {
+	return logEntry(functionName, 'actions', {
+		userId: actionLog.userId,
+		action: actionLog.action,
+		resource: actionLog.resource,
+		status: actionLog.status || 'ok',
+		details: actionLog.details || {},
+		...(actionLog.error && { error: actionLog.error }),
+		timestamp: actionLog.timestamp,
+	});
+}
+
+/**
+ * Logs an error to CloudWatch custom error log group
+ * @param {string} functionName - Lambda function name (e.g., 'instance-manager', 'server-manager')
+ * @param {object} errorLog - Log object with error details
+ * @param {string} [errorLog.userId] - User sub/ID associated with the error
+ * @param {string} [errorLog.action] - Action that caused the error
+ * @param {string} [errorLog.resource] - Resource associated with the error
+ * @param {string} errorLog.error - Error message
+ * @param {string} [errorLog.stack] - Error stack trace
+ * @param {object} [errorLog.details] - Additional error context
+ * @param {number} [errorLog.timestamp] - Timestamp (defaults to now)
+ * @returns {Promise<void>}
+ */
+async function logError(functionName, errorLog) {
+	return logEntry(functionName, 'errors', {
+		userId: errorLog.userId,
+		action: errorLog.action,
+		resource: errorLog.resource,
+		error: errorLog.error,
+		stack: errorLog.stack,
+		details: errorLog.details || {},
+		status: 'ERROR',
+		timestamp: errorLog.timestamp,
+	});
 }
 
 /**
@@ -114,6 +158,8 @@ async function logActionCond(levelRequired, functionName, actionLog) {
 }
 
 module.exports = {
+	logEntry,
 	logAction,
+	logError,
 	logActionCond,
 };

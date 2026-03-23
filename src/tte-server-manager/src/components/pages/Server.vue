@@ -51,13 +51,14 @@
 		:selected-server-data="selectedServerData"
 		:selected-instance="selectedInstance"
 		@autoRefreshAt="autoRefreshAt = $event"
+		@refresh="refresh"
 	/>
 
 	<SelectWorld 
 		v-if="selectedInstance && !selectedServerData.state" 
 		:selected-instance="selectedInstance" 
 		:selected-server-data="selectedServerData" 
-		@autoRefreshAt="autoRefreshAt = $event"
+		@autoRefreshAt="autoRefreshAt = $event"	
 	/>
 
 	<CreateWorld 
@@ -65,6 +66,7 @@
 		:selected-instance="selectedInstance" 
 		:selected-server-data="selectedServerData" 
 		@autoRefreshAt="autoRefreshAt = $event"
+		@refresh="refresh"
 	/>
 
 	<ServerConfig 
@@ -83,10 +85,11 @@ import RefreshButton from '../common/RefreshButton.vue';
 import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
-import ServerConfig from './tools/server/ServerConfig.vue';
 import FlexButton from '../common/FlexButton.vue';
 import { post } from '../../util/api';
 import CreateWorld from './tools/server/CreateWorld.vue';
+import ManageBans from './tools/server/ManageBans.vue';
+import ServerConfig from './tools/server/ServerConfig.vue';
 
 
 export default {
@@ -97,8 +100,9 @@ export default {
 		BasicServerInfo,
 		SelectWorld,
 		MajorLoader,
-		ServerConfig,
 		CreateWorld,
+		ManageBans,
+		ServerConfig,
 	},
 	props: {
 		

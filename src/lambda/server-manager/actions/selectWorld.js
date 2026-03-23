@@ -3,14 +3,39 @@
  */
 
 const {successResponse, validationError} = require("../shared/utils/response");
-const { executeSSMCommand } = require("../shared/utils/aws");
+const { executeSSMCommand, getSSMCommandResult } = require("../shared/utils/aws");
 const { getDynamoItem } = require("../shared/utils/dynamo");
 const path = require("path");
-const { getSSMCommandResult } = require("../shared/utils/aws");
 const { delay } = require("../shared/utils/delay");
 const { logAction } = require("../shared/utils/cloudwatchLogger");
 const { FUNC_NAMES } = require("../shared/constants");
-const { validateResourceAccess } = require("../shared/utils/permissions");
+const { validateResourceAccess, getUserSub } = require("../shared/utils/permissions");
+
+async function waitForSSMCommand(instanceId, commandId, options = {}) {
+	const pollDelayMs = Number(options.pollDelayMs ?? 1000);
+	const maxPolls = Number(options.maxPolls ?? 20);
+
+	for (let i = 0; i < maxPolls; i++) {
+		await delay(pollDelayMs);
+		const result = await getSSMCommandResult(commandId, instanceId);
+		if (result.status === "Success") {
+			return result;
+		}
+		if (["Failed", "Cancelled", "TimedOut", "Cancelling"].includes(result.status)) {
+			throw new Error(`SSM command ${commandId} ${result.status}: ${result.stderr || result.stdout}`);
+		}
+	}
+
+	throw new Error(`SSM command ${commandId} timed out`);
+}
+
+function buildPreLaunchGuardCommand(tshockPath) {
+	const normalizedPath = String(tshockPath || "").trim();
+	const binaryName = path.posix.basename(normalizedPath).replace(/[^a-zA-Z0-9._-]/g, "");
+	const searchPattern = ["TerrariaServer", "TShock", binaryName].filter(Boolean).join("|");
+
+	return `if pgrep -af '${searchPattern}' >/dev/null 2>&1; then echo 'TSHOCK_ALREADY_RUNNING'; else echo 'TSHOCK_CLEAR_TO_START'; fi`;
+}
 
 /**
  * Safely construct TShock command with flags
@@ -59,13 +84,29 @@ function buildTShockCommand(tshockPath, worldPath, port, maxPlayers, password) {
 		command += " 2> /dev/null";
 	}
 
+	// Choose launch strategy. systemd-run detaches cleanly from SSM process tracking.
+	const launchMode = (process.env.TSHOCK_LAUNCH_MODE || "auto").toLowerCase();
+
 	// Run detached so SSM can exit while server keeps running
 	const workingDir = (process.env.TSHOCK_WD || "").replace(/\/$/, "");
 	const cdRoot = `cd "${workingDir}"`;
-	const detached = `nohup ${command} < /dev/null & disown`;
-	return `runuser -u ubuntu -- /bin/bash -lc "${cdRoot} && ${detached}"`;
-}
+	const legacyDetached = `nohup ${command} < /dev/null & echo "TShock launch dispatched (legacy)"`;
+	const legacyLaunch = `runuser -u ubuntu -- /bin/bash -c '${cdRoot} && ${legacyDetached}'`;
 
+	const serviceScript = `${cdRoot} && exec ${command} < /dev/null`;
+	const escapedServiceScript = serviceScript.replace(/'/g, `'"'"'`);
+	const systemdLaunch = `systemd-run --unit "tshock-$(date +%s)-$$" --uid ubuntu --working-directory "${workingDir}" --collect --quiet /bin/bash -c '${escapedServiceScript}' && echo "TShock launch dispatched (systemd-run)"`;
+
+	if (launchMode === "legacy") {
+		return legacyLaunch;
+	}
+
+	if (launchMode === "systemd") {
+		return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else echo "systemd-run not available" >&2; exit 127; fi`;
+	}
+
+	return `if command -v systemd-run >/dev/null 2>&1; then ${systemdLaunch}; else ${legacyLaunch}; fi`;
+}
 async function handle(event) {
 	const instanceId = event.pathParameters?.id;
 
@@ -120,9 +161,10 @@ async function handle(event) {
 
 	// Build the command
 	const command = buildTShockCommand(tshockPath, worldFilePath, port, maxPlayers, password);
+	const preLaunchGuardCommand = buildPreLaunchGuardCommand(tshockPath);
 
 	logAction(FUNC_NAMES.SERV_MGR, {
-		userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+		userId: getUserSub(event) ?? 'unknown',
 		action: "select-world",
 		status: 'command-built',
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
@@ -133,13 +175,39 @@ async function handle(event) {
 	// Note: Port forwarding may need to be handled at the security group level
 	// or via iptables on the EC2 instance if not already configured
 	try {
+		const guardDispatch = await executeSSMCommand(instanceId, [preLaunchGuardCommand]);
+		const guardResult = await waitForSSMCommand(instanceId, guardDispatch.commandId, { pollDelayMs: 1000, maxPolls: 20 });
+		const guardOutput = (guardResult.stdout || "").trim();
+
+		if (guardOutput.includes("TSHOCK_ALREADY_RUNNING")) {
+			logAction(FUNC_NAMES.SERV_MGR, {
+				userId: getUserSub(event) ?? 'unknown',
+				action: "select-world",
+				status: 'pre-launch-guard-blocked',
+				resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+				details: {
+					instanceId,
+					commandId: guardDispatch.commandId,
+					guardOutput,
+				}
+			});
+
+			return validationError("A TShock process is already running on this instance. Stop the current server before launching another world.");
+		}
+
 		const result = await executeSSMCommand(instanceId, [command]);
 
 		logAction(FUNC_NAMES.SERV_MGR, {
-			userId: event.requestContext?.authorizer?.claims?.sub ?? 'unknown',
+			userId: getUserSub(event) ?? 'unknown',
 			action: "select-world",
+			status: 'ssm-dispatched',
 			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
-			details: { commandId: result.commandId, worldFilePath, port, tshockPath }
+			details: {
+				commandId: result.commandId,
+				worldFilePath,
+				port,
+				tshockPath,
+			}
 		});
 
 		// await delay(500);
@@ -153,6 +221,18 @@ async function handle(event) {
 			// output,
 		});
 	} catch (error) {
+		logAction(FUNC_NAMES.SERV_MGR, {
+			userId: getUserSub(event) ?? 'unknown',
+			action: "select-world",
+			status: 'ssm-dispatch-failed',
+			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+			details: {
+				worldFilePath,
+				port,
+				tshockPath,
+				error: error.message,
+			}
+		});
 		return validationError(`Failed to execute command: ${error.message}`);
 	}
 }
