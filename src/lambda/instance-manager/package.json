@@ -2,6 +2,7 @@
   "name": "instance-manager",
   "version": "1.0.0",
   "description": "EC2 instance management Lambda",
+  "type": "module",
   "main": "index.js",
   "dependencies": {
     "@aws-sdk/client-ec2": "^3.0.0",

@@ -2,6 +2,7 @@
   "name": "cognito-user-link",
   "version": "1.0.0",
   "description": "Cognito PostConfirmation trigger - creates user records in DynamoDB",
+  "type": "module",
   "main": "index.js",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.645.0",
