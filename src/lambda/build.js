@@ -1,17 +1,35 @@
 #!/usr/bin/env node
 /**
  * Build script for Lambda functions
- * Bundles each function with shared dependencies into deployment packages
+ * 1) Compile TS/JS sources with tsc
+ * 2) Bundle each function with shared dependencies into deployment packages
  */
 
-const fs = require("fs");
-const path = require("path");
-const {execSync} = require("child_process");
+import fs from "fs";
+import path from "path";
+import {execSync} from "child_process";
+import {fileURLToPath} from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const FUNCTIONS = ["instance-manager", "server-manager", "user-manager", "cognito-user-link", "system-manager", "api-authorizer"];
 const BUILD_DIR = path.join(__dirname, "dist");
+const COMPILED_DIR = path.join(__dirname, "tsbuild");
 
 console.log("Building Lambda functions...\n");
+
+console.log("Step 1/2: Compiling Lambda TypeScript sources...");
+if (fs.existsSync(COMPILED_DIR)) {
+	fs.rmSync(COMPILED_DIR, {recursive: true});
+}
+
+execSync("npx tsc -p tsconfig.json", {
+	cwd: __dirname,
+	stdio: "inherit",
+});
+
+console.log("\nStep 2/2: Packaging deployment zips...\n");
 
 // Clean build directory
 if (fs.existsSync(BUILD_DIR)) {
@@ -21,25 +39,35 @@ fs.mkdirSync(BUILD_DIR, {recursive: true});
 
 // Build each function
 for (const fn of FUNCTIONS) {
-	console.log(`📦 Building ${fn}...`);
+	console.log(`Building ${fn}...`);
 
-	const fnDir = path.join(__dirname, fn);
+	const fnSourceDir = path.join(COMPILED_DIR, fn);
+	if (!fs.existsSync(fnSourceDir)) {
+		throw new Error(`Missing compiled output for ${fn} at ${fnSourceDir}. Ensure tsconfig includes this directory.`);
+	}
+
+	const sharedSourceDir = path.join(COMPILED_DIR, "shared");
+	if (!fs.existsSync(sharedSourceDir)) {
+		throw new Error(`Missing compiled shared output at ${sharedSourceDir}.`);
+	}
+
+	const fnPackageSourceDir = path.join(__dirname, fn);
+	const sharedPackageSourceDir = path.join(__dirname, "shared");
 	const buildFnDir = path.join(BUILD_DIR, fn);
 
 	// Create build directory for function
 	fs.mkdirSync(buildFnDir, {recursive: true});
 
-	// Copy function files (exclude shared since we copy it explicitly next)
-	copyRecursive(fnDir, buildFnDir, ["node_modules", "package-lock.json", "shared"]);
+	// Copy compiled function files (exclude shared since we copy it explicitly next)
+	copyRecursive(fnSourceDir, buildFnDir, ["node_modules", "package-lock.json", "shared", "tsconfig.tsbuildinfo"]);
 
-	// Copy shared utilities
-	const sharedSrc = path.join(__dirname, "shared");
+	// Copy compiled shared utilities
 	const sharedDest = path.join(buildFnDir, "shared");
-	copyRecursive(sharedSrc, sharedDest, ["node_modules", "package-lock.json"]);
+	copyRecursive(sharedSourceDir, sharedDest, ["node_modules", "package-lock.json", "tsconfig.tsbuildinfo"]);
 
 	// Merge dependencies from function and shared package.json
-	const fnPackage = JSON.parse(fs.readFileSync(path.join(fnDir, "package.json"), "utf8"));
-	const sharedPackage = JSON.parse(fs.readFileSync(path.join(sharedSrc, "package.json"), "utf8"));
+	const fnPackage = JSON.parse(fs.readFileSync(path.join(fnPackageSourceDir, "package.json"), "utf8"));
+	const sharedPackage = JSON.parse(fs.readFileSync(path.join(sharedPackageSourceDir, "package.json"), "utf8"));
 
 	fnPackage.dependencies = {
 		...sharedPackage.dependencies,
@@ -49,23 +77,23 @@ for (const fn of FUNCTIONS) {
 	fs.writeFileSync(path.join(buildFnDir, "package.json"), JSON.stringify(fnPackage, null, 2));
 
 	// Install production dependencies
-	console.log(`  Installing dependencies...`);
+	console.log("  Installing dependencies...");
 	execSync("npm install --omit=dev", {
 		cwd: buildFnDir,
 		stdio: "inherit",
 	});
 
 	// Create ZIP for deployment
-	console.log(`  Creating deployment package...`);
+	console.log("  Creating deployment package...");
 	const zipFile = path.join(BUILD_DIR, `${fn}.zip`);
 
-	// Use zip command (cross-platform)
+	// Use zip command
 	execSync(`cd "${buildFnDir}" && zip -r "${zipFile}" .`, {stdio: "inherit"});
 
-	console.log(`✅ ${fn} built: ${zipFile}\n`);
+	console.log(`Built ${fn}: ${zipFile}\n`);
 }
 
-console.log("🎉 All functions built successfully!");
+console.log("All functions built successfully!");
 console.log(`\nDeployment packages in: ${BUILD_DIR}`);
 
 /**
