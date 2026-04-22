@@ -3,7 +3,7 @@ import {
 	CreateLogStreamCommand,
 	PutLogEventsCommand,
 } from "@aws-sdk/client-cloudwatch-logs";
-import { CW_LOG_GENERAL, FUNC_NAMES } from "../constants";
+import { CW_LOG_GENERAL, FUNC_NAMES } from "../constants.js";
 
 export interface LoggerActionPayload {
 	userId?: string | null | undefined;

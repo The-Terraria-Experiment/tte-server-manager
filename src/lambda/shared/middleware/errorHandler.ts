@@ -1,5 +1,6 @@
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
 import { ResponseUtil } from "../utils/APIResponse.js";
+import type { LambdaHandler } from "../../../../shared/types/LambdaTypes.js";
 
 function getErrorDetails(error: unknown): { message: string; stack?: string } {
 	if (error instanceof Error) {
@@ -23,7 +24,7 @@ function getErrorDetails(error: unknown): { message: string; stack?: string } {
 /**
  * General-purpose Lambda error logger
  */
-function logError(error: unknown, event: unknown = null): APIGatewayProxyResult {
+export function logError(error: unknown, event: unknown = null): APIGatewayProxyResult {
 	const details = getErrorDetails(error);
 
 	console.error("Lambda error:", {
@@ -48,11 +49,6 @@ function logError(error: unknown, event: unknown = null): APIGatewayProxyResult 
 	// Default 500 error
 	return ResponseUtil.Error("Internal server error", 500, "INTERNAL_ERROR");
 }
-
-export type LambdaHandler<TEvent = unknown> = (
-	event: TEvent,
-	context: Context,
-) => Promise<APIGatewayProxyResult>;
 
 /**
  * Wrap handler with error handling
