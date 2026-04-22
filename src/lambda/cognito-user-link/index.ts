@@ -4,13 +4,25 @@
  * Triggered by Cognito PostConfirmation hook
  */
 
-const {putDynamoItem} = require("./shared/utils/dynamo");
-const {PERMISSIONS} = require("./shared/permissionValues");
-const { logAction } = require("./shared/utils/cloudwatchLogger");
-const { FUNC_NAMES } = require("./shared/constants");
-const { getUserSub } = require("./shared/utils/permissions");
+import type { Context, PostConfirmationTriggerEvent } from "aws-lambda";
+import { DynamoDao } from "./shared/aws/DynamoDB.js";
+import { PERMISSIONS } from "./shared/permissionValues.js";
+import { CWLogger } from "./shared/aws/CloudWatch.js";
+import { FUNC_NAMES } from "./shared/constants.js";
 
-function resolvePermTableFromUserPool(userPoolId) {
+function getErrorMessage(error: unknown): string {
+	if (error instanceof Error) {
+		return error.message;
+	}
+
+	return String(error);
+}
+
+function getUserSub(event: PostConfirmationTriggerEvent): string | null {
+	return event.request.userAttributes?.sub || null;
+}
+
+function resolvePermTableFromUserPool(userPoolId?: string | null): string | null {
 	const {
 		COGNITO_POOL_ID_PROD,
 		COGNITO_POOL_ID_STAGE,
@@ -32,7 +44,12 @@ function resolvePermTableFromUserPool(userPoolId) {
 	return null;
 }
 
-exports.handler = async (event, context) => {
+export const handler = async (
+	event: PostConfirmationTriggerEvent,
+	context: Context,
+): Promise<PostConfirmationTriggerEvent> => {
+	void context;
+
 	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
 	const resolvedPermTable = resolvePermTableFromUserPool(event?.userPoolId);
 
@@ -46,7 +63,7 @@ exports.handler = async (event, context) => {
 			hasFallbackTable: Boolean(process.env.PERM_TABLE),
 		});
 
-		logAction(FUNC_NAMES.COG_LINK, {
+		await CWLogger.Action(FUNC_NAMES.COG_LINK, {
 			userId: getUserSub(event) ?? "unknown",
 			action: "route-error",
 			resource: event?.userPoolId ?? null,
@@ -56,7 +73,7 @@ exports.handler = async (event, context) => {
 		return event;
 	}
 
-	logAction(FUNC_NAMES.COG_LINK, {
+	await CWLogger.Action(FUNC_NAMES.COG_LINK, {
 		userId: getUserSub(event) ?? "unknown",
 		action: "invoke",
 		resource: event?.userPoolId ?? null,
@@ -64,7 +81,7 @@ exports.handler = async (event, context) => {
 
 	try {
 		// Extract user details from Cognito event
-		const {sub, email} = event.request.userAttributes;
+		const { sub, email } = event.request.userAttributes;
 		const username = event.userName;
 
 		// Create user record for DynamoDB
@@ -81,9 +98,9 @@ exports.handler = async (event, context) => {
 		};
 
 		// Write to DynamoDB
-		const success = await putDynamoItem(resolvedPermTable, userRecord);
+		const success = await new DynamoDao().PutItem(resolvedPermTable, userRecord);
 
-		logAction(FUNC_NAMES.COG_LINK, {
+		await CWLogger.Action(FUNC_NAMES.COG_LINK, {
 			userId: getUserSub(event) ?? "unknown",
 			action: "account-create",
 			resource: event?.userPoolId ?? null,
@@ -109,7 +126,7 @@ exports.handler = async (event, context) => {
 		// Return event unmodified (required for Cognito triggers)
 		return event;
 	} catch (error) {
-		console.error("Error in PostConfirmation handler:", error);
+		console.error("Error in PostConfirmation handler:", getErrorMessage(error));
 		// Return event to allow user registration to complete
 		// Admin can manually add user to Dynamo if needed
 		return event;
