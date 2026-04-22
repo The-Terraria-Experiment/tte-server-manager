@@ -12,7 +12,7 @@ export interface UserPermissionData {
 	resourceAccess?: string[];
 }
 
-export class PermissionsDao {
+export class Permissions {
 	private static readonly dynamoDao = new DynamoDao();
 	private static readonly userCache = new Map<string, UserPermissionData>();
 	private static readonly PERMISSION_CACHE_VERSION_UID = "cache#permissions";
@@ -30,27 +30,27 @@ export class PermissionsDao {
 	private static async RefreshCacheVersionIfNeeded(): Promise<void> {
 		const now = Date.now();
 		if (
-			PermissionsDao.lastSeenCacheVersion !== null &&
-			now - PermissionsDao.lastVersionCheckAt < PermissionsDao.PERMISSION_CACHE_VERSION_POLL_MS
+			Permissions.lastSeenCacheVersion !== null &&
+			now - Permissions.lastVersionCheckAt < Permissions.PERMISSION_CACHE_VERSION_POLL_MS
 		) {
 			return;
 		}
 
-		PermissionsDao.lastVersionCheckAt = now;
-		const cacheVersionItem = await PermissionsDao.dynamoDao.GetItem(
+		Permissions.lastVersionCheckAt = now;
+		const cacheVersionItem = await Permissions.dynamoDao.GetItem(
 			SYSTEM_TABLE,
-			PermissionsDao.PERMISSION_CACHE_VERSION_UID,
+			Permissions.PERMISSION_CACHE_VERSION_UID,
 		);
 		const currentVersion = String(cacheVersionItem?.version || "0");
 
-		if (PermissionsDao.lastSeenCacheVersion === null) {
-			PermissionsDao.lastSeenCacheVersion = currentVersion;
+		if (Permissions.lastSeenCacheVersion === null) {
+			Permissions.lastSeenCacheVersion = currentVersion;
 			return;
 		}
 
-		if (PermissionsDao.lastSeenCacheVersion !== currentVersion) {
-			PermissionsDao.dropCache();
-			PermissionsDao.lastSeenCacheVersion = currentVersion;
+		if (Permissions.lastSeenCacheVersion !== currentVersion) {
+			Permissions.dropCache();
+			Permissions.lastSeenCacheVersion = currentVersion;
 		}
 	}
 
@@ -62,7 +62,7 @@ export class PermissionsDao {
 		const newVersion = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 		const updatedAt = new Date().toISOString();
 
-		const updated = await PermissionsDao.dynamoDao.UpdateItem(SYSTEM_TABLE, PermissionsDao.PERMISSION_CACHE_VERSION_UID, {
+		const updated = await Permissions.dynamoDao.UpdateItem(SYSTEM_TABLE, Permissions.PERMISSION_CACHE_VERSION_UID, {
 			updates: {
 				version: newVersion,
 				updatedAt,
@@ -73,9 +73,9 @@ export class PermissionsDao {
 			throw new Error("Failed to bump permission cache version");
 		}
 
-		PermissionsDao.dropCache();
-		PermissionsDao.lastSeenCacheVersion = newVersion;
-		PermissionsDao.lastVersionCheckAt = Date.now();
+		Permissions.dropCache();
+		Permissions.lastSeenCacheVersion = newVersion;
+		Permissions.lastVersionCheckAt = Date.now();
 
 		return newVersion;
 	}
@@ -103,7 +103,7 @@ export class PermissionsDao {
 			throw new Error("Unauthorized: No user context");
 		}
 
-		const permitted = await PermissionsDao.CheckPermission(userSub, permission);
+		const permitted = await Permissions.CheckPermission(userSub, permission);
 		if (!permitted) {
 			await CWLogger.Action(CW_LOG_GENERAL, {
 				userId: userSub ?? "unknown",
@@ -127,16 +127,16 @@ export class PermissionsDao {
 		Assert.IsTruthyString(userSub, "userSub required");
 		Assert.IsTruthyString(permission, "permission required");
 
-		await PermissionsDao.RefreshCacheVersionIfNeeded();
+		await Permissions.RefreshCacheVersionIfNeeded();
 
-		if (!PermissionsDao.userCache.has(userSub)) {
-			const userData = (await PermissionsDao.dynamoDao.GetItem(PERM_TABLE, `user#${userSub}`)) as
+		if (!Permissions.userCache.has(userSub)) {
+			const userData = (await Permissions.dynamoDao.GetItem(PERM_TABLE, `user#${userSub}`)) as
 				| UserPermissionData
 				| null;
-			PermissionsDao.userCache.set(userSub, userData || {});
+			Permissions.userCache.set(userSub, userData || {});
 		}
 
-		const item = PermissionsDao.userCache.get(userSub);
+		const item = Permissions.userCache.get(userSub);
 
 		if (!item || !item.permissions) return false;
 
@@ -167,7 +167,7 @@ export class PermissionsDao {
 			throw new Error("Unauthorized: No user context");
 		}
 
-		const permitted = await PermissionsDao.CheckResourceAccess(userSub, resource);
+		const permitted = await Permissions.CheckResourceAccess(userSub, resource);
 		if (!permitted) {
 			await CWLogger.Action(CW_LOG_GENERAL, {
 				userId: userSub ?? "unknown",
@@ -191,16 +191,16 @@ export class PermissionsDao {
 		Assert.IsTruthyString(userSub, "userSub required");
 		Assert.IsTruthyString(resource, "resource required");
 
-		await PermissionsDao.RefreshCacheVersionIfNeeded();
+		await Permissions.RefreshCacheVersionIfNeeded();
 
-		if (!PermissionsDao.userCache.has(userSub)) {
-			const userData = (await PermissionsDao.dynamoDao.GetItem(PERM_TABLE, `user#${userSub}`)) as
+		if (!Permissions.userCache.has(userSub)) {
+			const userData = (await Permissions.dynamoDao.GetItem(PERM_TABLE, `user#${userSub}`)) as
 				| UserPermissionData
 				| null;
-			PermissionsDao.userCache.set(userSub, userData || {});
+			Permissions.userCache.set(userSub, userData || {});
 		}
 
-		const item = PermissionsDao.userCache.get(userSub);
+		const item = Permissions.userCache.get(userSub);
 
 		if (!item || !item.resourceAccess) return false;
 
@@ -212,6 +212,6 @@ export class PermissionsDao {
 	 * Clear all cached user permission data
 	 */
 	public static dropCache(): void {
-		PermissionsDao.userCache.clear();
+		Permissions.userCache.clear();
 	}
 }
