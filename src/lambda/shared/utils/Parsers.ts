@@ -1,4 +1,7 @@
-import type { APIGatewayProxyEvent } from "aws-lambda";
+import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
+import type { LambdaHandler } from "../../../../shared/types/LambdaTypes.js";
+import { logError } from "../middleware/errorHandler.js";
+import type { AuthorizedEvent } from "../../../../shared/types/APIGatewayTypes.js";
 
 export class Parsers {
 	/**
@@ -24,5 +27,19 @@ export class Parsers {
 		}
 
 		return null;
+	}
+
+	public static InsertParsedBody(handler: LambdaHandler<AuthorizedEvent>) : LambdaHandler<AuthorizedEvent>
+	{
+		return async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
+			try {
+				if (event.body) {
+					event.parsedBody = JSON.parse(event.body);
+				}
+				return await handler(event, context);
+			} catch (error) {
+				return logError(error, event);
+			}
+		};
 	}
 }
