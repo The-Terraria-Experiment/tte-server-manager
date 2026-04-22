@@ -21,11 +21,17 @@ export interface UpdateConfig {
 }
 
 export class DynamoDao {
-	private readonly docClient: DynamoDBDocumentClient;
+	private static instance: DynamoDao | null = null;
+	private readonly docClient!: DynamoDBDocumentClient;
 
 	constructor(region = process.env.AWS_REGION) {
+		if (DynamoDao.instance) {
+			return DynamoDao.instance;
+		}
+
 		const client = new DynamoDBClient({ region: region || "us-east-2" });
 		this.docClient = DynamoDBDocumentClient.from(client);
+		DynamoDao.instance = this;
 	}
 
 	public async GetItem(tableName: string, key: string): Promise<Record<string, unknown> | null> {
