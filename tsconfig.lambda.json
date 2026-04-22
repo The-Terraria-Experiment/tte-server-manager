@@ -1,0 +1,5 @@
+{
+	"extends": "./tsconfig.json",
+	"include": ["src/lambda/**/*.ts", "src/lambda/**/*.js", "src/shared/types/**/*.ts"],
+	"exclude": ["./**/node_modules", "./**/tsbuild"]
+}

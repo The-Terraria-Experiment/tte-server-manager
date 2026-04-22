@@ -12,10 +12,12 @@ import {fileURLToPath} from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const ROOT_DIR = path.resolve(__dirname, "..", "..");
+const LAMBDA_TSCONFIG = path.join(ROOT_DIR, "tsconfig.lambda.json");
 
 const FUNCTIONS = ["instance-manager", "server-manager", "user-manager", "cognito-user-link", "system-manager", "api-authorizer"];
 const BUILD_DIR = path.join(__dirname, "dist");
-const COMPILED_DIR = path.join(__dirname, "tsbuild");
+const COMPILED_DIR = path.join(ROOT_DIR, "tsbuild", "lambda");
 
 console.log("Building Lambda functions...\n");
 
@@ -24,8 +26,8 @@ if (fs.existsSync(COMPILED_DIR)) {
 	fs.rmSync(COMPILED_DIR, {recursive: true});
 }
 
-execSync("npx tsc -p tsconfig.json", {
-	cwd: __dirname,
+execSync(`npx tsc -p "${LAMBDA_TSCONFIG}"`, {
+	cwd: ROOT_DIR,
 	stdio: "inherit",
 });
 
@@ -46,13 +48,13 @@ for (const fn of FUNCTIONS) {
 		throw new Error(`Missing compiled output for ${fn} at ${fnSourceDir}. Ensure tsconfig includes this directory.`);
 	}
 
-	const sharedSourceDir = path.join(COMPILED_DIR, "shared");
+	const sharedSourceDir = path.join(COMPILED_DIR, "_shared", "shared");
 	if (!fs.existsSync(sharedSourceDir)) {
 		throw new Error(`Missing compiled shared output at ${sharedSourceDir}.`);
 	}
 
 	const fnPackageSourceDir = path.join(__dirname, fn);
-	const sharedPackageSourceDir = path.join(__dirname, "shared");
+	const sharedPackageSourceDir = path.join(__dirname, "_shared", "shared");
 	const buildFnDir = path.join(BUILD_DIR, fn);
 
 	// Create build directory for function

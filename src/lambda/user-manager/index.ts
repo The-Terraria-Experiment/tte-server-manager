@@ -5,7 +5,7 @@ import { FUNC_NAMES } from "./shared/constants.js";
 import { Parsers } from "./shared/utils/Parsers.js";
 import type { AuthorizedEvent } from "../../shared/types/APIGatewayTypes.js";
 import type { EndpointList } from "../../shared/types/LambdaTypes.js";
-import { PERMISSIONS } from "../shared/permissionValues.js";
+import { PERMISSIONS } from "./shared/permissionValues.js";
 import { ResponseUtil } from "./shared/utils/APIResponse.js";
 import { Permissions } from "./shared/utils/Permissions.js";
 import { readOwnPermissions } from "./actions/readOwnPermissions.js";
