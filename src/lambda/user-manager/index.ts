@@ -17,11 +17,10 @@ import { dropcache } from "./actions/dropcache.js";
 
 const endpoints: EndpointList = {
 	"GET /users": {
-		action: readPermissions,
+		action: null,
 		permRequired: PERMISSIONS.users.list
 	},
 	"GET /users/logs": {
-		// TODO: Implement dedicated logs action in TypeScript when logs endpoint contract is defined.
 		action: null,
 		permRequired: PERMISSIONS.users.logs.read,
 	},
