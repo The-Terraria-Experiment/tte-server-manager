@@ -1,0 +1,9 @@
+{
+	"extends": "../../../tsconfig.json",
+	"compilerOptions": {
+		"rootDir": "../../..",
+		"types": ["node", "aws-lambda"]
+	},
+	"include": ["./**/*.ts", "./**/*.js", "../../shared/types/**/*.ts"],
+	"exclude": ["./**/node_modules", "./**/tsbuild"]
+}
