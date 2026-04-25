@@ -42,4 +42,12 @@ export class Parsers {
 			}
 		};
 	}
+
+	public static Truncate(value: string, maxLen: number = 300): string
+	{
+		if (value.length <= maxLen) {
+			return value;
+		}
+		return `${value.slice(0, maxLen)}...`;
+	}
 }
