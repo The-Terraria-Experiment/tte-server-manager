@@ -1,8 +1,11 @@
+import { CWLogger } from "../aws/CloudWatch.js";
+
 export class Assert
 {
 	public static IsTruthy(condition: unknown, failMessage: string): void
 	{
 		if (!Boolean(condition)) {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
 	}
@@ -10,6 +13,7 @@ export class Assert
 	public static IsTrue(condition: unknown, failMessage: string): void
 	{
 		if (condition !== true) {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
 	}
@@ -17,6 +21,7 @@ export class Assert
 	public static IsString(value: unknown, failMessage: string): void
 	{
 		if (typeof value !== "string" && !(value instanceof String)) {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
 	}
@@ -30,6 +35,7 @@ export class Assert
 	public static ObjectHasKey(object: object, key: PropertyKey, failMessage: string): void
 	{
 		if (!Object.hasOwn(object, key)) {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
 	}
@@ -41,6 +47,7 @@ export class Assert
 				Assert.ObjectHasKey(object, key, failMessage);
 			});
 		} catch {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
 	}
@@ -48,6 +55,7 @@ export class Assert
 	public static ObjectHasTruthyKey(object: object, key: PropertyKey, failMessage: string): void
 	{
 		if (!Object.hasOwn(object, key) || !(object as Record<PropertyKey, unknown>)[key]) {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
 	}
@@ -59,6 +67,7 @@ export class Assert
 				Assert.ObjectHasTruthyKey(object, key, failMessage);
 			});
 		} catch {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
 	}
@@ -76,7 +85,16 @@ export class Assert
 		});
 
 		if (!success) {
+			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
 		}
+	}
+
+	private static LogFailedAssertion(message: string): void
+	{
+		CWLogger.Error("unknown", {
+			error: message,
+			stack: new Error().stack
+		});
 	}
 }
