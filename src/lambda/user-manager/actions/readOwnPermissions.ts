@@ -16,6 +16,7 @@ export const readOwnPermissions = async (event: AuthorizedEvent, context: Contex
 
 	const DB = new DynamoDao();
 	const userPermissions = await DB.GetItem(PERM_TABLE, `user#${userSub}`);
+	await DB.UpdateItem(PERM_TABLE, `user#${userSub}`, { updates: { lastLogin: new Date().toISOString() } });
 
 	return ResponseUtil.Success({ entries: userPermissions || [] });
 }
