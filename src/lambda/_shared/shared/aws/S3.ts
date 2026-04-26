@@ -18,12 +18,18 @@ export interface S3ObjectSummary {
 }
 
 export class S3Dao {
-	private readonly s3Client: S3Client;
-	private readonly ssmDao: SsmDao;
+	private static instance: S3Dao | null = null;
+	private readonly s3Client!: S3Client;
+	private readonly ssmDao!: SsmDao;
 
 	constructor(region = process.env.AWS_REGION, ssmDao = new SsmDao(region)) {
+		if (S3Dao.instance) {
+			return S3Dao.instance;
+		}
+
 		this.s3Client = new S3Client({ region: region || "us-east-2" });
 		this.ssmDao = ssmDao;
+		S3Dao.instance = this;
 	}
 
 	public async PutJsonObject(bucketName: string, key: string, payload: unknown, spacing = 2): Promise<void> {
