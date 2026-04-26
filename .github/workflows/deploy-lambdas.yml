@@ -20,9 +20,9 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v3
+      - uses: actions/setup-node@v4
         with:
           node-version: '24'
 
@@ -43,7 +43,7 @@ jobs:
       matrix:
         lambda: [instance-manager, server-manager, user-manager, cognito-user-link, system-manager, api-authorizer]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download build artifacts
         uses: actions/download-artifact@v5
