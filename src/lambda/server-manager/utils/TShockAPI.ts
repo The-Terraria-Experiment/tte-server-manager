@@ -33,7 +33,7 @@ export class TShockAPI {
 		this.ip = serverAddress;
 	}
 
-	public async APIRequest(userID: string, endpoint: string, params: Record<string, any> | undefined, method: HttpMethod = HttpMethod.GET): Promise<Record<string, any>>
+	public async APIRequest(userID: string, endpoint: string, params: Record<string, any> | undefined = undefined, method: HttpMethod = HttpMethod.GET): Promise<Record<string, any>>
 	{
 		Assert.IsTruthyString(endpoint, "Missing endpoint for TShock API call");
 

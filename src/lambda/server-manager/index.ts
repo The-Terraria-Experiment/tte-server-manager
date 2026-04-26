@@ -15,12 +15,13 @@ import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "./shared/vars.js";
 import { DynamoDao } from "./shared/aws/DynamoDB.js";
 import { getWorldgenStatus } from "./actions/createWorldStatus.js";
 import { launchWorld } from "./actions/launchWorld.js";
+import { managePlayer } from "./actions/managePlayer.js";
 
 const endpoints: EndpointList = {
-	"GET /servers": {
-		action: null,
-		permRequired: PERMISSIONS.server.list,
-	},
+	// "GET /servers": {
+	// 	action: null,
+	// 	permRequired: PERMISSIONS.server.list,
+	// },
 	"GET /server/{id}/status": {
 		action: null,
 		permRequired: PERMISSIONS.server.status.read,
@@ -69,28 +70,28 @@ const endpoints: EndpointList = {
 		action: launchWorld,
 		permRequired: PERMISSIONS.server.world.select,
 	},
-	"DELETE /server/{id}/world/{worldId}/delete": {
-		action: null,
-		permRequired: PERMISSIONS.server.world.delete,
-	},
+	// "DELETE /server/{id}/world/{worldId}/delete": {
+	// 	action: null,
+	// 	permRequired: PERMISSIONS.server.world.delete,
+	// },
 	"POST /server/dropcache": {
 		action: null,
 		permRequired: PERMISSIONS.system.dropcache
 	},
 	"POST /server/{id}/players/ban": {
-		action: null,
+		action: managePlayer,
 		permRequired: PERMISSIONS.server.player.ban
 	},
 	"POST /server/{id}/players/kick": {
-		action: null,
+		action: managePlayer,
 		permRequired: PERMISSIONS.server.player.kick
 	},
 	"POST /server/{id}/players/kill": {
-		action: null,
+		action: managePlayer,
 		permRequired: PERMISSIONS.server.player.kill
 	},
 	"POST /server/{id}/players/mute": {
-		action: null,
+		action: managePlayer,
 		permRequired: PERMISSIONS.server.player.mute
 	},
 	"GET /server/{id}/players/{player}": {
