@@ -16,6 +16,9 @@ import { DynamoDao } from "./shared/aws/DynamoDB.js";
 import { getWorldgenStatus } from "./actions/createWorldStatus.js";
 import { launchWorld } from "./actions/launchWorld.js";
 import { managePlayer } from "./actions/managePlayer.js";
+import { readPlayer } from "./actions/readPlayer.js";
+import { getBans } from "./actions/getBans.js";
+import { deleteBan } from "./actions/deleteBan.js";
 
 const endpoints: EndpointList = {
 	// "GET /servers": {
@@ -95,15 +98,15 @@ const endpoints: EndpointList = {
 		permRequired: PERMISSIONS.server.player.mute
 	},
 	"GET /server/{id}/players/{player}": {
-		action: null,
+		action: readPlayer,
 		permRequired: PERMISSIONS.server.player.read
 	},
 	"GET /server/{id}/bans": {
-		action: null,
+		action: getBans,
 		permRequired: PERMISSIONS.server.player.ban
 	},
 	"POST /server/{id}/bans/delete": {
-		action: null,
+		action: deleteBan,
 		permRequired: PERMISSIONS.server.player.ban
 	}
 };
