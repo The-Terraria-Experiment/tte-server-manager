@@ -9,14 +9,14 @@ import { Assert } from "../shared/utils/Assert.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 
-type PlayerSummary = { // Response from call to /v2/players/list
-	nickname: string,
-	username: string,
-	group: string,
-	active: boolean,
-	state: number,
-	team: number
-};
+// type PlayerSummary = { // Response from call to /v2/players/list
+// 	nickname: string,
+// 	username: string,
+// 	group: string,
+// 	active: boolean,
+// 	state: number,
+// 	team: number
+// };
 
 type PlayerInventoryItem = {
 	netID: number,
