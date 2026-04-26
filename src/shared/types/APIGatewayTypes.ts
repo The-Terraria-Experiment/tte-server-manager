@@ -13,5 +13,5 @@ export type AuthorizedEvent = APIGatewayProxyEvent & {
     requestContext: APIGatewayProxyEvent["requestContext"] & {
         authorizer?: (APIGatewayProxyEvent["requestContext"]["authorizer"] & CustomAuthorizerContext) | null;
 	};
-	parsedBody: string | undefined;
+	parsedBody: Record<PropertyKey, any> | undefined;
 };

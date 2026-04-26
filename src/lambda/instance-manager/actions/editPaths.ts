@@ -90,16 +90,7 @@ export const editPaths = async (event: AuthorizedEvent, context: Context) => {
 		return ResponseUtil.ValidationError("INSTANCE_TABLE_NAME environment variable is required");
 	}
 
-	let body = (event as AuthorizedEvent & { parsedBody?: unknown }).parsedBody as EditPathsBody | undefined;
-	if (!body || typeof body !== "object") {
-		try {
-			body = JSON.parse(event.body || "{}") as EditPathsBody;
-		} catch {
-			return ResponseUtil.ValidationError("Request body must be valid JSON");
-		}
-	}
-
-	const { paths, worldPaths } = body;
+	const { paths, worldPaths } = event.parsedBody as EditPathsBody;
 	if (!paths) {
 		return ResponseUtil.ValidationError("paths are required");
 	}
