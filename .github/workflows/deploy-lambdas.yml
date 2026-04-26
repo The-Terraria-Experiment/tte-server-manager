@@ -7,6 +7,10 @@ on:
       - stage
     paths:
       - 'src/lambda/**'
+      - 'src/shared/types/**'
+      - 'tsconfig.json'
+      - 'tsconfig.lambda.json'
+      - 'package.json'
       - '.github/workflows/deploy-lambdas.yml'
 
 env:
@@ -33,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: lambda-bundles
-          path: src/lambda/dist/
+          path: src/lambda/dist/*.zip
           retention-days: 1
 
   deploy:
