@@ -13,6 +13,7 @@ import { beginCreateWorld } from "./actions/beginCreateWorld.js";
 import type { SystemWorldCreateEntry } from "./shared/schema/SystemTable.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "./shared/vars.js";
 import { DynamoDao } from "./shared/aws/DynamoDB.js";
+import { getWorldgenStatus } from "./actions/createWorldStatus.js";
 
 const endpoints: EndpointList = {
 	"GET /servers": {
@@ -60,7 +61,7 @@ const endpoints: EndpointList = {
 		permRequired: PERMISSIONS.server.world.create,
 	},
 	"GET /server/{id}/world/create/{jobId}/status": {
-		action: null,
+		action: getWorldgenStatus,
 		permRequired: PERMISSIONS.server.world.create,
 	},
 	"POST /server/{id}/world/{worldId}/select": {
