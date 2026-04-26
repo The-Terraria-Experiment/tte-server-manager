@@ -1,5 +1,6 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
+	DeleteCommand,
 	DynamoDBDocumentClient,
 	GetCommand,
 	PutCommand,
@@ -94,6 +95,38 @@ export class DynamoDao {
 		}
 
 		return false;
+	}
+
+	public async DeleteItem(tableName: string, key: string): Promise<boolean>
+	{
+		Assert.IsTruthyString(tableName, "Table name required for delete");
+		Assert.IsTruthyString(key, "Key required for delete");
+
+		const cmd = new DeleteCommand({
+			TableName: tableName,
+			Key: {
+				uid: key
+			}
+		});
+
+		await CWLogger.CAction(3, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-dynamo-delete-item",
+			resource: null,
+			details: { tableName, key },
+		});
+
+		try {
+			await this.docClient.send(cmd);
+			return true;
+		} catch (error) {
+			await CWLogger.Error(CW_LOG_GENERAL, {
+				error: error instanceof Error ? error.message : String(error),
+				stack: error instanceof Error ? error.stack : undefined,
+				details: { action: "deleteItem", tableName, key },
+			});
+			return false;
+		}
 	}
 
 	public async Query(
