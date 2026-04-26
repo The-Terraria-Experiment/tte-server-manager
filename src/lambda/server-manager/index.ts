@@ -14,6 +14,7 @@ import type { SystemWorldCreateEntry } from "./shared/schema/SystemTable.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "./shared/vars.js";
 import { DynamoDao } from "./shared/aws/DynamoDB.js";
 import { getWorldgenStatus } from "./actions/createWorldStatus.js";
+import { launchWorld } from "./actions/launchWorld.js";
 
 const endpoints: EndpointList = {
 	"GET /servers": {
@@ -48,14 +49,14 @@ const endpoints: EndpointList = {
 	// 	action: null,
 	// 	permRequired: PERMISSIONS.server.config.write,
 	// },
-	"POST /server/{id}/tshock": {
-		action: null,
-		permRequired: PERMISSIONS.server.tshock.execute,
-	},
-	"GET /server/{id}/world/list": {
-		action: null,
-		permRequired: PERMISSIONS.server.world.list,
-	},
+	// "POST /server/{id}/tshock": {
+	// 	action: null,
+	// 	permRequired: PERMISSIONS.server.tshock.execute,
+	// },
+	// "GET /server/{id}/world/list": {
+	// 	action: null,
+	// 	permRequired: PERMISSIONS.server.world.list,
+	// },
 	"POST /server/{id}/world/create": {
 		action: queueCreateWorld,
 		permRequired: PERMISSIONS.server.world.create,
@@ -65,7 +66,7 @@ const endpoints: EndpointList = {
 		permRequired: PERMISSIONS.server.world.create,
 	},
 	"POST /server/{id}/world/{worldId}/select": {
-		action: null,
+		action: launchWorld,
 		permRequired: PERMISSIONS.server.world.select,
 	},
 	"DELETE /server/{id}/world/{worldId}/delete": {

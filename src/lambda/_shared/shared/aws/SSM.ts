@@ -8,6 +8,7 @@ export interface SsmCommandResult {
 	exitCode: number;
 	stdout: string;
 	stderr: string;
+	commandID?: string;
 }
 
 export class SsmDao {
@@ -81,6 +82,11 @@ export class SsmDao {
 	public async ExecuteCommandGetResult(instanceID: string, commands: string[], pollInterval: number = 1000, maxPolls: number = 30): Promise<SsmCommandResult>
 	{
 		const { commandId } = await this.ExecuteCommand(instanceID, commands);
-		return this.PollForCommandCompletion(commandId, instanceID, pollInterval, maxPolls);
+		const result = await this.PollForCommandCompletion(commandId, instanceID, pollInterval, maxPolls);
+		
+		return {
+			...result,
+			commandID: commandId
+		}
 	}
 }
