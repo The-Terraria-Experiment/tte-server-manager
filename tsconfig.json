@@ -39,7 +39,7 @@
 		"skipLibCheck": true,
 		"resolveJsonModule": true,
 
-		"preserveSymlinks": true,
+		"preserveSymlinks": false,
 
 		// todo: change these
 		"strict": true,
