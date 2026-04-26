@@ -146,7 +146,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 20,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, WORLD_CREATE_KEY, {
+	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
 		updates: creationUpdate1
 	});
 
@@ -169,7 +169,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 45,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, WORLD_CREATE_KEY, {
+	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
 		updates: creationUpdate2
 	});
 	
@@ -180,7 +180,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 85,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, WORLD_CREATE_KEY, {
+	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
 		updates: creationUpdate3
 	});
 
@@ -205,7 +205,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 100,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, WORLD_CREATE_KEY, {
+	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
 		updates: creationUpdate4
 	});
 
@@ -221,6 +221,11 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 			s3Key
 		}
 	});
+
+	const success = await DB.DeleteItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`);
+	if (!success) {
+		return ResponseUtil.Error("Clean-up failed");
+	}
 
 	return ResponseUtil.Success({ ok: true });
 };

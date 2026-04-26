@@ -92,8 +92,15 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 	const createdAt = new Date().toISOString();
 
 	const DB = new DynamoDao();
+
+	// Block new creation requests while there is currently a world being created
+	const creationInProgress = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${instanceID}`);
+	if (creationInProgress) {
+		return ResponseUtil.Error("World creation already in progress", 403, "CONFLICT");
+	}
+
 	const creationData: SystemWorldCreateEntry = {
-		uid: WORLD_CREATE_KEY,
+		uid: `${WORLD_CREATE_KEY}#${instanceID}`,
 		instanceID,
 		requestedBy: requestedBy!,
 		status: "queued",

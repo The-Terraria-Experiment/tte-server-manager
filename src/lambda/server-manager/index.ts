@@ -169,7 +169,7 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 			step: "failed",
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, WORLD_CREATE_KEY, {
+		await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${event.instanceID}`, {
 			updates: errorUpdate
 		});
 
@@ -182,7 +182,7 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 				event
 			}
 		});
-		
+
 		return ResponseUtil.Error(e?.message ?? "unknown error");
 	}
 	
