@@ -9,7 +9,7 @@ You are free to use or modify the software unrestricted, but you must keep it op
 This project is an AWS-based web interface and backend for managing The Terraria Experiment's game servers. 
 This allows us to run Terraria servers on EC2 instances, with access allowed to a fairly large group of people (mostly Patreon subscribers). It also allows for extreme customizability, flexibility, performance, and cost savings.
 
-[Join the Discord](https://discord.gg/JyqQ75Ny) to join the community and play on our servers!
+[Join the Discord](https://discord.gg/JyqQ75Ny) to get involved in the community and play on our servers!
 
 #### Bugs and Issues
 
