@@ -8,6 +8,11 @@ import { ResponseUtil } from "./shared/utils/APIResponse.js";
 import { Parsers } from "./shared/utils/Parsers.js";
 import { Permissions } from "./shared/utils/permissions.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
+import { queueCreateWorld } from "./actions/queueCreateWorld.js";
+import { beginCreateWorld } from "./actions/beginCreateWorld.js";
+import type { SystemWorldCreateEntry } from "./shared/schema/SystemTable.js";
+import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "./shared/vars.js";
+import { DynamoDao } from "./shared/aws/DynamoDB.js";
 
 const endpoints: EndpointList = {
 	"GET /servers": {
@@ -51,7 +56,7 @@ const endpoints: EndpointList = {
 		permRequired: PERMISSIONS.server.world.list,
 	},
 	"POST /server/{id}/world/create": {
-		action: null,
+		action: queueCreateWorld,
 		permRequired: PERMISSIONS.server.world.create,
 	},
 	"GET /server/{id}/world/create/{jobId}/status": {
@@ -100,10 +105,30 @@ const endpoints: EndpointList = {
 	}
 };
 
-const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
+export type NewWorldRequestParams = {
+	worldFolderPath: string,
+	size: number,
+	difficulty: number,
+	evil: number,
+	seed: string,
+	worldName: string,
+	port: number,
+	maxPlayers: number,
+	password: string,
+}
+
+export type NewWorldRequestData = {
+	requestType: "new-world-request",
+	jobID: string,
+	instanceID: string,
+	requestedBy: string,
+	params: NewWorldRequestParams
+};
+
+const hNormal = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 		userId: Parsers.GetUserSub(event),
-		action: "invoke",
+		action: "invoke-normal",
 		resource: null,
 	});
 
@@ -125,6 +150,51 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 	});
 
 	return endpointDetails.action(event, context);
+};
+
+const hWorker = async (event: NewWorldRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+	CWLogger.Action(FUNC_NAMES.SERV_MGR, {
+		userId: event.requestedBy,
+		action: "invoke-worker",
+		resource: null,
+	});
+
+	let creationResult;
+	try {
+		creationResult = beginCreateWorld(event);
+	} catch (e: any) {
+		const DB = new DynamoDao();
+		const errorUpdate: SystemWorldCreateEntry = {
+			status: "failed",
+			step: "failed",
+			updatedAt: new Date().toISOString(),
+		};
+		await DB.UpdateItem(SYSTEM_TABLE, WORLD_CREATE_KEY, {
+			updates: errorUpdate
+		});
+
+		CWLogger.Error(FUNC_NAMES.SERV_MGR, {
+			userId: event.requestedBy,
+			action: "create-world",
+			error: e?.message,
+			stack: new Error().stack,
+			details: {
+				event
+			}
+		});
+		
+		return ResponseUtil.Error(e?.message ?? "unknown error");
+	}
+	
+	return creationResult;
+}
+
+const h = async (event: AuthorizedEvent | NewWorldRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+	if ("requestType" in event && event.requestType === "new-world-request") {
+		return hWorker(event as NewWorldRequestData, context);
+	} else {
+		return hNormal(event as AuthorizedEvent, context);
+	}
 };
 
 export const handler = errorHandler(Parsers.InsertParsedBody(h));
