@@ -2,6 +2,7 @@ import {
 	CloudWatchLogsClient,
 	CreateLogStreamCommand,
 	PutLogEventsCommand,
+	type PutLogEventsCommandOutput,
 } from "@aws-sdk/client-cloudwatch-logs";
 import { CW_LOG_GENERAL, FUNC_NAMES } from "../constants.js";
 
@@ -31,6 +32,8 @@ export class CWLogger {
 	});
 
 	private static readonly existingStreams = new Set<string>();
+
+	private static readonly outgoing = new Map<string, Promise<PutLogEventsCommandOutput>>();
 
 	public static async logEntry(
 		functionName: string,
@@ -75,7 +78,9 @@ export class CWLogger {
 				...logPayload,
 			};
 
-			await CWLogger.cloudwatchClient.send(
+			const logID = `${logGroupName}-${logStreamName}-${`${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
+
+			const logPromise = CWLogger.cloudwatchClient.send(
 				new PutLogEventsCommand({
 					logGroupName,
 					logStreamName,
@@ -87,6 +92,12 @@ export class CWLogger {
 					],
 				}),
 			);
+
+			CWLogger.outgoing.set(logID, logPromise);
+
+			await logPromise;
+
+			CWLogger.outgoing.delete(logID);
 		} catch (error) {
 			const err = error as Error;
 			console.error(`CloudWatch logging to stream [${streamKey}] failed: ${err.message}`);
@@ -133,5 +144,11 @@ export class CWLogger {
 		if (process.env?.LOG_LEVEL && Number(process.env.LOG_LEVEL) >= levelRequired) {
 			await CWLogger.Action(functionName, actionLog);
 		}
+	}
+
+	public static async FlushAll(): Promise<void>
+	{
+		const allRemaining = Array.from(CWLogger.outgoing.values());
+		await Promise.all(allRemaining);
 	}
 }

@@ -73,6 +73,8 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 		details: { context, event }
 	});
 
+	await CWLogger.FlushAll();
+
 	return endpointDetails.action(event, context);
 }
 
