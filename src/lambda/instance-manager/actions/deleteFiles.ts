@@ -6,7 +6,7 @@ import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/permissions.js";
+import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 
 type DeleteFilesBody = {

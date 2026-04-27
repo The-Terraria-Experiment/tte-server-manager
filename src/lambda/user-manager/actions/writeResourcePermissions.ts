@@ -6,7 +6,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { PERM_TABLE } from "../shared/vars.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/permissions.js";
+import { Permissions } from "../shared/utils/Perms.js";
 
 type WriteResourcePermissionsBody = {
 	resourceAccess?: string[];

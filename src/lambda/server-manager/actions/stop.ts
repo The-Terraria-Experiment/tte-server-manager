@@ -2,7 +2,7 @@ import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { Permissions } from "../shared/utils/permissions.js";
+import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { TShockAPI } from "../utils/TShockAPI.js";

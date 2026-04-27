@@ -7,7 +7,7 @@ import { FUNC_NAMES } from "./shared/constants.js";
 import { Parsers } from "./shared/utils/Parsers.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { ResponseUtil } from "./shared/utils/APIResponse.js";
-import { Permissions } from "./shared/utils/permissions.js";
+import { Permissions } from "./shared/utils/Perms.js";
 import { clearnotice } from "./actions/clearnotice.js";
 import { notice } from "./actions/notice.js";
 import { readNotice } from "./actions/readNotice.js";

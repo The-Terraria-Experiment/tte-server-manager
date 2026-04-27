@@ -1,7 +1,7 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/permissions.js";
+import { Permissions } from "../shared/utils/Perms.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
 import { TShockAPI } from "../utils/TShockAPI.js";
 import { Parsers } from "../shared/utils/Parsers.js";

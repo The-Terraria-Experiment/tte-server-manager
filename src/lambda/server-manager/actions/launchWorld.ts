@@ -1,7 +1,7 @@
 import type { Context } from "vm";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/permissions.js";
+import { Permissions } from "../shared/utils/Perms.js";
 import { Assert } from "../shared/utils/Assert.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import type { InstanceDataEntry } from "../shared/schema/InstanceTable.js";

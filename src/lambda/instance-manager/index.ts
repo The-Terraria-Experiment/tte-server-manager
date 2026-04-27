@@ -6,7 +6,7 @@ import { Parsers } from "./shared/utils/Parsers.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { FUNC_NAMES } from "./shared/constants.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
-import { Permissions } from "./shared/utils/permissions.js";
+import { Permissions } from "./shared/utils/Perms.js";
 import { ResponseUtil } from "./shared/utils/APIResponse.js";
 import { list } from "./actions/list.js";
 import { getStatus } from "./actions/getStatus.js";

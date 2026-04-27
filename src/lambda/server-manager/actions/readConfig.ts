@@ -1,6 +1,6 @@
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/permissions.js";
+import { Permissions } from "../shared/utils/Perms.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";

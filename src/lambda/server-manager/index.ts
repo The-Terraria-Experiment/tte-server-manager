@@ -6,7 +6,7 @@ import { FUNC_NAMES } from "./shared/constants.js";
 import { errorHandler } from "./shared/middleware/errorHandler.js";
 import { ResponseUtil } from "./shared/utils/APIResponse.js";
 import { Parsers } from "./shared/utils/Parsers.js";
-import { Permissions } from "./shared/utils/permissions.js";
+import { Permissions } from "./shared/utils/Perms.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { queueCreateWorld } from "./actions/queueCreateWorld.js";
 import { beginCreateWorld } from "./actions/beginCreateWorld.js";

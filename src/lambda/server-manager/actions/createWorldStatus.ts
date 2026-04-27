@@ -1,7 +1,7 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/permissions.js";
+import { Permissions } from "../shared/utils/Perms.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
