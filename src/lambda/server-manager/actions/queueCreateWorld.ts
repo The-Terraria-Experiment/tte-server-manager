@@ -35,9 +35,6 @@ const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	if (seed && !/^[a-zA-Z0-9_\s]+$/.test(seed)) {
 		throw new Error("Seed must contain only alphanumeric characters, underscores, and spaces");
 	}
-	if (!seed?.trim()) {
-		throw new Error("Seed cannot be only whitespace");
-	}
 
 	if (!/^[0-9]+$/.test(port)) {
 		throw new Error("Port must contain only numeric characters");
