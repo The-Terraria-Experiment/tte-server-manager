@@ -19,6 +19,12 @@ import { managePlayer } from "./actions/managePlayer.js";
 import { readPlayer } from "./actions/readPlayer.js";
 import { getBans } from "./actions/getBans.js";
 import { deleteBan } from "./actions/deleteBan.js";
+import { getStatus } from "./actions/getStatus.js";
+import { stop } from "./actions/stop.js";
+import { readConfig } from "./actions/readConfig.js";
+import { writeConfig } from "./actions/writeConfig.js";
+import { reloadConfig } from "./actions/reloadConfig.js";
+import { dropCache } from "./actions/dropCache.js";
 
 const endpoints: EndpointList = {
 	// "GET /servers": {
@@ -26,27 +32,27 @@ const endpoints: EndpointList = {
 	// 	permRequired: PERMISSIONS.server.list,
 	// },
 	"GET /server/{id}/status": {
-		action: null,
+		action: getStatus,
 		permRequired: PERMISSIONS.server.status.read,
 	},
-	"POST /server/{id}/start": {
-		action: null,
-		permRequired: PERMISSIONS.server.status.start,
-	},
+	// "POST /server/{id}/start": {
+	// 	action: null,
+	// 	permRequired: PERMISSIONS.server.status.start,
+	// },
 	"POST /server/{id}/stop": {
-		action: null,
+		action: stop,
 		permRequired: PERMISSIONS.server.status.stop,
 	},
 	"GET /server/{id}/config": {
-		action: null,
+		action: readConfig,
 		permRequired: PERMISSIONS.server.config.read,
 	},
 	"POST /server/{id}/config": {
-		action: null,
+		action: writeConfig,
 		permRequired: PERMISSIONS.server.config.write,
 	},
 	"POST /server/{id}/config/reload": {
-		action: null,
+		action: reloadConfig,
 		permRequired: PERMISSIONS.server.config.write,
 	},
 	// "PUT /server/{id}/config": {
@@ -78,7 +84,7 @@ const endpoints: EndpointList = {
 	// 	permRequired: PERMISSIONS.server.world.delete,
 	// },
 	"POST /server/dropcache": {
-		action: null,
+		action: dropCache,
 		permRequired: PERMISSIONS.system.dropcache
 	},
 	"POST /server/{id}/players/ban": {
