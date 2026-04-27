@@ -1,4 +1,6 @@
 import type { APIGatewayProxyResult } from "aws-lambda";
+import { CWLogger } from "../aws/CloudWatch.js";
+import { CW_LOG_GENERAL } from "../constants.js";
 
 export const CORS_HEADERS: Record<string, string> = {
 	"Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
@@ -27,6 +29,16 @@ export class ResponseUtil {
 		code = "INTERNAL_ERROR",
 		details: unknown = null,
 	): APIGatewayProxyResult {
+		CWLogger.Error(CW_LOG_GENERAL, {
+			error: message,
+			stack: new Error().stack,
+			details: {
+				statusCode,
+				code,
+				givenDetails: details
+			}
+		});
+
 		return {
 			statusCode,
 			headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
