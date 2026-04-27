@@ -234,7 +234,7 @@ export class TShockAPI {
 	{
 		Assert.IsTruthy(process.env.TSHOCK_API_PORT, "TShock API port is not set");
 		const base = `http://${this.ip}:${process.env.TSHOCK_API_PORT}`;
-		const endpoint = 'v2/token/create';
+		const endpoint = '/v2/token/create';
 
 		const params = `?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 		const { statusCode, json } = await Network.HTTPJsonRequest(`${base}${endpoint}${params}`, { method: HttpMethod.GET, headers: { 'Accept': 'application/json' } });
