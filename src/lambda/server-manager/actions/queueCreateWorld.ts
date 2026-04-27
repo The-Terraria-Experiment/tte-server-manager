@@ -59,8 +59,8 @@ const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 		throw new Error("Evil must be a number between 1 and 3 inclusive");
 	}
 
-	if (!/^[a-zA-Z0-9_\s]+$/.test(worldName)) {
-		throw new Error("World name must only include alphanumeric characters, underscores, and whitespace");
+	if (!/^[a-zA-Z0-9_]+$/.test(worldName)) {
+		throw new Error("World name must only include alphanumeric characters and underscores");
 	}
 	if (!worldName?.trim()) {
 		throw new Error("World name cannot be only whitespace");
