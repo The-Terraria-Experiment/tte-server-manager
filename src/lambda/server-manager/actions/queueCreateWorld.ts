@@ -7,7 +7,7 @@ import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { LambdaDao } from "../../_shared/shared/aws/Lambda.js";
+import { LambdaDao } from "../shared/aws/Lambda.js";
 import type { NewWorldRequestData } from "../index.js";
 import { Assert } from "../shared/utils/Assert.js";
 import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
