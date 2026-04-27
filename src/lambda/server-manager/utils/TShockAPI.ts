@@ -109,7 +109,7 @@ export class TShockAPI {
 				if (value === undefined) {
 					continue;
 				}
-				params.set(key, value);
+				urlParams.set(key, value);
 			}
 		}
 
