@@ -178,7 +178,7 @@ export class TShockAPI {
 				requestDurationMs: Date.now() - requestStartAt,
 				statusCode: response.statusCode,
 				responseKeys: response.json ? Object.keys(response.json).slice(0, 20) : [],
-				responseMessage: Parsers.Truncate(response.json?.message || response.json?.error || null),
+				responseMessage: Parsers.Truncate(response.json?.message || response.json?.error || ""),
 			}
 		});
 
