@@ -1,4 +1,5 @@
 import { CWLogger } from "../aws/CloudWatch.js";
+import { CW_LOG_GENERAL } from "../constants.js";
 
 export class Assert
 {
@@ -92,7 +93,7 @@ export class Assert
 
 	private static LogFailedAssertion(message: string): void
 	{
-		CWLogger.Error("unknown", {
+		CWLogger.Error(CW_LOG_GENERAL, {
 			error: message,
 			stack: new Error().stack
 		});
