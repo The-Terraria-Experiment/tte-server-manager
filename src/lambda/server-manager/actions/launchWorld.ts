@@ -21,9 +21,6 @@ const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	if (password && !/^[a-zA-Z0-9_\s+]+$/.test(password)) {
 		throw new Error("Password must contain only alphanumeric characters, underscores, and whitespace");
 	}
-	if (!password?.trim()) {
-		throw new Error("Password cannot be only whitespace");
-	}
 
 	if (!/^[0-9]+$/.test(port)) {
 		throw new Error("Port must contain only numeric characters");
@@ -106,7 +103,11 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 
 	await Permissions.ValidateResourceAccess(event, `server::${instanceID}`);
 
-	validateLaunchParams(event.parsedBody || {});
+	try {
+		validateLaunchParams(event.parsedBody || {});
+	} catch (e: any) {
+		return ResponseUtil.ValidationError("Invalid launch params: " + (e.message ?? "unknown"));
+	}
 	const { worldFilePath, port, maxPlayers, password } = (event.parsedBody || {});
 
 	const instanceTable = process.env.INSTANCE_TABLE_NAME;
