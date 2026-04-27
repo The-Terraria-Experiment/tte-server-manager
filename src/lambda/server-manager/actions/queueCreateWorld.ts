@@ -31,9 +31,6 @@ const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	if (password && !/^[a-zA-Z0-9_\s+]+$/.test(password)) {
 		throw new Error("Password must contain only alphanumeric characters, underscores, and whitespace");
 	}
-	if (!password?.trim()) {
-		throw new Error("Password cannot be only whitespace");
-	}
 
 	if (seed && !/^[a-zA-Z0-9_\s]+$/.test(seed)) {
 		throw new Error("Seed must contain only alphanumeric characters, underscores, and spaces");
