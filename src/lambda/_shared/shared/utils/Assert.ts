@@ -3,6 +3,8 @@ import { CW_LOG_GENERAL } from "../constants.js";
 
 export class Assert
 {
+	private static allowAssertionLogs: boolean = true;
+
 	public static IsTruthy(condition: unknown, failMessage: string): void
 	{
 		if (!Boolean(condition)) {
@@ -75,6 +77,8 @@ export class Assert
 
 	public static Some(assertions: Array<() => void>, failMessage: string): void
 	{
+		Assert.allowAssertionLogs = false;
+
 		let success = 0;
 		assertions.forEach((assertion) => {
 			try {
@@ -85,6 +89,8 @@ export class Assert
 			}
 		});
 
+		Assert.allowAssertionLogs = true;
+
 		if (!success) {
 			this.LogFailedAssertion(failMessage);
 			throw new Error(failMessage);
@@ -93,9 +99,11 @@ export class Assert
 
 	private static LogFailedAssertion(message: string): void
 	{
-		CWLogger.Error(CW_LOG_GENERAL, {
-			error: message,
-			stack: new Error().stack
-		});
+		if (Assert.allowAssertionLogs) {
+			CWLogger.Error(CW_LOG_GENERAL, {
+				error: message,
+				stack: new Error().stack
+			});
+		}
 	}
 }
