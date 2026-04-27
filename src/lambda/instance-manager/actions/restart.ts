@@ -6,6 +6,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
+import { CleanupUtil } from "../shared/utils/Cleanup.js";
 
 const EC2 = new Ec2Dao();
 
@@ -19,6 +20,8 @@ export const restart = async (event: AuthorizedEvent, context: Context) => {
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
 	await EC2.RebootInstance(instanceId);
+
+	await CleanupUtil.ClearWorldCreationStatus(instanceId);
 
 	await CWLogger.Action(FUNC_NAMES.INST_MGR, {
 		userId: Parsers.GetUserSub(event),
