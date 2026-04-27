@@ -7,7 +7,7 @@ import type { AuthorizedEvent } from "../../shared/types/APIGatewayTypes.js";
 import type { EndpointList } from "../../shared/types/LambdaTypes.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { ResponseUtil } from "./shared/utils/APIResponse.js";
-import { Permissions } from "./shared/utils/Permissions.js";
+import { Permissions } from "./shared/utils/permissions.js";
 import { readOwnPermissions } from "./actions/readOwnPermissions.js";
 import { readPermissions } from "./actions/readPermissions.js";
 import { writePermissions } from "./actions/writePermissions.js";
