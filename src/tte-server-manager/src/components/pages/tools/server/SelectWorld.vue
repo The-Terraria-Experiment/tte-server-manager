@@ -110,14 +110,7 @@ export default {
 		Checkbox,
 	},
 	props: {
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
-		selectedServerData: {
-			type: Object,
-			required: true,
-		}
+		
 	},
 	data() {
 		return {
@@ -146,6 +139,12 @@ export default {
 				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}`)))
 				.map(s => ({ name: s.key.replace(this.selectedInstance, ""), size: s.size }));
 		},
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
+		}
 	},
 	methods: {
 		formatFileSize,

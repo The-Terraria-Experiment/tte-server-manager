@@ -130,14 +130,7 @@ export default {
 		Dropdown,
 	},
 	props: {
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
-		selectedServerData: {
-			type: Object,
-			required: true,
-		}
+		
 	},
 	data() {
 		return {
@@ -210,6 +203,12 @@ export default {
 			if (this.worldCreateStatus === "failed") return "World Creation Failed";
 			if (this.worldCreateStatus === "queued") return "Queued";
 			return "Working";
+		},
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
 		}
 	},
 	methods: {

@@ -251,7 +251,7 @@
 </template>
 
 <script>
-import { get, post } from '../../../../util/api';
+import { useServerStore } from '../../../../stores/serverStore';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -272,51 +272,21 @@ export default {
 	},
 	emits: ['autoRefreshAt', "refresh"],
 	props: {
-		selectedServerData: {
-			type: Object,
-			required: true
-		},
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
+		
 	},
 	data() {
 		return {
 			BTN_VARIANT,
 			PERMISSIONS,
-			statusLoading: false,
-			confirmStopPopupOpen: false,
-			managePlayerPopupOpen: false,
-			banStartPickerOpen: false,
-			banEndPickerOpen: false,
-			showStopButton: true,
-			manageOptions: {
-				banStart: null,
-				banEnd: null,
-				includeIpBan: true,
-				banReason: "",
-				kickReason: "",
-				killedBy: "",
-				selectedPlayer: null,
-				selectedPlayerFullData: null,
-			},
-			managePlayerStatus: {
-				playerLoading: false,
-				banLoading: false,
-				kickLoading: false,
-				killLoading: false,
-				muteLoading: false
-			},
-			playerDataCache: {},
+			serverStore: useServerStore(),
 		}
 	},
 	computed: {
-		playerCountText() {
-			if (typeof this.selectedServerData.playercount === 'number') {
-				return `${this.selectedServerData.playercount} player${plural(this.selectedServerData.playercount || 0)} online`
-			}
-			return 'Unknown';
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
+		},
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
 		},
 		ruleEntryCount() {
 			return Object.keys(this.selectedServerData.rules || {}).length;

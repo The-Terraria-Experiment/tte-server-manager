@@ -30,7 +30,7 @@
 				leftIconSize="5"
 				@input="dropTshockTokenCache"
 			>
-				DROP TSHOCK TOKEN CACHE
+				DROP TOKEN CACHE
 			</FlexButton>
 		</div>
 	</div>
@@ -44,35 +44,30 @@
 		</template>
 	</StatusTile>
 
-	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..." />
+	<MajorLoader 
+		v-else-if="serverStore.isLoadingList" 
+		text="Loading Instances..." 
+	/>
 
 	<BasicServerInfo 
 		v-if="selectedInstance"
-		:selected-server-data="selectedServerData"
-		:selected-instance="selectedInstance"
 		@autoRefreshAt="autoRefreshAt = $event"
 		@refresh="refresh"
 	/>
 
 	<SelectWorld 
-		v-if="selectedInstance && !selectedServerData.state" 
-		:selected-instance="selectedInstance" 
-		:selected-server-data="selectedServerData" 
+		v-if="selectedInstance && !selectedServerData.state"
 		@autoRefreshAt="autoRefreshAt = $event"	
 	/>
 
 	<CreateWorld 
-		v-if="selectedInstance && !selectedServerData.state" 
-		:selected-instance="selectedInstance" 
-		:selected-server-data="selectedServerData" 
+		v-if="selectedInstance && !selectedServerData.state"
 		@autoRefreshAt="autoRefreshAt = $event"
 		@refresh="refresh"
 	/>
 
 	<ServerConfig 
 		v-if="selectedInstance"
-		:selected-server-data="selectedServerData"
-		:selected-instance="selectedInstance" 
 	/>
 </template>
 
@@ -115,15 +110,7 @@ export default {
 			autoRefreshAt: null,
 		}
 	},
-	computed: {		
-		selectedServerData() {
-			return {
-				...(this.serverStore.serverStatusData[this.selectedInstance] || {}),
-				state: Boolean(this.serverStore.serverStatusData[this.selectedInstance]?.status),
-				players: this.serverStore.serverStatusData[this.selectedInstance]?.players,
-				world: this.serverStore.serverStatusData[this.selectedInstance]?.world,
-			}
-		},
+	computed: {
 		filteredInstanceOptions() {
 			return this.serverStore.instanceOptions.filter(i => this.$checkResourceAccess(`server::${i.id}`));
 		},
@@ -134,6 +121,9 @@ export default {
 			set(value) {
 				this.serverStore.selected.instance = value;
 			}
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
 		}
 	},
 	methods: {
