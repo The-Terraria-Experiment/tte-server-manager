@@ -130,6 +130,13 @@ export default {
 		async savePaths() {
 			this.$validatePermissions(PERMISSIONS.instance.files.paths.write);
 
+			for (let path of this.updatedPaths) {
+				if (!/^[a-zA-Z0-9_]+$/.test(path[0])) {
+					this.$alert.error("Invalid path nickname. Nicknames can only include alphanumeric characters and underscores");
+					return;
+				}
+			}
+
 			if (this.saveLoading) return;
 			this.saveLoading = true;
 
