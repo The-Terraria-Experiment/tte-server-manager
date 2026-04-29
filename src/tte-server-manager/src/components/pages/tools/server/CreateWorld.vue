@@ -282,17 +282,23 @@ export default {
 
 			if (this.serverStore.loading.worldLaunch[this.selectedInstance]) return;
 
-			if (
-				this.newWorldData.size < 1 || this.newWorldData.size > 3 || 
-				this.newWorldData.difficulty < 1 || this.newWorldData.difficulty > 4 ||
-				this.newWorldData.evil < 1 || this.newWorldData.evil > 3 ||
-				!this.newWorldData.name || !/^[a-zA-Z0-9_\s]+$/.test(this.newWorldData.name) ||
-				!this.newWorldData.maxPlayers ||
-				!this.newWorldData.worldFileLocation
-			) {
-				this.$alert.error("Invalid world data");
-				return;
+			const conditions = [
+				[this.newWorldData.size < 1 || this.newWorldData.size > 3, "Invalid world size"],
+				[this.newWorldData.difficulty < 1 || this.newWorldData.difficulty > 4, "Invalid world difficulty"],
+				[this.newWorldData.evil < 1 || this.newWorldData.evil > 3, "Invalid world evil"],
+				[!this.newWorldData.name || !/^[a-zA-Z0-9_\s]+$/.test(this.newWorldData.name), "World name can only include alphanumeric characters, underscores, and whitespace"],
+				[!this.newWorldData.maxPlayers, "Cannot have 0 max players"],
+				[!this.newWorldData.worldFileLocation, "Invalid file location"]
+			];
+
+			for (let condition of conditions) {
+				if (condition[0]) {
+					this.$alert.error(condition[1]);
+					return;
+				}
 			}
+
+			this.newWorldData.name = this.newWorldData.name.replace(/\s/g, '_');
 
 			this.serverStore.loading.worldLaunch[this.selectedInstance] = true;
 

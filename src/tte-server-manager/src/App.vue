@@ -71,7 +71,7 @@ export default {
 	},
 	async created() {
 		this.userDataIsLoading = true;
-		this.userStore.loadUser();
+		// this.userStore.loadUser(); // Don't need to load here because the Router does it, but leaving it here just in case
 
 		await this.userStore.ensureUserFetched();
 		this.userDataIsLoading = false;
