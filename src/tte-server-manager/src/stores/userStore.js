@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { getCurrentUser, fetchAuthSession, signOut as amplifySignOut } from 'aws-amplify/auth';
 
 const USE_CACHE = true;
-const CACHE_TTL = 5 * 60 * 1000; /// 5min
+const CACHE_TTL = 3 * 60 * 1000; /// 3min
 const CACHE_KEY = "ttesm-user-cache";
 
 export const useUserStore = defineStore("userstore", {
@@ -69,9 +69,14 @@ export const useUserStore = defineStore("userstore", {
 					this.user.username = data?.entries?.username || "";
 				};
 
-				const existingCache = sessionStorage.getItem(CACHE_KEY);
+				let existingCache;
+				try {
+					existingCache = JSON.parse(sessionStorage.getItem(CACHE_KEY));
+				} catch (e) {
+					existingCache = null;
+				}
 				if (USE_CACHE && existingCache && existingCache.expiresAt > Date.now()) {
-					applyUserData(JSON.parse(existingCache));
+					applyUserData(existingCache);
 				} else {
 					const response = await fetch(
 						`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/users/permissions/getown`,
@@ -82,8 +87,9 @@ export const useUserStore = defineStore("userstore", {
 						}
 					);
 					
+					let data;
 					if (response.ok) {
-						const data = await response.json();
+						data = await response.json();
 						applyUserData(data);
 					}
 
