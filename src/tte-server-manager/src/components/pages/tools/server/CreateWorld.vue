@@ -163,28 +163,6 @@ export default {
 				{ id: 2, text: "Expert" },
 				{ id: 3, text: "Master" },
 			],
-			createWorldTexts: [
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"This is the one",
-				"Worlds without number",
-				"Simulator? I hardly know 'er",
-			],
-			chosenCreateWorldText: null,
 			worldCreatePopupOpen: false,
 			worldCreateJobId: null,
 			worldCreateProgress: 0,
@@ -329,14 +307,10 @@ export default {
 					console.error(e);
 				}
 			}
-		},
-		getRandomCreateText() {
-			const index = Math.floor(Math.random() * this.createWorldTexts.length);
-			return this.createWorldTexts[index];
 		}
 	},
 	mounted() {
-		this.chosenCreateWorldText = this.getRandomCreateText();
+		
 	},
 	beforeUnmount() {
 		this.stopWorldCreatePolling();
