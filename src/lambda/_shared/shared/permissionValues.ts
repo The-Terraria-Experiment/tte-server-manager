@@ -26,6 +26,9 @@ export const PERMISSIONS = {
 			kick: "server.player.kick",
 			kill: "server.player.kill",
 			mute: "server.player.mute",
+			inventory: {
+				read: "server.player.inventory.read",
+			},
 		},
 	},
 	instance: {

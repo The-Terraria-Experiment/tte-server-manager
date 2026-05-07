@@ -43,7 +43,7 @@ export const useServerStore = defineStore("serverstore", {
 		selectedServerData: (state) => {
 			return {
 				...(state.serverStatusData[state.selected.instance] || {}),
-				state: Boolean(state.serverStatusData[state.selected.instance]),
+				state: Boolean(state.serverStatusData[state.selected.instance]?.status),
 				players: state.serverStatusData[state.selected.instance]?.players,
 				world: state.serverStatusData[state.selected.instance]?.world,
 			}
