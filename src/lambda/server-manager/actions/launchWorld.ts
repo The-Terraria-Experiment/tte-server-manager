@@ -116,11 +116,25 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	const DB = new DynamoDao();
 
 	const instanceData = await DB.GetItem(instanceTable!, `inst#${instanceID}`) as InstanceDataEntry;
-	const worldPaths = instanceData.worldPaths || [];
+	const worldPathNicknames = instanceData.worldPaths || [];
+	const validRoots = instanceData.validRoots || {};
 
-	if (!worldPaths.some(validPath => worldFilePath.startsWith(validPath))) {
+	// Find the matching path nickname for the world file
+	let matchingNickname: string | null = null;
+	for (const nickname of worldPathNicknames) {
+		const resolvedPath = validRoots[nickname];
+		if (resolvedPath && worldFilePath.startsWith(`${resolvedPath}/`)) {
+			matchingNickname = nickname;
+			break;
+		}
+	}
+
+	if (!matchingNickname) {
 		return ResponseUtil.ValidationError("File path does not fall within a designated world files folder");
 	}
+
+	// Validate user has access to this specific path
+	await Permissions.ValidateResourceAccess(event, `filepath::${matchingNickname}`);
 
 	const launchCommand = buildLaunchWorldTShockCommand(worldFilePath, port, maxPlayers, password);
 	const launchGuardCommand = buildPreLaunchGuardPath();

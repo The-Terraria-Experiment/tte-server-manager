@@ -1,6 +1,6 @@
 <template>
 	<div class="flex flex-col sm:grid sm:grid-cols-4">
-		<ServerState />
+		<ServerState @autoRefreshAt="$emit('autoRefreshAt', $event)" />
 
 		<Players />
 

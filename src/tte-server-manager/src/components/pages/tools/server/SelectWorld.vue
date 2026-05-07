@@ -134,9 +134,14 @@ export default {
 	},
 	computed: {
 		instanceWorldFiles() {
-			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
+			const fileRoots = this.serverStore.instanceFileRoots[this.selectedInstance] || {};
+			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
+			const worldRoots = worldPathNicknames
+				.filter(nickname => this.$checkResourceAccess(`filepath::${nickname}`))
+				.map(nickname => fileRoots[nickname])
+				.filter((path) => !!path);
 			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
-				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}`)))
+				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}/`)))
 				.map(s => ({ name: s.key.replace(this.selectedInstance, ""), size: s.size }));
 		},
 		selectedInstance() {

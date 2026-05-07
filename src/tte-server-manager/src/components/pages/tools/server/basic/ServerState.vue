@@ -1,51 +1,54 @@
 <template>
-	<StatusTile 
-		:class="['grow mt-4 sm:mt-8 sm:mx-1 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
-		:collapsible="selectedServerData.state"
-		:perm-required="PERMISSIONS.server.status.read"
-		:loading="statusLoading"
-	>
-		<template #header>
-			<Icon icon="power" color="text-gray-6" size="4" />
-			<p class="text-gray-6 ml-2 text-lg">Server Status</p>
-		</template>
-		<template #summary>
-			<p class="text-2xl text-teal-4">{{ selectedServerData.state ? 'RUNNING' : 'OFFLINE' }}</p>
-		</template>
-		<template #content>
-			<div v-if="selectedServerData.state">
-				<FlexButton 
-					v-if="$checkPermissions(PERMISSIONS.server.status.stop) && showStopButton"
-					class="mx-4 mb-4" 
-					:variant="BTN_VARIANT.DANGER"
-					@input="openConfirmStopPopup"
-				>
-					<p class="py-2 px-12">STOP</p>
-				</FlexButton>
+	<div>
+		<StatusTile
+			:class="['grow mt-4 sm:mt-8 sm:mx-1 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
+			:collapsible="selectedServerData.state"
+			:perm-required="PERMISSIONS.server.status.read"
+			:loading="statusLoading"
+		>
+			<template #header>
+				<Icon icon="power" color="text-gray-6" size="4" />
+				<p class="text-gray-6 ml-2 text-lg">Server Status</p>
+			</template>
+			<template #summary>
+				<p class="text-2xl text-teal-4">{{ selectedServerData.state ? 'RUNNING' : 'OFFLINE' }}</p>
+			</template>
+			<template #content>
+				<div v-if="selectedServerData.state">
+					<FlexButton
+						v-if="$checkPermissions(PERMISSIONS.server.status.stop) && showStopButton"
+						class="mx-4 mb-4"
+						:variant="BTN_VARIANT.DANGER"
+						@input="openConfirmStopPopup"
+					>
+						<p class="py-2 px-12">STOP</p>
+					</FlexButton>
+				</div>
+			</template>
+		</StatusTile>
+		<Popup
+			body-class="h-1/4 w-11/12 sm:w-1/2 lg:w-1/4"
+			header-text="CONFIRM"
+			:open="confirmStopPopupOpen"
+			@x-clicked="confirmStopPopupOpen = false"
+			:buttons="[
+				{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmStopPopupOpen = false } },
+				{ variant: BTN_VARIANT.DANGER, text: 'STOP SERVER', onClick: stopServer },
+			]"
+		>
+			<div class="p-4 h-full w-full flex text-center justify-center items-center font-main font-bold text-red-5">
+				Are you sure you want to stop this server? There are currently {{ this.selectedServerData.playercount }} players online.
 			</div>
-		</template>
-	</StatusTile>
-
-	<Popup
-		body-class="h-1/4 w-11/12 sm:w-1/2 lg:w-1/4"
-		header-text="CONFIRM"
-		:open="confirmStopPopupOpen"
-		@x-clicked="confirmStopPopupOpen = false"
-		:buttons="[
-			{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmStopPopupOpen = false } },
-			{ variant: BTN_VARIANT.DANGER, text: 'STOP SERVER', onClick: stopServer },
-		]"
-	>
-		<div class="p-4 h-full w-full flex text-center justify-center items-center font-main font-bold text-red-5">
-			Are you sure you want to stop this server? There are currently {{ this.selectedServerData.playercount }} players online.
-		</div>
-	</Popup>
+		</Popup>
+	</div>
 </template>
 
 <script>
 import { useServerStore } from '../../../../../stores/serverStore';
+import { post } from '../../../../../util/api';
 import { BTN_VARIANT } from '../../../../../util/constants';
 import { PERMISSIONS } from '../../../../../util/permissionValues';
+import { getDateOffset } from '../../../../../util/timeutils';
 import Popup from '../../../../common/Popup.vue';
 
 
@@ -64,7 +67,7 @@ export default {
 			serverStore: useServerStore(),
 			confirmStopPopupOpen: false,
 			statusLoading: false,
-			showStopButton: false,
+			showStopButton: true,
 		}
 	},
 	computed: {

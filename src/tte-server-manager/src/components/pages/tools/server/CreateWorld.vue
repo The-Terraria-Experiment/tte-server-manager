@@ -173,7 +173,11 @@ export default {
 	},
 	computed: {
 		worldFileLocationOptions() {
-			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
+			const fileRoots = this.serverStore.instanceFileRoots[this.selectedInstance] || {};
+			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
+			const worldRoots = worldPathNicknames
+				.map(nickname => fileRoots[nickname])
+				.filter((path) => !!path);
 			return worldRoots.map(r => ({ id: r, text: r }));
 		},
 		worldCreateStatusLabel() {
