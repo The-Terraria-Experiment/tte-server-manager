@@ -60,15 +60,18 @@ const validatePaths = (paths: Record<string, string>): { valid: boolean; errors:
 	return { valid: errors.length === 0, errors };
 };
 
-const validateWorldPaths = (worldPaths: string[]): { valid: boolean; errors: string[] } => {
+const validateWorldPaths = (worldPaths: string[], validPathNicknames: string[]): { valid: boolean; errors: string[] } => {
 	if (!worldPaths || !Array.isArray(worldPaths)) {
-		return { valid: false, errors: ["worldPaths must be an array of paths"] };
+		return { valid: false, errors: ["worldPaths must be an array of path nicknames"] };
 	}
 
 	const errors: string[] = [];
-	for (const worldPath of worldPaths) {
-		if (!isSafePosixPath(worldPath)) {
-			errors.push(`Invalid world path ${String(worldPath)}`);
+	for (const nickname of worldPaths) {
+		if (!isSafeNickname(nickname)) {
+			errors.push(`Invalid path nickname: ${nickname}`);
+		}
+		if (!validPathNicknames.includes(nickname)) {
+			errors.push(`Path nickname '${nickname}' does not exist in paths`);
 		}
 	}
 
@@ -103,19 +106,18 @@ export const editPaths = async (event: AuthorizedEvent, context: Context) => {
 		return ResponseUtil.ValidationError("Invalid paths", { pathErrors });
 	}
 
-	const { valid: worldPathsValid, errors: worldPathErrors } = validateWorldPaths(worldPaths);
+	const { valid: worldPathsValid, errors: worldPathErrors } = validateWorldPaths(worldPaths, Object.keys(paths));
 	if (!worldPathsValid) {
 		return ResponseUtil.ValidationError("Invalid world paths", { worldPathErrors });
 	}
 
 	const key = `inst#${instanceId}`;
 	const timestamp = new Date().toISOString();
-	const filteredWorldPaths = worldPaths.filter((worldPath) => Object.values(paths).includes(worldPath));
 
 	const updatedItem = await DB.UpdateItem(tableName, key, {
 		updates: {
 			validRoots: paths,
-			worldPaths: filteredWorldPaths,
+			worldPaths,
 			updatedAt: timestamp,
 		},
 	});

@@ -130,14 +130,7 @@ export default {
 		Dropdown,
 	},
 	props: {
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
-		selectedServerData: {
-			type: Object,
-			required: true,
-		}
+		
 	},
 	data() {
 		return {
@@ -170,28 +163,6 @@ export default {
 				{ id: 2, text: "Expert" },
 				{ id: 3, text: "Master" },
 			],
-			createWorldTexts: [
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"This is the one",
-				"Worlds without number",
-				"Simulator? I hardly know 'er",
-			],
-			chosenCreateWorldText: null,
 			worldCreatePopupOpen: false,
 			worldCreateJobId: null,
 			worldCreateProgress: 0,
@@ -202,7 +173,11 @@ export default {
 	},
 	computed: {
 		worldFileLocationOptions() {
-			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
+			const fileRoots = this.serverStore.instanceFileRoots[this.selectedInstance] || {};
+			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
+			const worldRoots = worldPathNicknames
+				.map(nickname => fileRoots[nickname])
+				.filter((path) => !!path);
 			return worldRoots.map(r => ({ id: r, text: r }));
 		},
 		worldCreateStatusLabel() {
@@ -210,6 +185,12 @@ export default {
 			if (this.worldCreateStatus === "failed") return "World Creation Failed";
 			if (this.worldCreateStatus === "queued") return "Queued";
 			return "Working";
+		},
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
 		}
 	},
 	methods: {
@@ -330,14 +311,10 @@ export default {
 					console.error(e);
 				}
 			}
-		},
-		getRandomCreateText() {
-			const index = Math.floor(Math.random() * this.createWorldTexts.length);
-			return this.createWorldTexts[index];
 		}
 	},
 	mounted() {
-		this.chosenCreateWorldText = this.getRandomCreateText();
+		
 	},
 	beforeUnmount() {
 		this.stopWorldCreatePolling();

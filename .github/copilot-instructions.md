@@ -8,6 +8,70 @@ These instructions guide AI assistants working on this repository. Keep changes 
 - **Goal:** Server management interface for Terraria/TShock/TModLoader running on EC2.
 - **Stack:** Vue 3 SPA (Vite, Pinia, Vue Router, Tailwind) hosted via AWS Amplify Hosting; API Gateway → Lambda; Amplify Auth (Cognito) with built-in flows; DynamoDB permissions; Secrets Manager; CloudWatch; EC2 with SSM; S3 for game files; TShock REST API.
 - **Scalability:** Design for multiple `Instance` and `GameServer` entities (no hardcoding single IDs).
+## Environments
+
+The application runs in three environments with distinct deployment strategies and shared infrastructure:
+
+### Production (Prod)
+- **URL:** `server.terrariaexperiment.click`
+- **Git Branch:** `main`
+- **Frontend:** Amplify Hosting (auto-deploy on push to main)
+- **Backend:** API Gateway → Lambda functions (prod alias)
+- **Auth:** Cognito User Pool (prod)
+
+### Staging (Stage)
+- **URL:** `stg-server.terrariaexperiment.click`
+- **Git Branch:** `stage`
+- **Frontend:** Amplify Hosting (auto-deploy on push to stage)
+- **Backend:** API Gateway → Lambda functions (stage alias)
+- **Auth:** Cognito User Pool (stage)
+
+### Development (Dev)
+- **URL:** `localhost:5173` (Vite dev server)
+- **Git Branch:** `dev/*` (feature branches; all dev branches start with `dev/`)
+- **Frontend:** Local Vite dev server (`npm run dev`)
+- **Backend:** Uses stage backend (same API Gateway & Lambda stage aliases as staging)
+- **Auth:** Uses stage Cognito User Pool
+
+### Shared Resources & Separation
+
+**Lambda Functions:**
+- Prod and stage share the same Lambda function code deployed to the same functions
+- Separation via **Lambda aliases**: `prod` alias vs `stage` alias
+- Each alias can have distinct environment variables and concurrency settings
+
+**DynamoDB Tables:**
+- **Shared across prod/stage:** Tables related to EC2 instances (instance metadata, status)
+  - Justification: EC2 instances are shared infrastructure accessed by both environments
+- **Separate per environment:** All other tables including:
+  - User data (`UserData`)
+  - Permission entries (`PermissionEntries`)
+  - Tool logs (`ToolLogs`)
+  - System notices
+- **Naming convention:** Environment-specific tables use prefix/suffix (e.g., `prod-UserData`, `stage-UserData`)
+
+**EC2 Instances:**
+- All environments can access all EC2 instances
+- Single fleet of instances shared across prod, stage, and dev
+- Instance management commands (start/stop/restart) are available in all environments
+
+**S3 Buckets:**
+- Common buckets between environments
+
+**Secrets Manager:**
+- Common secrets between environments
+
+### Development Workflow
+1. **Local development:** Work on `dev/*` branches; run frontend locally; calls stage backend.
+2. **Staging:** Merge to `stage` branch; Amplify auto-deploys to `stg-server.terrariaexperiment.click`.
+3. **Production:** Merge `stage` → `main`; Amplify auto-deploys to `server.terrariaexperiment.click`.
+
+### Environment Variable Patterns
+- Lambda env vars include `ACTIVE_ENV` (prod/stage) to determine which DynamoDB tables/S3 buckets to access.
+- Frontend `.env` files (`.env.production`, `.env.staging`, `.env.development`) configure `VITE_API_BASE_URL` and Cognito settings per environment.
+
+---
+
 
 ## Architecture
 - **Web Interface:** Vue SPA built with Vite; deployed on AWS Amplify Hosting (build/deploy pipeline managed by Amplify).

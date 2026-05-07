@@ -39,7 +39,17 @@ export const useServerStore = defineStore("serverstore", {
 				}
 			}
 			return state.loading.list || false;
-		}
+		},
+		selectedServerData: (state) => {
+			return {
+				...(state.serverStatusData[state.selected.instance] || {}),
+				state: Boolean(state.serverStatusData[state.selected.instance]?.status),
+				players: state.serverStatusData[state.selected.instance]?.players,
+				world: state.serverStatusData[state.selected.instance]?.world,
+			}
+		},
+		selectedInstanceID: (state) => state.selected.instance,
+		selectedServerID: (state) => state.selected.server,
 	},
 	actions: {
 		async fetchInstanceList() {

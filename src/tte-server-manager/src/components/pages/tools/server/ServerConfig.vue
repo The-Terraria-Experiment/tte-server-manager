@@ -14,6 +14,7 @@
 </template>
 
 <script>
+import { useServerStore } from '../../../../stores/serverStore';
 import ManageBans from './ManageBans.vue';
 import TshockConfigFile from './TshockConfigFile.vue';
 
@@ -25,22 +26,20 @@ export default {
 		TshockConfigFile,
 	},
 	props: {
-		selectedServerData: {
-			type: Object,
-			required: true
-		},
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
+		
 	},
 	data() {
 		return {
-			
+			serverStore: useServerStore(),
 		}
 	},
 	computed: {
-		
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
+		}
 	},
 	methods: {
 		
