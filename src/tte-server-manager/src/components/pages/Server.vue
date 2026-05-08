@@ -56,21 +56,21 @@
 	/>
 
 	<SelectWorld 
-		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.state"
+		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.online"
 		@autoRefreshAt="autoRefreshAt = $event"	
 	/>
 
 	<CreateWorld 
-		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.state"
+		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.online"
 		@autoRefreshAt="autoRefreshAt = $event"
 		@refresh="refresh"
 	/>
 
 	<ServerConfig 
-		v-if="selectedInstance && selectedInstanceData?.state"
+		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
 
-	<StatusTile v-if="!selectedInstanceData?.state" class="mt-4">
+	<StatusTile v-if="!selectedInstanceData?.online" class="mt-4">
 		<template #header>
 			<Icon icon="circle-info" color="text-gray-6" size="4" />
 			<p class="text-gray-6 ml-2 text-lg">Instance Offline</p>

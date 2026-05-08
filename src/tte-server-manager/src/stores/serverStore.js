@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import { get } from '../util/api';
 import { PERMISSIONS } from '../util/permissionValues';
+import { INSTANCE_STATES } from '../util/constants.js';
 
 export const useServerStore = defineStore("serverstore", {
 	state: () => ({
@@ -49,7 +50,10 @@ export const useServerStore = defineStore("serverstore", {
 			}
 		},
 		selectedInstanceData: (state) => {
-			return state.instanceStatusData[state.selectedInstanceID];
+			return {
+				...state.instanceStatusData[state.selectedInstanceID],
+				online: state.instanceStatusData[state.selectedInstanceID] === INSTANCE_STATES.ONLINE
+			}
 		},
 		selectedInstanceID: (state) => state.selected.instance,
 		selectedServerID: (state) => state.selected.server,
