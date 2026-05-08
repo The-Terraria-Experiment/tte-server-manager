@@ -11,7 +11,9 @@
 				<p class="text-gray-6 ml-2 text-lg">Server Status</p>
 			</template>
 			<template #summary>
-				<p class="text-2xl text-teal-4">{{ selectedServerData.state ? 'RUNNING' : 'OFFLINE' }}</p>
+				<p class="text-2xl text-teal-4">
+					{{ selectedServerData.state ? 'RUNNING' : 'OFFLINE' }}
+				</p>
 			</template>
 			<template #content>
 				<div v-if="selectedServerData.state">
@@ -26,6 +28,7 @@
 				</div>
 			</template>
 		</StatusTile>
+		
 		<Popup
 			body-class="h-1/4 w-11/12 sm:w-1/2 lg:w-1/4"
 			header-text="CONFIRM"

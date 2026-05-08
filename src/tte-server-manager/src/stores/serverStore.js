@@ -9,7 +9,7 @@ export const useServerStore = defineStore("serverstore", {
 			server: null,
 		},
 		instances: [],
-		instanceData: {},
+		instanceStatusData: {},
 		instanceFiles: {},
 		instanceFileRoots: {},
 		instanceWorldPaths: {},
@@ -27,7 +27,7 @@ export const useServerStore = defineStore("serverstore", {
 	getters: {
 		instanceOptions: (state) => state.instances.map(i => ({ id: i.id, text: i.name })),
 		getInstanceData: (state) => (instanceId) => {
-			return state.instanceData[instanceId] || null;
+			return state.instanceStatusData[instanceId] || null;
 		},
 		isLoadingList: (state) => state.loading.list,
 		isLoadingStatus: (state) => (instanceId) => state.loading.status[instanceId] || false,
@@ -47,6 +47,9 @@ export const useServerStore = defineStore("serverstore", {
 				players: state.serverStatusData[state.selected.instance]?.players,
 				world: state.serverStatusData[state.selected.instance]?.world,
 			}
+		},
+		selectedInstanceData: (state) => {
+			return state.instanceStatusData[state.selectedInstanceID];
 		},
 		selectedInstanceID: (state) => state.selected.instance,
 		selectedServerID: (state) => state.selected.server,
@@ -73,7 +76,7 @@ export const useServerStore = defineStore("serverstore", {
 
 			try {
 				const instanceStatus = await get(`/instance/${instanceId}/status`, PERMISSIONS.instance.status.read);
-				this.instanceData[instanceId] = instanceStatus.instance;
+				this.instanceStatusData[instanceId] = instanceStatus.instance;
 				return instanceStatus.instance;
 			} catch (error) {
 				console.error("Error fetching instance status:", error);
@@ -105,6 +108,7 @@ export const useServerStore = defineStore("serverstore", {
 			try {
 				const data = await get(`/server/${instanceId}/status`, PERMISSIONS.server.status.read);
 				this.serverStatusData[instanceId] = data.server;
+				this.instanceStatusData[instanceId] = data.instance;
 			} catch (error) {
 				console.error("Error fetching server status:", error);
 				throw error;

@@ -56,19 +56,29 @@
 	/>
 
 	<SelectWorld 
-		v-if="selectedInstance && !selectedServerData.state"
+		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.state"
 		@autoRefreshAt="autoRefreshAt = $event"	
 	/>
 
 	<CreateWorld 
-		v-if="selectedInstance && !selectedServerData.state"
+		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.state"
 		@autoRefreshAt="autoRefreshAt = $event"
 		@refresh="refresh"
 	/>
 
 	<ServerConfig 
-		v-if="selectedInstance"
+		v-if="selectedInstance && selectedInstanceData?.state"
 	/>
+
+	<StatusTile v-if="!selectedInstanceData?.state" class="mt-4">
+		<template #header>
+			<Icon icon="circle-info" color="text-gray-6" size="4" />
+			<p class="text-gray-6 ml-2 text-lg">Instance Offline</p>
+		</template>
+		<template #summary>
+			<p class="text-2xl text-teal-4">Instance is offline. Launch the instance first to start a server.</p>
+		</template>
+	</StatusTile>
 </template>
 
 <script>
@@ -124,6 +134,9 @@ export default {
 		},
 		selectedServerData() {
 			return this.serverStore.selectedServerData;
+		},
+		selectedInstanceData() {
+			return this.serverStore.selectedInstanceData;
 		}
 	},
 	methods: {

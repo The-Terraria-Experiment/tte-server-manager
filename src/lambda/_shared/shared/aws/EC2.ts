@@ -8,8 +8,32 @@ import {
 import { CWLogger } from "./CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
 
+export const InstanceState = {
+	PENDING: "pending",
+	RUNNING: "running",
+	SHUTDOWN: "shutting-down",
+	TERMINATED: "terminated",
+	STOPPING: "stopping",
+	STOPPED: "stopped",
+	UNKNOWN: "unknown"
+} as const;
+
+type InstanceState = (typeof InstanceState)[keyof typeof InstanceState];
+
+// Type guard: ensures value is a known InstanceState
+function isKnownInstanceState(value: any): value is InstanceState {
+    return Object.values(InstanceState).includes(value);
+}
+
+// Safe converter for AWS responses
+function toInstanceState(awsStateValue: string | undefined): InstanceState {
+    return awsStateValue && isKnownInstanceState(awsStateValue) 
+        ? awsStateValue 
+        : InstanceState.UNKNOWN;
+}
+
 export interface InstanceStatus {
-	state: string;
+	state: InstanceState;
 	publicIp: string;
 	launchTime: Date | undefined;
 	instanceType: string | undefined;
@@ -57,7 +81,7 @@ export class Ec2Dao {
 		});
 
 		return {
-			state: instance.State?.Name ?? "unknown",
+			state: toInstanceState(instance.State?.Name ?? "unknown"),
 			publicIp: instance.PublicIpAddress || "PENDING",
 			launchTime: instance.LaunchTime,
 			instanceType: instance.InstanceType,
@@ -81,7 +105,7 @@ export class Ec2Dao {
 				const nameTag = instance.Tags?.find((tag) => tag.Key === "Name");
 				instances.push({
 					id: instance.InstanceId || "",
-					state: instance.State?.Name ?? "unknown",
+					state: toInstanceState(instance.State?.Name ?? "unknown"),
 					publicIp: instance.PublicIpAddress || "PENDING",
 					launchTime: instance.LaunchTime,
 					instanceType: instance.InstanceType,

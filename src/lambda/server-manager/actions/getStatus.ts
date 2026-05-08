@@ -1,5 +1,6 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
+import { InstanceState } from "../shared/aws/EC2.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
@@ -29,6 +30,10 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
+		if (instance.state !== InstanceState.RUNNING) {
+			return ResponseUtil.Success({ server: { status: false }, instance });
+		}
+
 		const userId = Parsers.GetUserSub(event);
 		const tshock = new TShockAPI(ip);
 		Assert.IsTruthyString(userId, "No user ID");
@@ -42,7 +47,7 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			details: { ip, instanceId: serverId, status },
 		});
 
-		return ResponseUtil.Success({ server: status, players: playerData });
+		return ResponseUtil.Success({ server: status, players: playerData, instance });
 	} catch (error: any) {
 		return ResponseUtil.Error(error?.message || "Failed to fetch server status");
 	}
