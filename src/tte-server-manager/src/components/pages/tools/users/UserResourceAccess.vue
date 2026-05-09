@@ -7,9 +7,18 @@
 			<p class="text-gray-6 ml-2 text-lg">User Resource Permissions</p>
 		</template>
 		<template #content>
+			<FuzzyMatchSearch 
+				class="ml-4 mb-4"
+				placeholder="Filter users..."
+				:data="sortedPermissionsData"
+				comparisonKey="displayName"
+				@update="filteredUserData = $event"
+				sortResults
+			/>
+
 			<div class="flex text-sm">
 				<div class="w-1/4 max-h-50 overflow-y-auto">
-					<template v-for="(user, idx) of sortedPermissionsData">
+					<template v-for="(user, idx) of filteredUserData">
 						<div 
 							:class="[
 								'w-full p-2 sm:hover:bg-gray-5 cursor-pointer',
@@ -21,10 +30,14 @@
 						</div>
 					</template>
 				</div>
-				<div class="w-3/4 pr-2 font-mono pb-2 text-xs sm:text-md">
+				<div v-if="loading.instances" class="flex items-center pr-4">
+					<Spinner class="h-4 w-4 text-teal-3" thickness="4" />
+					<p class="font-main font-bold text-teal-3 ml-2">Loading...</p>
+				</div>
+				<div v-else class="w-3/4 pr-2 font-mono pb-2 text-xs sm:text-md">
 					<LargeTextInput 
 						placeholder="Select a user to view resource permissions"
-						class="min-h-40 w-full rounded bg-gray-1 text-white-1 " 
+						class="min-h-40 w-full rounded bg-gray-1 text-white-1" 
 						wrap="off"
 						v-model="userResourcePermissions"
 					/>
@@ -53,9 +66,11 @@
 </template>
 
 <script>
+import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
+import FuzzyMatchSearch from '../../../common/FuzzyMatchSearch.vue';
 import LargeTextInput from '../../../common/LargeTextInput.vue';
 
 
@@ -63,6 +78,7 @@ export default {
 	mixins: [],
 	components: {
 		LargeTextInput,
+		FuzzyMatchSearch,
 	},
 	props: {
 		loading: {
@@ -81,6 +97,8 @@ export default {
 			updatedPermissions: {},
 			dirtyPermissions: false,
 			userSelected: null,
+			serverStore: useServerStore(),
+			filteredUserData: [],
 		}
 	},
 	computed: {
@@ -136,7 +154,18 @@ export default {
 			this.updatedPermissions = {};
 			this.dirtyPermissions = false;
 		},
+		async ensureInstancesLoaded() {
+			if (!this.serverStore.instances.length) {
+				this.loading.instances = true;
+				await this.serverStore.fetchInstanceList();
+			}
+			this.loading.instances = false;
+		}
 	},
+	mounted() {
+		this.ensureInstancesLoaded();
+		this.filteredUserData = this.sortedPermissionsData;
+	}
 }
 </script>
 
