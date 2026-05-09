@@ -134,7 +134,7 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	// Validate user has access to this specific path
-	await Permissions.ValidateResourceAccess(event, `filepath::${matchingNickname}`);
+	await Permissions.ValidateResourceAccess(event, `filepath::${instanceID}::${matchingNickname}`);
 
 	const launchCommand = buildLaunchWorldTShockCommand(worldFilePath, port, maxPlayers, password);
 	const launchGuardCommand = buildPreLaunchGuardPath();

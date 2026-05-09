@@ -52,7 +52,7 @@ export const useServerStore = defineStore("serverstore", {
 		selectedInstanceData: (state) => {
 			return {
 				...state.instanceStatusData[state.selectedInstanceID],
-				online: state.instanceStatusData[state.selectedInstanceID] === INSTANCE_STATES.ONLINE
+				online: state.instanceStatusData[state.selectedInstanceID]?.state === "running"
 			}
 		},
 		selectedInstanceID: (state) => state.selected.instance,

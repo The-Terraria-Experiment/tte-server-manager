@@ -137,7 +137,7 @@ export default {
 			const fileRoots = this.serverStore.instanceFileRoots[this.selectedInstance] || {};
 			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
 			const worldRoots = worldPathNicknames
-				.filter(nickname => this.$checkResourceAccess(`filepath::${nickname}`))
+				.filter(nickname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${nickname}`))
 				.map(nickname => fileRoots[nickname])
 				.filter((path) => !!path);
 			return (this.serverStore.instanceFiles[this.selectedInstance] || [])

@@ -185,7 +185,7 @@ export default {
 			return this.$checkPermissions(PERMISSIONS.instance.files.paths.read);
 		},
 		filePathLocations() {
-			return Object.fromEntries(Object.entries(this.instancePaths || {}).filter(([pname, _]) => this.$checkResourceAccess(`filepath::${pname}`)));
+			return Object.fromEntries(Object.entries(this.instancePaths || {}).filter(([pname, _]) => this.$checkResourceAccess(`filepath::${this.serverStore.selectedInstanceID}::${pname}`)));
 		}
 	},
 	methods: {
