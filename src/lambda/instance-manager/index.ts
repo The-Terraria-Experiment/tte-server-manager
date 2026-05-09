@@ -18,6 +18,7 @@ import { uploadFiles } from "./actions/uploadFiles.js";
 import { deleteFiles } from "./actions/deleteFiles.js";
 import { fileSync } from "./actions/fileSync.js";
 import { editPaths } from "./actions/editPaths.js";
+import { readFileRoots } from "./actions/readFileRoots.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
@@ -63,7 +64,11 @@ const endpoints: EndpointList = {
 	"POST /instance/{id}/paths": {
 		action: editPaths,
 		permRequired: PERMISSIONS.instance.files.paths.write,
-	}
+	},
+	"GET /instance/{id}/paths": {
+		action: readFileRoots,
+		permRequired: PERMISSIONS.instance.files.paths.read,
+	},
 }
 
 const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
