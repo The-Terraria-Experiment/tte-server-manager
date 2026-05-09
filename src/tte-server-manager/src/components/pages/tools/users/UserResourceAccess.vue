@@ -208,7 +208,7 @@ export default {
 				await this.serverStore.fetchInstanceList();
 			}
 			await Promise.all(this.serverStore.instances.map(i => {
-				if (!this.serverStore.instanceFileRoots[i.id]) {
+				if (!this.serverStore.instanceFileRoots[i.id] && this.$checkResourceAccess(`instance::${i.id}`)) {
 					return this.serverStore.fetchInstanceFiles(i.id);
 				}
 			}));
