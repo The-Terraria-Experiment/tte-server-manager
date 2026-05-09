@@ -73,9 +73,11 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 		details: { context, event }
 	});
 
+	const result = endpointDetails.action(event, context);
+	
 	await CWLogger.FlushAll();
 
-	return endpointDetails.action(event, context);
+	return result;
 }
 
 export const handler = errorHandler(Parsers.InsertParsedBody(h));
