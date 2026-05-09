@@ -21,7 +21,6 @@
 			<RefreshButton
 				:loading="serverStore.somethingIsLoading"
 				@input="refresh"
-				:refresh-at="autoRefreshAt"
 			/>
 			<FlexButton
 				v-if="$checkPermissions(PERMISSIONS.system.dropcache)"
@@ -51,18 +50,14 @@
 
 	<BasicServerInfo 
 		v-if="selectedInstance"
-		@autoRefreshAt="autoRefreshAt = $event"
-		@refresh="refresh"
 	/>
 
 	<SelectWorld 
 		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.online"
-		@autoRefreshAt="autoRefreshAt = $event"	
 	/>
 
 	<CreateWorld 
 		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.online"
-		@autoRefreshAt="autoRefreshAt = $event"
 		@refresh="refresh"
 	/>
 
@@ -70,7 +65,7 @@
 		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
 
-	<StatusTile v-if="!selectedInstanceData?.online" class="mt-4">
+	<StatusTile v-if="selectedInstanceData?.state && !selectedInstanceData.online" class="mt-4">
 		<template #header>
 			<Icon icon="circle-info" color="text-gray-6" size="4" />
 			<p class="text-gray-6 ml-2 text-lg">Instance Offline</p>
@@ -95,6 +90,8 @@ import { post } from '../../util/api';
 import CreateWorld from './tools/server/CreateWorld.vue';
 import ManageBans from './tools/server/ManageBans.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
+import { useStatusStore } from '../../stores/statusStore';
+import { TASK_IDS } from '../../stores/statusStore';
 
 
 export default {
@@ -117,7 +114,7 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
-			autoRefreshAt: null,
+			statusStore: useStatusStore(),
 		}
 	},
 	computed: {
@@ -221,6 +218,9 @@ export default {
 				this.fetchServerStatus();
 			}
 		}
+
+		this.statusStore.subscribeToTask(TASK_IDS.SERVER_STATUS_CHECK, this.fetchServerStatus);
+		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.refresh);
 	},
 	watch: {
 		selectedInstance(value) {

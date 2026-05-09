@@ -48,6 +48,8 @@
 
 <script>
 import { useServerStore } from '../../../../../stores/serverStore';
+import { TASK_IDS } from '../../../../../stores/statusStore';
+import { useStatusStore } from '../../../../../stores/statusStore';
 import { post } from '../../../../../util/api';
 import { BTN_VARIANT } from '../../../../../util/constants';
 import { PERMISSIONS } from '../../../../../util/permissionValues';
@@ -68,6 +70,7 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
+			statusStore: useStatusStore(),
 			confirmStopPopupOpen: false,
 			statusLoading: false,
 			showStopButton: true,
@@ -99,13 +102,14 @@ export default {
 
 			try {
 				const response = await post(`/server/${this.selectedInstance}/stop`, PERMISSIONS.server.status.stop);
-				const refreshAt = getDateOffset(5000).valueOf();
+
 				this.showStopButton = false;
-				this.$emit("autoRefreshAt", refreshAt);
-				setTimeout(() => {
-					this.$emit("autoRefreshAt", null);
+
+				this.statusStore.subscribeToTaskEnd(TASK_IDS.SERVER_STATUS_CHECK, () => {
 					this.showStopButton = true;
-				}, 6000);
+				});
+				this.statusStore.startRepeatingTask(TASK_IDS.SERVER_STATUS_CHECK, () => !this.selectedServerData.state);
+
 				this.$alert.success("Server stopping");
 			} catch (e) {
 				this.$alert.error("Error stopping server");

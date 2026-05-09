@@ -1,6 +1,6 @@
 <template>
 	<div class="flex flex-col sm:grid sm:grid-cols-4">
-		<ServerState @autoRefreshAt="$emit('autoRefreshAt', $event)" />
+		<ServerState />
 
 		<Players />
 
@@ -86,7 +86,7 @@ export default {
 		ServerState,
 		Players,
 	},
-	emits: ['autoRefreshAt', "refresh"],
+	emits: [],
 	props: {
 		
 	},

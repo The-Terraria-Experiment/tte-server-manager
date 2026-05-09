@@ -13,7 +13,7 @@
 			<template #summary>
 				<div class="flex items-center">
 					<p class="text-2xl text-teal-4">{{ selectedInstanceData.state }}</p>
-					<Spinner v-if="loading.stateChange" class="h-6 w-6 text-teal-3 ml-2"/>
+					<Spinner v-if="loading.stateChange || statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK)" class="h-6 w-6 text-teal-3 ml-2"/>
 				</div>
 			</template>
 			<template #content>
@@ -130,6 +130,8 @@
 
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
+import { TASK_IDS } from '../../../../stores/statusStore';
+import { useStatusStore } from '../../../../stores/statusStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT, INSTANCE_STATES } from '../../../../util/constants';
 import delay from '../../../../util/delay';
@@ -145,7 +147,7 @@ export default {
 		ActiveDate,
 		Popup,
 	},
-	emits: ['autoRefreshAt'],
+	emits: [],
 	props: {
 		selectedInstanceData: {
 			type: Object,
@@ -161,8 +163,9 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
+			statusStore: useStatusStore(),
+			TASK_IDS,
 			statusPollInterval: null,
-			statusPollStopStates: [],
 			confirmStopPopupOpen: false,
 			confirmRestartPopupOpen: false,
 			showStateChangeButtons: true,
@@ -252,43 +255,16 @@ export default {
 		},
 
 		pollInstanceState(stopStates) {
-			const maxRefreshes = 5;
-			let refreshesDone = 1;
-
 			this.showStateChangeButtons = false;
-			this.statusPollStopStates = stopStates;
-			const refreshAt = getDateOffset(5000).valueOf();
-			this.$emit("autoRefreshAt", refreshAt);
 
-			this.statusPollInterval = setInterval(() => {
-				if (refreshesDone >= maxRefreshes) {
-					this.stopPoll();
-				} else {
-					const refreshAt = getDateOffset(5000).valueOf();
-					this.$emit("autoRefreshAt", refreshAt);
-				}
+			this.statusStore.startRepeatingTask(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
+				return stopStates.includes(this.selectedInstanceData.state)
+			});
 
-				refreshesDone++;
-			}, 6000);
+			this.statusStore.subscribeToTaskEnd(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
+				this.showStateChangeButtons = true;
+			});
 		},
-
-		checkForPollStop() {
-			if (this.statusPollStopStates.includes(this.selectedInstanceData.state)) {
-				this.stopPoll();
-			}
-		},
-
-		stopPoll() {
-			this.statusPollStopStates = [];
-			this.showStateChangeButtons = true;
-			clearInterval(this.statusPollInterval);
-			this.$emit("autoRefreshAt", null);
-		}
-	},
-	watch: {
-		"selectedInstanceData.state": function () {
-			this.checkForPollStop();
-		}
 	}
 }
 </script>

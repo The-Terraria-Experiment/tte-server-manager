@@ -96,6 +96,8 @@
 <script>
 import screen from '../../../../mixins/screen';
 import { useServerStore } from '../../../../stores/serverStore';
+import { TASK_IDS } from '../../../../stores/statusStore';
+import { useStatusStore } from '../../../../stores/statusStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { formatFileSize, plural } from '../../../../util/format';
@@ -117,6 +119,7 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
+			statusStore: useStatusStore(),
 			selectWorld: {
 				selectedWorld: null,
 				port: 7777,
@@ -233,31 +236,8 @@ export default {
 		},
 
 		pollInstanceState() {
-			const maxRefreshes = 3;
-			let refreshesDone = 1;
-
-			const refreshAt = getDateOffset(5000).valueOf();
-			this.$emit("autoRefreshAt", refreshAt);
-
-			this.statusPollInterval = setInterval(() => {
-				if (refreshesDone >= maxRefreshes) {
-					this.stopPoll();
-				} else {
-					const refreshAt = getDateOffset(5000).valueOf();
-					this.$emit("autoRefreshAt", refreshAt);
-				}
-
-				refreshesDone++;
-			}, 6000);
-		},
-
-		stopPoll() {
-			clearInterval(this.statusPollInterval);
-			this.$emit("autoRefreshAt", null);
+			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => this.selectedServerData.state);
 		}
-	},
-	beforeUnmount() {
-		this.stopPoll();
 	}
 }
 </script>
