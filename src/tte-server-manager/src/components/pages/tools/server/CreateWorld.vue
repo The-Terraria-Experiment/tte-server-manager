@@ -317,7 +317,7 @@ export default {
 					setTimeout(() => this.closeWorldCreatePopup(), 1200);
 				}, 7000);
 			} else {
-				this.$alert.error(data.error || data.message || "World creation failed");
+				this.$alert.error("World creation failed");
 				this.closeWorldCreatePopup();
 			}
 		}
