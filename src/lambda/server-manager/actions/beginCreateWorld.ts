@@ -116,6 +116,13 @@ const waitForWorldFileReady = async (filePath: string, instanceID: string) => {
 };
 
 export const beginCreateWorld = async (params: NewWorldRequestData) => {
+	CWLogger.CAction(3, FUNC_NAMES.SERV_MGR, {
+		userId: params.requestedBy,
+		action: "create-world",
+		status: "begin",
+		details: {}
+	});
+
 	const worldsBucket = process.env.S3_FILESTORE_NAME;
 	const tshockPath = process.env.TSHOCK_PATH;
 	Assert.IsTruthyString(worldsBucket, "Worlds S3 bucket not configured (S3_FILESTORE_NAME env var missing)");
@@ -134,6 +141,13 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 
 	const fsRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	Assert.IsTruthyString(fsRoot, "Filesystem root not configured (BASE_ROOT env var missing)");
+
+	CWLogger.CAction(4, FUNC_NAMES.SERV_MGR, {
+		userId: params.requestedBy,
+		action: "create-world",
+		status: "initial-data-collected",
+		details: {}
+	});
 
 	const worldFolderNormalized = path.posix.normalize(`${fsRoot}/${params.params.worldFolderPath}`);
 	const worldFilePath = path.posix.join(worldFolderNormalized, `${params.params.worldName}.wld`);

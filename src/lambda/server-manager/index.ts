@@ -175,16 +175,6 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 	try {
 		creationResult = beginCreateWorld(event);
 	} catch (e: any) {
-		const DB = new DynamoDao();
-		const errorUpdate: SystemWorldCreateEntry = {
-			status: "failed",
-			step: "failed",
-			updatedAt: new Date().toISOString(),
-		};
-		await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${event.instanceID}`, {
-			updates: errorUpdate
-		});
-
 		CWLogger.Error(FUNC_NAMES.SERV_MGR, {
 			userId: event.requestedBy,
 			action: "create-world",
@@ -193,6 +183,16 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 			details: {
 				event
 			}
+		});
+		
+		const DB = new DynamoDao();
+		const errorUpdate: SystemWorldCreateEntry = {
+			status: "failed",
+			step: "failed",
+			updatedAt: new Date().toISOString(),
+		};
+		await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${event.instanceID}`, {
+			updates: errorUpdate
 		});
 
 		return ResponseUtil.Error(e?.message ?? "unknown error");
