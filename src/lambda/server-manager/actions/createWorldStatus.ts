@@ -21,7 +21,7 @@ export const getWorldgenStatus = async (event: AuthorizedEvent, context: Context
 
 	const DB = new DynamoDao();
 
-	const jobStatus = DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${instanceID}`) as SystemWorldCreateEntry;
+	const jobStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${instanceID}`) as SystemWorldCreateEntry;
 
 	if (!jobStatus) {
 		return ResponseUtil.Success({
