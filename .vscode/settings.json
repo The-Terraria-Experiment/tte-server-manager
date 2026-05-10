@@ -5,6 +5,7 @@
 		"/^node src/lambda/build\\.js$/": {
 			"approve": true,
 			"matchCommandLine": true
-		}
+		},
+		"npm run build": true
 	}
 }
