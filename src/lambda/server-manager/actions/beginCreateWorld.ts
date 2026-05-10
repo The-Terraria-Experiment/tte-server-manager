@@ -236,6 +236,10 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		}
 	});
 
+	// Give time for the front-end to pick up the "completed entry" 
+	// (currently polls every 5s, so a little more than 2 poll cycles should be enough)
+	await new Delay(12000);
+
 	const success = await DB.DeleteItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`);
 	if (!success) {
 		return ResponseUtil.Error("Clean-up failed");

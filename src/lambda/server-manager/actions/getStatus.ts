@@ -9,6 +9,9 @@ import { Parsers } from "../shared/utils/Parsers.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Assert } from "../shared/utils/Assert.js";
+import { DynamoDao } from "../shared/aws/DynamoDB.js";
+import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
+import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 
 export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 	void context;
@@ -23,11 +26,18 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 
 	try {
 		const ec2 = new Ec2Dao();
+		const DB = new DynamoDao();
 		const instance = await ec2.GetInstanceStatus(serverId);
 		const ip = instance.publicIp;
 
 		if (!ip || ip === "PENDING") {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
+		}
+
+		const createWorldStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${serverId}`) as SystemWorldCreateEntry;
+
+		if (createWorldStatus) {
+			return ResponseUtil.Success({ server: false, players: null, instance });
 		}
 
 		if (instance.state !== InstanceState.RUNNING) {

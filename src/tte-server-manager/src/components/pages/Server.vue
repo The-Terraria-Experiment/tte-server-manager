@@ -220,7 +220,6 @@ export default {
 		}
 
 		this.statusStore.subscribeToTask(TASK_IDS.SERVER_STATUS_CHECK, this.fetchServerStatus);
-		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.refresh);
 	},
 	watch: {
 		selectedInstance(value) {

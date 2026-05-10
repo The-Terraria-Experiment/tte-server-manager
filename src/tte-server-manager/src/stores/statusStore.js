@@ -17,13 +17,14 @@ export const useStatusStore = defineStore("statusStore", {
 
 			let iterations = 0;
 			this.intervals[taskID] = setInterval(() => {
+				if (stopCondition() || iterations >= maxRepeats) {
+					this.cancelRepeatingTask(taskID);
+					return;
+				}
+
 				(this.subscriptions[taskID] || []).forEach(h => h.handler());
 
 				iterations++;
-
-				if (stopCondition() || iterations >= maxRepeats) {
-					this.cancelRepeatingTask(taskID);
-				}
 			}, interval);
 		},
 		cancelRepeatingTask(taskID) {

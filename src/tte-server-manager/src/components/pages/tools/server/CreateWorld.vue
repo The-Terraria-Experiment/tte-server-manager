@@ -12,7 +12,20 @@
 			<template #summary>
 				<p class="text-2xl text-teal-4">{{ mainText }}</p>
 			</template>
-			<template #content v-if="!worldCreationInProgress">
+			<template #content v-if="worldCreationInProgress && !worldCreatePopupOpen">
+				<div class="p-5 flex flex-col justify-between h-full">
+					<div>
+						<div class="flex items-center justify-center mb-4">
+							<Spinner class="h-5 w-5 text-teal-4" />
+							<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
+						</div>
+						<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
+						<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
+						<p>Initiated by: {{ lastWorldCreateStatus.requestedBy }}</p>
+					</div>
+				</div>
+			</template>
+			<template #content v-else>
 				<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
 				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3 gap-4 mx-4">
 					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
@@ -92,18 +105,6 @@
 					</div>
 				</div>
 			</template>
-			<template #content v-else>
-				<div class="p-5 flex flex-col justify-between h-full">
-				<div>
-					<div class="flex items-center justify-center mb-4">
-						<Spinner class="h-5 w-5 text-teal-4" />
-						<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
-					</div>
-					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
-					<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
-				</div>
-			</div>
-			</template>
 		</StatusTile>
 		<Popup
 			:open="worldCreatePopupOpen"
@@ -129,11 +130,32 @@
 import { useServerStore } from '../../../../stores/serverStore';
 import { TASK_IDS, useStatusStore } from '../../../../stores/statusStore';
 import { get, post } from '../../../../util/api';
+import delay from '../../../../util/delay';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Dropdown from "../../../common/Dropdown.vue";
 import Popup from "../../../common/Popup.vue";
 
+const defaultNewWorldData = () => ({
+	size: 1,
+	difficulty: 3,
+	evil: 1,
+	name: "",
+	seed: "fortheworthy",
+	maxPlayers: 16,
+	port: 7777,
+	worldFileLocation: null
+});
+
+const defaultLastWorldCreateStatus = () => ({
+	requestedBy: null,
+	status: "",
+	step: "",
+	progress: -1,
+	createdAt: null,
+	updatedAt: null,
+	jobID: null
+});
 
 export default {
 	mixins: [],
@@ -150,16 +172,7 @@ export default {
 			BTN_VARIANT,
 			serverStore: useServerStore(),
 			statusStore: useStatusStore(),
-			newWorldData: {
-				size: 1,
-				difficulty: 3,
-				evil: 1,
-				name: "",
-				seed: "fortheworthy",
-				maxPlayers: 16,
-				port: 7777,
-				worldFileLocation: null
-			},
+			newWorldData: defaultNewWorldData(),
 			worldSizeDropdownOptions: [
 				{ id: 1, text: "Small" },
 				{ id: 2, text: "Medium" },
@@ -177,15 +190,7 @@ export default {
 				{ id: 3, text: "Master" },
 			],
 			worldCreatePopupOpen: false,
-			lastWorldCreateStatus: {
-				requestedBy: null,
-				status: "",
-				step: "",
-				progress: -1,
-				createdAt: null,
-				updatedAt: null,
-				jobID: null
-			},
+			lastWorldCreateStatus: defaultLastWorldCreateStatus(),
 		}
 	},
 	computed: {
@@ -223,7 +228,6 @@ export default {
 	methods: {
 		openWorldCreatePopup() {
 			this.worldCreatePopupOpen = true;
-			this.worldCreateProgress = 0;
 			this.worldCreateStatus = "queued";
 		},
 		closeWorldCreatePopup() {
@@ -236,7 +240,11 @@ export default {
 			}
 
 			try {
-				this.lastWorldCreateStatus = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+				const statusResult = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+
+				if (statusResult && statusResult.found !== false) {
+					this.lastWorldCreateStatus = statusResult;
+				}
 			} catch (error) {
 				this.statusStore.cancelRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK);
 				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
@@ -246,7 +254,7 @@ export default {
 			}
 		},
 		startWorldCreatePolling() {
-			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => ["failed", "completed"].includes(this.lastWorldCreateStatus.status));
+			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => ["failed", "completed"].includes(this.lastWorldCreateStatus.status), 5000, 60);
 		},
 		async createWorld() {
 			this.$validatePermissions(PERMISSIONS.server.world.create);
@@ -305,17 +313,20 @@ export default {
 				this.startWorldCreatePolling();
 			}
 		},
-		handleCreationFinished() {
+		async handleCreationFinished() {
 			if (this.lastWorldCreateStatus.status === "completed") {
-				this.$alert.success("World created and saved successfully");
-				setTimeout(() => {
-					setTimeout(() => this.$emit("refresh"), 500);
-					setTimeout(() => this.closeWorldCreatePopup(), 1200);
-				}, 7000);
+				this.newWorldData = defaultNewWorldData();
+				this.$alert.success("World created, saved, and launched successfully");
+				await delay(7000);
+				this.$emit("refresh");
+				await delay(1200);
+				this.closeWorldCreatePopup();
 			} else {
 				this.$alert.error("World creation failed");
 				this.closeWorldCreatePopup();
 			}
+
+			this.lastWorldCreateStatus = defaultLastWorldCreateStatus();
 		}
 	},
 	mounted() {

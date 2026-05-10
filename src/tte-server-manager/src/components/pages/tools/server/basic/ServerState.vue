@@ -4,7 +4,7 @@
 			:class="['grow mt-4 sm:mt-8 sm:mx-1 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			:collapsible="selectedServerData.state"
 			:perm-required="PERMISSIONS.server.status.read"
-			:loading="statusLoading"
+			:loading="statusLoading || statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)"
 		>
 			<template #header>
 				<Icon icon="power" color="text-gray-6" size="4" />
@@ -69,6 +69,7 @@ export default {
 		return {
 			PERMISSIONS,
 			BTN_VARIANT,
+			TASK_IDS,
 			serverStore: useServerStore(),
 			statusStore: useStatusStore(),
 			confirmStopPopupOpen: false,
