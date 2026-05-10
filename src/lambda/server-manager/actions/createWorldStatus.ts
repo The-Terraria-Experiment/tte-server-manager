@@ -24,10 +24,13 @@ export const getWorldgenStatus = async (event: AuthorizedEvent, context: Context
 	const jobStatus = DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${instanceID}`) as SystemWorldCreateEntry;
 
 	if (!jobStatus) {
-		return ResponseUtil.NotFoundError("World Creation Job");
+		return ResponseUtil.Success({
+			instanceID,
+			found: false,
+		});
 	}
 
-	if (jobStatus.instanceID !== instanceID) {
+	if (jobStatus.instanceID && (jobStatus.instanceID !== instanceID)) {
 		return ResponseUtil.ValidationError("Job owner mismatch");
 	}
 
