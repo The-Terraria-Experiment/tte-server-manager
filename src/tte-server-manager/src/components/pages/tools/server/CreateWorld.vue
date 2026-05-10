@@ -100,7 +100,7 @@
 						<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
 					</div>
 					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
-					<p class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
+					<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
 				</div>
 			</div>
 			</template>
@@ -118,7 +118,7 @@
 						<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
 					</div>
 					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
-					<p class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
+					<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
 				</div>
 			</div>
 		</Popup>
