@@ -190,12 +190,8 @@ export default {
 	},
 	computed: {
 		worldFileLocationOptions() {
-			const fileRoots = this.serverStore.instanceFileRoots[this.selectedInstance] || {};
 			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
-			const worldRoots = worldPathNicknames
-				.filter(pname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${pname}`))
-				.map(nickname => fileRoots[nickname])
-				.filter((path) => !!path);
+			const worldRoots = worldPathNicknames.filter(pname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${pname}`));
 			return worldRoots.map(r => ({ id: r, text: r }));
 		},
 		worldCreateStageLabel() {

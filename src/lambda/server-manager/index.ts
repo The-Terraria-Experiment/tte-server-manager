@@ -203,15 +203,14 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 }
 
 const h = async (event: AuthorizedEvent | NewWorldRequestData, context: Context): Promise<APIGatewayProxyResult> => {
-	let result: Promise<APIGatewayProxyResult>;
+	let result: APIGatewayProxyResult;
 	
 	if ("requestType" in event && event.requestType === "new-world-request") {
-		result = hWorker(event as NewWorldRequestData, context);
+		result = await hWorker(event as NewWorldRequestData, context);
 	} else {
-		result = hNormal(event as AuthorizedEvent, context);
+		result = await hNormal(event as AuthorizedEvent, context);
 	}
 
-	await result;
 	await CWLogger.FlushAll();
 
 	return result;
