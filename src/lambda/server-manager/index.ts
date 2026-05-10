@@ -169,11 +169,12 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 		userId: event.requestedBy,
 		action: "invoke-worker",
 		resource: null,
+		details: { context, event }
 	});
 
 	let creationResult;
 	try {
-		creationResult = beginCreateWorld(event);
+		creationResult = await beginCreateWorld(event);
 	} catch (e: any) {
 		CWLogger.Error(FUNC_NAMES.SERV_MGR, {
 			userId: event.requestedBy,
