@@ -210,6 +210,7 @@ export default {
 			if (this.lastWorldCreateStatus.step === "starting-tshock") return "Starting TShock";
 			if (this.lastWorldCreateStatus.step === "waiting-for-world-file") return "Generating world file";
 			if (this.lastWorldCreateStatus.step === "uploading-world-file") return "Uploading world file";
+			if (this.lastWorldCreateStatus.step === "completed") return "Launching world";
 			return "World creation started";
 		},
 		worldCreationInProgress() {
@@ -326,10 +327,11 @@ export default {
 				this.closeWorldCreatePopup();
 			}
 
+			this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 			this.lastWorldCreateStatus = defaultLastWorldCreateStatus();
 		}
 	},
-	mounted() {
+	created() {
 		this.fetchWorldCreationStatus();
 		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.pollWorldCreateStatus);
 		this.statusStore.subscribeToTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, this.handleCreationFinished);
