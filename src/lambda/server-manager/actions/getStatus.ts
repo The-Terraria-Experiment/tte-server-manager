@@ -26,7 +26,6 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 
 	try {
 		const ec2 = new Ec2Dao();
-		const DB = new DynamoDao();
 		const instance = await ec2.GetInstanceStatus(serverId);
 		const ip = instance.publicIp;
 
@@ -34,13 +33,14 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
+		if (instance.state !== InstanceState.RUNNING) {
+			return ResponseUtil.Success({ server: { status: false }, instance });
+		}
+
+		const DB = new DynamoDao();
 		const createWorldStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${serverId}`) as SystemWorldCreateEntry;
 
 		if (createWorldStatus) {
-			return ResponseUtil.Success({ server: false, players: null, instance });
-		}
-
-		if (instance.state !== InstanceState.RUNNING) {
 			return ResponseUtil.Success({ server: { status: false }, instance });
 		}
 
