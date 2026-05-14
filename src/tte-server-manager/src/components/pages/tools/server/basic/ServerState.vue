@@ -83,7 +83,7 @@ export default {
 			return this.serverStore.selectedInstanceID;
 		},
 		currentServerState() {
-			return this.serverStore.worldStatusData[this.selectedInstance];
+			return this.serverStore.worldStatusData[this.selectedInstance] ?? WORLD_STATES.UNKNOWN;
 		}
 	},
 	methods: {
