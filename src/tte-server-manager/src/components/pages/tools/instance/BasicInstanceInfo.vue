@@ -192,7 +192,7 @@ export default {
 				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstanceData.id).text;
 				const response = await post(`/instance/${this.selectedInstanceData.id}/stop`, PERMISSIONS.instance.status.stop);
 				await delay(2000);
-				this.$alert.info(`Initiated shutdown of instance '${instanceName}'`);
+				this.$alert.success(`Initiated shutdown of instance '${instanceName}'`);
 				this.pollInstanceState([INSTANCE_STATES.ONLINE, INSTANCE_STATES.OFFLINE]);
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
