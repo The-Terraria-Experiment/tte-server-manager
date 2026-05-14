@@ -254,7 +254,8 @@ export default {
 				console.error(error);
 			}
 		},
-		startWorldCreatePolling() {
+		startWorldCreatePolling(firstStatus) {
+			this.lastWorldCreateStatus = firstStatus;
 			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => ["failed", "completed"].includes(this.lastWorldCreateStatus.status), 5000, 60);
 		},
 		async createWorld() {
@@ -295,7 +296,7 @@ export default {
 				});
 
 				this.openWorldCreatePopup();
-				this.startWorldCreatePolling();
+				this.startWorldCreatePolling(defaultLastWorldCreateStatus());
 			} catch (e) {
 				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 				if (e.message.includes("Instances not in a valid state")) {
@@ -304,14 +305,6 @@ export default {
 					this.$alert.error("Error creating world");
 					console.error(e);
 				}
-			}
-		},
-		async fetchWorldCreationStatus() {
-			const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
-
-			if (status && status.found !== false) {
-				this.lastWorldCreateStatus = status;
-				this.startWorldCreatePolling();
 			}
 		},
 		async handleCreationFinished() {
@@ -336,7 +329,6 @@ export default {
 		}
 	},
 	created() {
-		this.fetchWorldCreationStatus();
 		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.pollWorldCreateStatus);
 		this.statusStore.subscribeToTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, this.handleCreationFinished);
 	},

@@ -12,7 +12,7 @@
 		<template #summary>
 			<p class="text-2xl text-teal-4">{{ instanceWorldFiles.length }} world{{ plural(instanceWorldFiles.length) }} available</p>
 		</template>
-		<template #content>
+		<template #content v-if="serverIsAvailable">
 			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
 			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
 				<div :class="['grid px-2 py-2 overflow-x-auto', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
@@ -90,6 +90,9 @@
 				</div>
 			</div>
 		</template>
+		<template #content v-else>
+			<p class="font-main font-bold text-gray-7 px-5">WORLD CREATION IN PROGRESS, PLEASE WAIT</p>
+		</template>
 	</StatusTile>
 </template>
 
@@ -99,7 +102,7 @@ import { useServerStore } from '../../../../stores/serverStore';
 import { TASK_IDS } from '../../../../stores/statusStore';
 import { useStatusStore } from '../../../../stores/statusStore';
 import { post } from '../../../../util/api';
-import { BTN_VARIANT } from '../../../../util/constants';
+import { BTN_VARIANT, WORLD_STATES } from '../../../../util/constants';
 import { formatFileSize, plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import { getDateOffset } from '../../../../util/timeutils';
@@ -152,6 +155,9 @@ export default {
 		},
 		selectedServerData() {
 			return this.serverStore.selectedServerData;
+		},
+		serverIsAvailable() {
+			return this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
 		}
 	},
 	methods: {

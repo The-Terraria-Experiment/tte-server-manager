@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { get } from '../util/api';
 import { PERMISSIONS } from '../util/permissionValues';
-import { INSTANCE_STATES } from '../util/constants.js';
+import { INSTANCE_STATES, WORLD_STATES } from '../util/constants.js';
 
 export const useServerStore = defineStore("serverstore", {
 	state: () => ({
@@ -15,6 +15,7 @@ export const useServerStore = defineStore("serverstore", {
 		instanceFileRoots: {},
 		instanceWorldPaths: {},
 		serverStatusData: {},
+		worldStatusData: {}, // map of server IDs to WORLD_STATES enum
 		serverConfigs: {},
 		loading: {
 			list: false,
@@ -42,11 +43,22 @@ export const useServerStore = defineStore("serverstore", {
 			return state.loading.list || false;
 		},
 		selectedServerData: (state) => {
+			const data = state.serverStatusData[state.selected.instance];
 			return {
-				...(state.serverStatusData[state.selected.instance] || {}),
 				state: Boolean(state.serverStatusData[state.selected.instance]?.status),
-				players: state.serverStatusData[state.selected.instance]?.players,
-				world: state.serverStatusData[state.selected.instance]?.world,
+				worldStatus: state.worldStatusData[state.selected.instance] || WORLD_STATES.UNKNOWN,
+				status: data?.status, 					// string, http code
+				name: data?.name, 						// string, usually empty
+				serverversion: data?.serverversion,		// string, 4 part semantic version num, prefixed with 'v'
+				tshockversion: data?.tshockversion,		// string, 4 part semantic version num
+				port: data?.port,						// number
+				playercount: data?.playercount,			// number
+				maxplayers: data?.maxplayers,			// number
+				world: data?.world,						// string, world name
+				uptime: data?.uptime,					// string, "0.00:00:00"
+				serverpassword: data?.serverpassword,	// boolean, true if password is set
+				players: data?.players,					// array, player data
+				rules: data?.rules						// object, map of rules to usually bools, but some nums/strings
 			}
 		},
 		selectedInstanceData: (state) => {
@@ -113,6 +125,12 @@ export const useServerStore = defineStore("serverstore", {
 				const data = await get(`/server/${instanceId}/status`, PERMISSIONS.server.status.read);
 				this.serverStatusData[instanceId] = data.server;
 				this.instanceStatusData[instanceId] = data.instance;
+
+				if (data.server.status === "200") {
+					this.worldStatusData[instanceId] = WORLD_STATES.RUNNING;
+				} else {
+					this.worldStatusData[instanceId] = WORLD_STATES.OFFLINE;
+				}
 			} catch (error) {
 				console.error("Error fetching server status:", error);
 				throw error;

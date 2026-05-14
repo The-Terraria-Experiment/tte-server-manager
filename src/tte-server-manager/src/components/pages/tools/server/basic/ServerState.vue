@@ -11,9 +11,7 @@
 				<p class="text-gray-6 ml-2 text-lg">Server Status</p>
 			</template>
 			<template #summary>
-				<p class="text-2xl text-teal-4">
-					{{ selectedServerData.state ? 'RUNNING' : 'OFFLINE' }}
-				</p>
+				<p class="text-2xl text-teal-4"> {{ currentServerState }} </p>
 			</template>
 			<template #content>
 				<div v-if="selectedServerData.state">
@@ -51,7 +49,7 @@ import { useServerStore } from '../../../../../stores/serverStore';
 import { TASK_IDS } from '../../../../../stores/statusStore';
 import { useStatusStore } from '../../../../../stores/statusStore';
 import { post } from '../../../../../util/api';
-import { BTN_VARIANT } from '../../../../../util/constants';
+import { BTN_VARIANT, WORLD_STATES } from '../../../../../util/constants';
 import { PERMISSIONS } from '../../../../../util/permissionValues';
 import { getDateOffset } from '../../../../../util/timeutils';
 import Popup from '../../../../common/Popup.vue';
@@ -83,6 +81,9 @@ export default {
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
+		},
+		currentServerState() {
+			return this.serverStore.worldStatusData[this.selectedInstance];
 		}
 	},
 	methods: {
@@ -105,6 +106,7 @@ export default {
 				const response = await post(`/server/${this.selectedInstance}/stop`, PERMISSIONS.server.status.stop);
 
 				this.showStopButton = false;
+				this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.STOPPING;
 
 				this.statusStore.subscribeToTaskEnd(TASK_IDS.SERVER_STATUS_CHECK, () => {
 					this.showStopButton = true;

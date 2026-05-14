@@ -53,11 +53,12 @@
 	/>
 
 	<SelectWorld 
-		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.online"
+		v-if="selectWorldAllowed"
 	/>
 
 	<CreateWorld 
-		v-if="selectedInstance && !selectedServerData.state && selectedInstanceData?.online"
+		v-if="createWorldAllowed"
+		ref="createWorld"
 		@refresh="refresh"
 	/>
 
@@ -78,7 +79,7 @@
 
 <script>
 import { useServerStore } from '../../stores/serverStore';
-import { BTN_VARIANT } from '../../util/constants';
+import { BTN_VARIANT, WORLD_STATES } from '../../util/constants';
 import { PERMISSIONS } from '../../util/permissionValues';
 import Dropdown from '../common/Dropdown.vue';
 import RefreshButton from '../common/RefreshButton.vue';
@@ -86,7 +87,7 @@ import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import FlexButton from '../common/FlexButton.vue';
-import { post } from '../../util/api';
+import { get, post } from '../../util/api';
 import CreateWorld from './tools/server/CreateWorld.vue';
 import ManageBans from './tools/server/ManageBans.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
@@ -134,6 +135,12 @@ export default {
 		},
 		selectedInstanceData() {
 			return this.serverStore.selectedInstanceData;
+		},
+		selectWorldAllowed() {
+			return this.selectedInstance && !this.selectedServerData.state && this.selectedInstanceData?.online && this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
+		},
+		createWorldAllowed() {
+			return this.selectedInstance && !this.selectedServerData.state && this.selectedInstanceData?.online;
 		}
 	},
 	methods: {
@@ -196,6 +203,15 @@ export default {
 			}
 		},
 
+		async fetchWorldCreationStatus() {
+			const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+
+			if (status && status.found !== false) {
+				this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
+				this.$refs.createWorld.startWorldCreatePolling(status);
+			}
+		},
+
 		async dropTshockTokenCache() {
 			this.$validatePermissions(PERMISSIONS.system.dropcache);
 
@@ -208,14 +224,15 @@ export default {
 			}
 		}
 	},
-	async mounted() {
+	async created() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			await this.fetchInstanceList();
 			if (this.$checkPermissions(PERMISSIONS.instance.files.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
 			if (this.$checkPermissions(PERMISSIONS.server.status.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
-				this.fetchServerStatus();
+				await this.fetchServerStatus();
+				this.fetchWorldCreationStatus();
 			}
 		}
 
@@ -224,7 +241,11 @@ export default {
 	watch: {
 		selectedInstance(value) {
 			if (this.$checkResourceAccess(`server::${value}`)) {
-				this.fetchServerStatus();
+				const doFetches = async () => {
+					await this.fetchServerStatus();
+					this.fetchWorldCreationStatus();
+				};
+				doFetches();
 			}
 			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkPermissions(PERMISSIONS.instance.files.read)) {
 				this.fetchInstanceFiles(this.selectedInstance);
