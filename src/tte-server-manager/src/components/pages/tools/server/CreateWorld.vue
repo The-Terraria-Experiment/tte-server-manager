@@ -21,7 +21,7 @@
 						</div>
 						<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
 						<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
-						<p>Initiated by: {{ lastWorldCreateStatus.requestedBy }}</p>
+						<p class="font-mono text-gray-8 text-xs mt-3 text-center">Initiated by: {{ lastWorldCreateStatus.requestedBy || "(?)" }}</p>
 					</div>
 				</div>
 			</template>
@@ -317,7 +317,11 @@ export default {
 		async handleCreationFinished() {
 			if (this.lastWorldCreateStatus.status === "completed") {
 				this.newWorldData = defaultNewWorldData();
-				this.$alert.success("World created, saved, and launched successfully");
+				if (this.worldCreatePopupOpen) {
+					this.$alert.success("World created, saved, and launched successfully");
+				} else {
+					this.$alert.info("World creation completed");
+				}
 				await delay(7000);
 				this.$emit("refresh");
 				await delay(1200);

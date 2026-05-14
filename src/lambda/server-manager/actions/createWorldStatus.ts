@@ -42,6 +42,7 @@ export const getWorldgenStatus = async (event: AuthorizedEvent, context: Context
 		progress: jobStatus.progress || 0,
 		createdAt: jobStatus.createdAt || null,
 		updatedAt: jobStatus.updatedAt || null,
+		requestedBy: jobStatus.requestedBy || null,
 		isDone: ["completed", "failed"].includes(jobStatus.status || "")
 	});
 };

@@ -4,13 +4,14 @@ import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
-import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
+import { PERM_TABLE, SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { LambdaDao } from "../shared/aws/Lambda.js";
 import type { NewWorldRequestData } from "../index.js";
 import { Assert } from "../shared/utils/Assert.js";
 import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
+import type { UserDataEntry } from "../../_shared/shared/schema/UserTable.js";
 
 const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	const { worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName } = body;
@@ -87,6 +88,10 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 
 	const DB = new DynamoDao();
 
+	const requestedByData = (await DB.GetItem(PERM_TABLE, `user#${requestedBy}`)) as UserDataEntry;
+	Assert.IsTruthy(requestedByData, "Could not find requesting user data");
+	const requestedByName = requestedByData.displayName;
+
 	// Block new creation requests while there is currently a world being created
 	const creationInProgress = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${instanceID}`);
 	if (creationInProgress) {
@@ -96,7 +101,7 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 	const creationData: SystemWorldCreateEntry = {
 		uid: `${WORLD_CREATE_KEY}#${instanceID}`,
 		instanceID,
-		requestedBy: requestedBy!,
+		requestedBy: requestedByName || "unknown",
 		status: "queued",
 		step: "queued",
 		progress: 0,
