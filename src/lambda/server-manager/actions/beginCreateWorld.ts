@@ -11,6 +11,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Delay } from "../shared/utils/Delay.js";
 import { S3Dao } from "../shared/aws/S3.js";
+import { TShockAPI } from "../utils/TShockAPI.js";
 
 const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFilePath: string): string => {
 	// Validate and quote paths to handle spaces safely
@@ -197,6 +198,9 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
 		updates: creationUpdate3
 	});
+
+	// Clear out stale tokens
+	TShockAPI.DropTokenCache();
 
 	CWLogger.CAction(3, FUNC_NAMES.SERV_MGR, {
 		userId: params.requestedBy,
