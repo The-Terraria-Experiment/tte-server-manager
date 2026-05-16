@@ -109,8 +109,8 @@ export const getInstanceFiles = async (event: AuthorizedEvent, context: Context)
 	const rootPathB64 = Buffer.from(fullPath, "utf8").toString("base64");
 	const commandOutput = await SSM.ExecuteDocumentGetResult(instanceId, documentName, {
 		RootPathB64: [rootPathB64],
-		IgnoreDirNames: ignoreList.length > 0 ? ignoreList : [""],
-		AcceptExtensions: acceptList.length > 0 ? acceptList : [""],
+		IgnoreDirNames: [ignoreList.join(",")],
+		AcceptExtensions: [acceptList.join(",")],
 	});
 	const output = (commandOutput.stdout || "").trim();
 	if (!output) {
