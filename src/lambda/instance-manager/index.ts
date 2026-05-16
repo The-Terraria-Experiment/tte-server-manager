@@ -19,6 +19,7 @@ import { deleteFiles } from "./actions/deleteFiles.js";
 import { fileSync } from "./actions/fileSync.js";
 import { editPaths } from "./actions/editPaths.js";
 import { readFileRoots } from "./actions/readFileRoots.js";
+import { getInstanceFiles } from "./actions/getInstanceFiles.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
@@ -48,6 +49,10 @@ const endpoints: EndpointList = {
 	"GET /instance/{id}/files": {
 		action: readFiles,
 		permRequired: PERMISSIONS.instance.files.read,
+	},
+	"POST /instance/{id}/files/tree": {
+		action: getInstanceFiles,
+		permRequired: PERMISSIONS.server.config.read,
 	},
 	"POST /instance/{id}/files": {
 		action: uploadFiles,

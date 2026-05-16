@@ -40,6 +40,30 @@ export class SsmDao {
 		};
 	}
 
+	public async ExecuteDocument(
+		instanceId: string,
+		documentName: string,
+		parameters: Record<string, string[]>,
+	): Promise<{ commandId: string }> {
+		const command = new SendCommandCommand({
+			InstanceIds: [instanceId],
+			DocumentName: documentName,
+			Parameters: parameters,
+		});
+
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-execute-ssm-document",
+			resource: null,
+			details: { instanceId, documentName, parameters },
+		});
+
+		const response = await this.ssmClient.send(command);
+		return {
+			commandId: response.Command?.CommandId ?? "",
+		};
+	}
+
 	public async GetCommandResult(commandId: string, instanceId: string): Promise<SsmCommandResult> {
 		const command = new GetCommandInvocationCommand({
 			CommandId: commandId,
@@ -88,5 +112,21 @@ export class SsmDao {
 			...result,
 			commandID: commandId
 		}
+	}
+
+	public async ExecuteDocumentGetResult(
+		instanceID: string,
+		documentName: string,
+		parameters: Record<string, string[]>,
+		pollInterval: number = 1000,
+		maxPolls: number = 30,
+	): Promise<SsmCommandResult> {
+		const { commandId } = await this.ExecuteDocument(instanceID, documentName, parameters);
+		const result = await this.PollForCommandCompletion(commandId, instanceID, pollInterval, maxPolls);
+
+		return {
+			...result,
+			commandID: commandId,
+		};
 	}
 }
