@@ -11,6 +11,7 @@ import { Assert } from "../shared/utils/Assert.js";
 
 type GetInstanceFilesBody = {
 	rootName?: string;
+	accept?: string[];
 };
 
 type FileTreeNode = {
@@ -27,6 +28,22 @@ const SSM = new SsmDao();
 
 const isSafeNickname = (nickname: string): boolean => {
 	return typeof nickname === "string" && nickname.length > 0 && nickname.length <= 64 && /^[A-Za-z0-9_-]+$/.test(nickname);
+};
+
+const isSafeListValue = (value: string, maxLen: number): boolean => {
+	const trimmed = value.trim();
+	if (!trimmed || trimmed.length > maxLen) return false;
+	if (/[\\/\x00-\x1F]/.test(trimmed)) return false;
+	return true;
+};
+
+const normalizeList = (values: string[], maxLen: number, lowerCase = false): string[] => {
+	const normalized = values
+		.map((value) => value.trim())
+		.filter((value) => isSafeListValue(value, maxLen))
+		.map((value) => (lowerCase ? value.toLowerCase() : value));
+
+	return Array.from(new Set(normalized));
 };
 
 export const getInstanceFiles = async (event: AuthorizedEvent, context: Context) => {
@@ -53,6 +70,20 @@ export const getInstanceFiles = async (event: AuthorizedEvent, context: Context)
 		return ResponseUtil.ValidationError("Invalid rootName");
 	}
 
+	let acceptList: string[] = [];
+	if (body.accept !== undefined) {
+		if (!Array.isArray(body.accept)) {
+			return ResponseUtil.ValidationError("accept must be an array of strings");
+		}
+
+		const invalid = body.accept.filter((value) => typeof value !== "string" || !isSafeListValue(value, 32));
+		if (invalid.length > 0) {
+			return ResponseUtil.ValidationError("accept contains invalid values", { invalid });
+		}
+
+		acceptList = normalizeList(body.accept, 32, true);
+	}
+
 	const instanceData = await DB.GetItem(tableName, `inst#${instanceId}`);
 	const validRoots = (instanceData?.validRoots || {}) as Record<string, string>;
 	const rootPath = validRoots[rootName];
@@ -72,9 +103,14 @@ export const getInstanceFiles = async (event: AuthorizedEvent, context: Context)
 		return ResponseUtil.ValidationError("SSM_FILE_TREE_DOCUMENT environment variable is required");
 	}
 
+	const ignoreRaw = process.env.SSM_FILE_TREE_IGNORE_DIRS || "";
+	const ignoreList = normalizeList(ignoreRaw.split(","), 128, false);
+
 	const rootPathB64 = Buffer.from(fullPath, "utf8").toString("base64");
 	const commandOutput = await SSM.ExecuteDocumentGetResult(instanceId, documentName, {
 		RootPathB64: [rootPathB64],
+		IgnoreDirNames: ignoreList.length > 0 ? ignoreList : [""],
+		AcceptExtensions: acceptList.length > 0 ? acceptList : [""],
 	});
 	const output = (commandOutput.stdout || "").trim();
 	if (!output) {
@@ -104,6 +140,8 @@ export const getInstanceFiles = async (event: AuthorizedEvent, context: Context)
 			rootName,
 			rootPath,
 			fullPath,
+			ignoreDirs: ignoreList,
+			acceptExtensions: acceptList,
 			commandId: commandOutput.commandID,
 		},
 	});
