@@ -7,6 +7,7 @@ import { SsmDao } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
+import { Assert } from "../shared/utils/Assert.js";
 
 type GetInstanceFilesBody = {
 	rootName?: string;
@@ -61,12 +62,17 @@ export const getInstanceFiles = async (event: AuthorizedEvent, context: Context)
 
 	await Permissions.ValidateResourceAccess(event, `filepath::${instanceId}::${rootName}`);
 
+	const forcedRoot = process.env.BASE_ROOT;
+	Assert.IsTruthyString(forcedRoot, "Base Root env var not set");
+
+	const fullPath = forcedRoot + rootPath;
+
 	const documentName = process.env.SSM_FILE_TREE_DOCUMENT;
 	if (!documentName) {
 		return ResponseUtil.ValidationError("SSM_FILE_TREE_DOCUMENT environment variable is required");
 	}
 
-	const rootPathB64 = Buffer.from(rootPath, "utf8").toString("base64");
+	const rootPathB64 = Buffer.from(fullPath, "utf8").toString("base64");
 	const commandOutput = await SSM.ExecuteDocumentGetResult(instanceId, documentName, {
 		RootPathB64: [rootPathB64],
 	});
@@ -97,6 +103,7 @@ export const getInstanceFiles = async (event: AuthorizedEvent, context: Context)
 			instanceId,
 			rootName,
 			rootPath,
+			fullPath,
 			commandId: commandOutput.commandID,
 		},
 	});
