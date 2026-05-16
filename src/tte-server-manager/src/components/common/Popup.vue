@@ -65,7 +65,7 @@ export default {
 		},
 		bodyClass: {
 			type: String,
-			default: "w-1/2 h-1/2"
+			default: "w-11/12 sm:w-1/2 h-1/2"
 		},
 		headerText: {
 			type: String,

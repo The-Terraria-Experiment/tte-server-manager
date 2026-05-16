@@ -4,8 +4,9 @@
 			<div class="ml-6">
 				<div class="flex items-center mt-1 reveal-delete-icon">
 					<Icon icon="folder" size="4" color="text-white-0" />
-					<p class="font-mono ml-2 text-white-0">{{ key }}</p>
-					<Icon 
+					<p :class="['font-mono ml-2 text-white-0']">{{ key }}</p>
+					<Icon
+						v-if="editable"
 						icon="xmark" 
 						size="4" 
 						color="text-red-5" 
@@ -16,20 +17,23 @@
 				</div>
 				
 				<FileHierarchy 
+					:editable="editable"
 					:__isRoot="false"
 					:files="[]"
 					:__path="__path.concat(key)"
 					:__structure="builtStructure || __structure"
 					@deleteClicked="emitDeleteClicked"
 					@addClicked="emitAddClicked"
+					@picked="emitPicked"
 				/>
 			</div>
 		</template>
 		<template v-for="file in levelFiles">
 			<div class="ml-6 flex items-center mt-1 reveal-delete-icon">
 				<Icon icon="file-solid" size="4" color="text-white-0" />
-				<p class="font-mono ml-2 text-white-0">{{ file }}</p>
+				<p :class="['font-mono ml-2 text-white-0', {'cursor-pointer hover:text-white-1': !editable}]" @click="emitPicked(this.__path)">{{ file }}</p>
 				<Icon 
+					v-if="editable"
 					icon="xmark" 
 					size="4" 
 					color="text-red-5" 
@@ -39,7 +43,7 @@
 				/>
 			</div>
 		</template>
-		<div class="flex items-center ml-5 mt-1 cursor-pointer bg-gray-4 hover:bg-gray-3 rounded w-max p-1" @click="emitAddClicked(this.__path)">
+		<div v-if="editable" class="flex items-center ml-5 mt-1 cursor-pointer bg-gray-4 hover:bg-gray-3 rounded w-max p-1" @click="emitAddClicked(this.__path)">
 			<Icon icon="plus" size="4" color="text-white-0" />
 			<p class="ml-2 font-main font-semibold text-sm text-white-0">ADD</p>
 		</div>
@@ -60,6 +64,10 @@ export default {
 		files: {
 			type: Array,
 			required: true
+		},
+		editable: {
+			type: Boolean,
+			default: true
 		},
 		__isRoot: {
 			type: Boolean,
@@ -127,6 +135,9 @@ export default {
 		emitDeleteClicked(data) {
 			this.$emit('deleteClicked', data);
 		},
+		emitPicked(path) {
+			this.$emit("picked", path);
+		}
 	},
 	created() {
 		if (this.__isRoot) {

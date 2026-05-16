@@ -13,7 +13,7 @@
 			<p class="text-2xl text-teal-4">{{ summaryText }}</p>
 		</template>
 		<template #content>
-			<div class="p-4">
+			<div class="px-4 pb-4">
 				<div class="flex gap-4">
 					<!-- Currently I don't think S3 pricing is expensive enough to need this, but it's here if we want to limit the bucket reads a bit -->
 					<!-- <FlexButton
@@ -62,7 +62,6 @@
 					</div>
 
 					<FlexButton
-						v-if="selectedServerData.state"
 						:variant="BTN_VARIANT.SECONDARY"
 						leftIcon="edit"
 						leftIconSize="5"
