@@ -1,5 +1,5 @@
 <template>
-	<div>
+	<div class="overflow-x-auto">
 		<template v-for="(entry, key) in levelFolders">
 			<div class="ml-6">
 				<div class="flex items-center mt-1 reveal-delete-icon">
