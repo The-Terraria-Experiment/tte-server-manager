@@ -92,6 +92,7 @@
 			:root="searchRoot ?? null"
 			@picked="filePicked"
 			@close="pickerOpen = false"
+			:disallow="disallowPickerFiles"
 		/>
 	</div>
 </template>
@@ -132,6 +133,7 @@ export default {
 			selectedRelativePath: null,
 			fileContent: "",
 			editorOpen: false,
+			disallowPickerFiles: new Set(["/tshock/config.json"]),
 		}
 	},
 	computed: {

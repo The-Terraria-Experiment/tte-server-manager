@@ -66,6 +66,11 @@ export default {
 		root: {
 			type: [String, null],
 			required: true
+		},
+		disallow: {
+			type: Set,
+			required: false,
+			default: () => new Set
 		}
 	},
 	data() {
@@ -88,7 +93,7 @@ export default {
 			const traverse = (level) => {
 				if (level.children) {
 					level.children.forEach(child => {
-						if (child.type === "file") {
+						if (child.type === "file" && !this.disallow.has(`${this.fileData.rootPath}/${child.path}`)) {
 							paths.push(child.path);
 						}
 
