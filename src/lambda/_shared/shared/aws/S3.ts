@@ -50,6 +50,24 @@ export class S3Dao {
 		await this.s3Client.send(command);
 	}
 
+	public async PutTextObject(bucketName: string, key: string, payload: string, contentType = "text/plain; charset=utf-8"): Promise<void> {
+		const command = new PutObjectCommand({
+			Bucket: bucketName,
+			Key: key,
+			Body: payload,
+			ContentType: contentType,
+		});
+
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-put-text-object",
+			resource: null,
+			details: { bucketName, key, contentType },
+		});
+
+		await this.s3Client.send(command);
+	}
+
 	public async ListObjects(bucketName: string, prefix = ""): Promise<S3ObjectSummary[]> {
 		const command = new ListObjectsV2Command({
 			Bucket: bucketName,

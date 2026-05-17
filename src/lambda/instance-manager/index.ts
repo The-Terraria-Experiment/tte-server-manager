@@ -20,6 +20,8 @@ import { fileSync } from "./actions/fileSync.js";
 import { editPaths } from "./actions/editPaths.js";
 import { readFileRoots } from "./actions/readFileRoots.js";
 import { getInstanceFiles } from "./actions/getInstanceFiles.js";
+import { readFileContent } from "./actions/readFileContent.js";
+import { writeFileContent } from "./actions/writeFileContent.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
@@ -54,6 +56,10 @@ const endpoints: EndpointList = {
 		action: getInstanceFiles,
 		permRequired: PERMISSIONS.server.config.read,
 	},
+	"POST /instance/{id}/files/content": {
+		action: readFileContent,
+		permRequired: PERMISSIONS.server.config.read,
+	},
 	"POST /instance/{id}/files": {
 		action: uploadFiles,
 		permRequired: PERMISSIONS.instance.files.write,
@@ -61,6 +67,10 @@ const endpoints: EndpointList = {
 	"POST /instance/{id}/files/delete": {
 		action: deleteFiles,
 		permRequired: PERMISSIONS.instance.files.write,
+	},
+	"PUT /instance/{id}/files/content": {
+		action: writeFileContent,
+		permRequired: PERMISSIONS.server.config.write,
 	},
 	"PUT /instance/{id}/files": {
 		action: fileSync,
