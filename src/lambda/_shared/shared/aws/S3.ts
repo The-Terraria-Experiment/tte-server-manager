@@ -196,21 +196,220 @@ export class S3Dao {
 		bucketName: string,
 		key: string,
 	): Promise<{ commandId: string }> {
-		if (!instanceId || !filePath || !bucketName || !key) {
-			throw new Error("instanceId, filePath, bucketName, and key are required");
+		return this.SyncInstanceFilesToS3({
+			instanceId,
+			bucketName,
+			files: [{ localPath: filePath, destinationKey: key }],
+		});
+	}
+
+	/**
+	 * Executes SSM commands to sync multiple files from an instance to S3.
+	 */
+	public async SyncInstanceFilesToS3(params: {
+		instanceId: string;
+		bucketName: string;
+		files: Array<{ localPath: string; destinationKey: string }>;
+	}): Promise<{ commandId: string }> {
+		const { instanceId, bucketName, files } = params;
+
+		if (!instanceId) {
+			throw new Error("instanceId is required");
+		}
+		if (!bucketName) {
+			throw new Error("bucketName is required");
+		}
+		if (!files || files.length === 0) {
+			throw new Error("files is required");
 		}
 
-		const escapedFilePath = filePath.replace(/"/g, "\\\"");
-		const s3Uri = `s3://${bucketName}/${key}`;
-		const command = `runuser -u ubuntu -- /bin/bash -lc "aws s3 cp \"${escapedFilePath}\" \"${s3Uri}\" --only-show-errors"`;
+		const escapedBucket = bucketName.replace(/"/g, "\\\"");
+		const commands: string[] = [
+			"#!/bin/bash",
+			"set -e",
+			"",
+			`echo \"Starting S3 upload (${files.length} file(s))\"`,
+			"",
+		];
+
+		for (const file of files) {
+			if (!file.localPath || !file.destinationKey) {
+				throw new Error("Each file requires localPath and destinationKey");
+			}
+
+			const escapedLocalPath = file.localPath.replace(/"/g, "\\\"");
+			const trimmedKey = file.destinationKey.replace(/^\/+/, "");
+			const escapedKey = trimmedKey.replace(/"/g, "\\\"");
+			const s3Uri = `s3://${escapedBucket}/${escapedKey}`;
+
+			commands.push(`if [ -f \"${escapedLocalPath}\" ]; then`);
+			commands.push(
+				`  runuser -u ubuntu -- /bin/bash -lc "aws s3 cp \\\"${escapedLocalPath}\\\" \\\"${s3Uri}\\\" --only-show-errors"`,
+			);
+			commands.push(`  echo \"Uploaded: ${escapedKey}\"`);
+			commands.push("else");
+			commands.push(`  echo \"Missing local file, skipping: ${escapedLocalPath}\"`);
+			commands.push("fi");
+			commands.push("");
+		}
+
+		commands.push("echo \"Completed S3 upload\"");
 
 		await CWLogger.CAction(2, CW_LOG_GENERAL, {
 			userId: null,
-			action: "shared-aws-sync-instance-file-to-s3",
+			action: "shared-aws-sync-instance-files-to-s3",
 			resource: null,
-			details: { instanceId, filePath, bucketName, key },
+			details: { instanceId, bucketName, fileCount: files.length },
 		});
 
-		return this.ssmDao.ExecuteCommand(instanceId, [command]);
+		return this.ssmDao.ExecuteCommand(instanceId, commands);
+	}
+
+	/**
+	 * Executes SSM commands to sync a file or folder from an instance to S3.
+	 * For folders, destinationKey is treated as a prefix.
+	 */
+	public async SyncInstanceToS3(params: {
+		instanceId: string;
+		localPath: string;
+		bucketName: string;
+		destinationKey?: string;
+		isFolder?: boolean;
+	}): Promise<{ commandId: string }> {
+		const { instanceId, localPath, bucketName, destinationKey } = params;
+		const isFolder = params.isFolder ?? false;
+
+		if (!instanceId) {
+			throw new Error("instanceId is required");
+		}
+		if (!localPath) {
+			throw new Error("localPath is required");
+		}
+		if (!bucketName) {
+			throw new Error("bucketName is required");
+		}
+		if (!destinationKey && !isFolder) {
+			throw new Error("destinationKey is required for file sync");
+		}
+
+		const trimmedKey = (destinationKey ?? "").replace(/^\/+/, "");
+		const normalizedKey = isFolder && trimmedKey && !trimmedKey.endsWith("/") ? `${trimmedKey}/` : trimmedKey;
+		const escapedBucket = bucketName.replace(/"/g, "\\\"");
+		const escapedKey = normalizedKey.replace(/"/g, "\\\"");
+		const escapedLocalPath = localPath.replace(/"/g, "\\\"");
+		const s3Uri = escapedKey ? `s3://${escapedBucket}/${escapedKey}` : `s3://${escapedBucket}`;
+		const syncCommand = isFolder
+			? `runuser -u ubuntu -- /bin/bash -lc "aws s3 sync \"${escapedLocalPath}\" \"${s3Uri}\" --only-show-errors"`
+			: `runuser -u ubuntu -- /bin/bash -lc "aws s3 cp \"${escapedLocalPath}\" \"${s3Uri}\" --only-show-errors"`;
+
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-sync-instance-to-s3",
+			resource: null,
+			details: { instanceId, localPath, bucketName, destinationKey: normalizedKey, isFolder },
+		});
+
+		const commands = [
+			"#!/bin/bash",
+			"set -e",
+			"",
+			`echo \"Starting S3 upload from ${escapedLocalPath} to ${s3Uri}\"`,
+			syncCommand,
+			"echo \"Completed S3 upload\"",
+		];
+
+		return this.ssmDao.ExecuteCommand(instanceId, commands);
+	}
+
+	/**
+	 * Executes SSM commands to sync an S3 object or prefix to an instance path.
+	 * For folders, sourceKey is treated as a prefix and localPath is the destination directory.
+	 * Uses the instance AWS CLI for batching; set overwriteExisting=false to skip existing files.
+	 */
+	public async SyncS3ToInstance(params: {
+		instanceId: string;
+		bucketName: string;
+		sourceKey: string;
+		localPath: string;
+		isFolder?: boolean;
+		overwriteExisting?: boolean;
+	}): Promise<{ commandId: string }> {
+		const { instanceId, bucketName, sourceKey, localPath } = params;
+		const isFolder = params.isFolder ?? false;
+		const overwriteExisting = params.overwriteExisting ?? true;
+
+		if (!instanceId) {
+			throw new Error("instanceId is required");
+		}
+		if (!bucketName) {
+			throw new Error("bucketName is required");
+		}
+		if (!localPath) {
+			throw new Error("localPath is required");
+		}
+		if (!sourceKey && !isFolder) {
+			throw new Error("sourceKey is required for file sync");
+		}
+
+		const trimmedKey = sourceKey.replace(/^\/+/, "");
+		const normalizedKey = isFolder && trimmedKey && !trimmedKey.endsWith("/") ? `${trimmedKey}/` : trimmedKey;
+		const escapedBucket = bucketName.replace(/"/g, "\\\"");
+		const escapedKey = normalizedKey.replace(/"/g, "\\\"");
+		const escapedLocalPath = localPath.replace(/"/g, "\\\"");
+
+		const commands = [
+			"#!/bin/bash",
+			"set -e",
+			"",
+			`echo \"Starting S3 sync from s3://${escapedBucket}/${escapedKey} to ${escapedLocalPath}\"`,
+			`BUCKET=\"${escapedBucket}\"`,
+			`SOURCE_KEY=\"${escapedKey}\"`,
+			`DEST_PATH=\"${escapedLocalPath}\"`,
+			`IS_FOLDER=\"${isFolder ? "true" : "false"}\"`,
+			`OVERWRITE=\"${overwriteExisting ? "true" : "false"}\"`,
+			"",
+			"if [ \"$IS_FOLDER\" = \"true\" ]; then",
+			"  mkdir -p \"$DEST_PATH\"",
+			"  chown ubuntu:ubuntu \"$DEST_PATH\"",
+			"  chmod 755 \"$DEST_PATH\"",
+			"  if [ \"$OVERWRITE\" = \"true\" ]; then",
+			"    aws s3 sync \"s3://$BUCKET/$SOURCE_KEY\" \"$DEST_PATH\" --only-show-errors",
+			"    chown -R ubuntu:ubuntu \"$DEST_PATH\"",
+			"  else",
+			"    aws s3api list-objects-v2 --bucket \"$BUCKET\" --prefix \"$SOURCE_KEY\" --query \"Contents[].Key\" --output text | tr \"\\t\" \"\\n\" | while IFS= read -r key; do",
+			"      [ -z \"$key\" ] && continue",
+			"      case \"$key\" in */) continue ;; esac",
+			"      rel=\"${key#$SOURCE_KEY}\"",
+			"      dest=\"$DEST_PATH/$rel\"",
+			"      if [ -e \"$dest\" ]; then",
+			"        echo \"File exists, skipping: $dest\"",
+			"        continue",
+			"      fi",
+			"      dir=\"$(dirname \"$dest\")\"",
+			"      mkdir -p \"$dir\"",
+			"      chown ubuntu:ubuntu \"$dir\"",
+			"      chmod 755 \"$dir\"",
+			"      aws s3 cp \"s3://$BUCKET/$key\" \"$dest\" --only-show-errors",
+			"      chown ubuntu:ubuntu \"$dest\"",
+			"      chmod 644 \"$dest\"",
+			"    done",
+			"  fi",
+			"else",
+			"  dir=\"$(dirname \"$DEST_PATH\")\"",
+			"  if [ \"$OVERWRITE\" = \"true\" ] || [ ! -e \"$DEST_PATH\" ]; then",
+			"    mkdir -p \"$dir\"",
+			"    chown ubuntu:ubuntu \"$dir\"",
+			"    chmod 755 \"$dir\"",
+			"    aws s3 cp \"s3://$BUCKET/$SOURCE_KEY\" \"$DEST_PATH\" --only-show-errors",
+			"    chown ubuntu:ubuntu \"$DEST_PATH\"",
+			"    chmod 644 \"$DEST_PATH\"",
+			"  else",
+			"    echo \"File exists, skipping: $DEST_PATH\"",
+			"  fi",
+			"fi",
+			"echo \"Completed S3 sync\"",
+		];
+
+		return this.ssmDao.ExecuteCommand(instanceId, commands);
 	}
 }

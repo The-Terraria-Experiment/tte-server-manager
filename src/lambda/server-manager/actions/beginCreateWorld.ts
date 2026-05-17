@@ -214,7 +214,13 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 
 	const S3 = new S3Dao();
 
-	const upload = await S3.SyncInstanceFileToS3(params.instanceID, worldFilePath, worldsBucket!, s3Key);
+	const upload = await S3.SyncInstanceToS3({
+		instanceId: params.instanceID,
+		localPath: worldFilePath,
+		bucketName: worldsBucket!,
+		destinationKey: s3Key,
+		isFolder: false,
+	});
 	await SSM.PollForCommandCompletion(upload.commandId, params.instanceID);
 
 	const creationUpdate4: SystemWorldCreateEntry = {
