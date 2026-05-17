@@ -1,11 +1,14 @@
 <template>
 	<div class="relative inline-block w-full font-main font-bold">
-		<select 
+		<select
 			:class="['appearance-none pr-9 w-full rounded-lg px-4 py-2 outline-none cursor-pointer font-main font-bold', inputClass]"
 			@change="emitInput"
 			:disabled="disabled"
-			:value="modelValue"
+			:value="normalizedValue"
 		>
+			<option v-if="placeholder" value="" disabled>
+				{{ placeholder }}
+			</option>
 			<template v-for="option of options">
 				<option 
 					:class="['font-main font-semibold', optionClass]"
@@ -56,6 +59,10 @@ export default {
 		iconColor: {
 			type: String,
 			default: "text-teal-4"
+		},
+		placeholder: {
+			type: String,
+			default: ""
 		}
 	},
 	data() {
@@ -64,7 +71,13 @@ export default {
 		}
 	},
 	computed: {
-		
+		normalizedValue() {
+			if (this.placeholder && (this.modelValue === null || this.modelValue === undefined || this.modelValue === '')) {
+				return '';
+			}
+
+			return this.modelValue;
+		}
 	},
 	methods: {
 		emitInput(event) {

@@ -30,7 +30,6 @@
 		<p>Logs are kept for a max of 1 month in general, unless we need to hold onto them for security/analysis reasons. But that's rare and only if you're being sketchy.</p>
 
 		<h2>Managing your data</h2>
-		<p>If this feels sketchy to you, I get it. It is a little bit.</p>
 		<p>If you want your data deleted, contact an admin (specifically @havoc) in the Terraria Experiment discord and we'll get your data cleaned out of our system.</p>
 		<p>You can also send an email to <a class="text-blue-1" href="mailto:theterrariexperiment@gmail.com">theterrariexperiment@gmail.com</a> to request that your data is deleted.</p>
 
@@ -67,7 +66,7 @@
 		
 		<h2>Prohibited activities</h2>
 		<p>If you participate in any of these activities or similar, we reserve the right to bar service to you, both from this service and from The Terraria Experiment community.</p>
-		<p>You may not sell access to or use of the service as hosted by The Terraria Experiment group, however, the source code is public and is governed under the MIT License.</p>
+		<p>You may not sell access to or use of the service as hosted by The Terraria Experiment group, however, the source code is public and is governed under the GNU GPL 2.0 License.</p>
 		<p>You may not use the service to mislead or harm others in any way.</p>
 		<p>You may not attempt to circumvent or tamper with the security systems in place.</p>
 		<p>You may not use the service to perpetuate malware or other harmful or unwanted content.</p>

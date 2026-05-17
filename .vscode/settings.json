@@ -1,0 +1,11 @@
+{
+	"chat.tools.terminal.autoApprove": {
+		"npx tsc": true,
+		"git ls-tree": true,
+		"/^node src/lambda/build\\.js$/": {
+			"approve": true,
+			"matchCommandLine": true
+		},
+		"npm run build": true
+	}
+}

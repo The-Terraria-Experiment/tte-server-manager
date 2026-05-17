@@ -13,7 +13,7 @@
 			<p class="text-2xl text-teal-4">{{ summaryText }}</p>
 		</template>
 		<template #content>
-			<div class="p-4">
+			<div class="px-4 pb-4">
 				<div class="flex gap-4">
 					<!-- Currently I don't think S3 pricing is expensive enough to need this, but it's here if we want to limit the bucket reads a bit -->
 					<!-- <FlexButton
@@ -45,44 +45,48 @@
 						leftIcon="arrow-rotate-right"
 						:disabled="false"
 						@input="reloadConfig"
+						class="mb-4"
 					>
 						RELOAD CONFIG IN TSHOCK
 					</FlexButton>
 				</div>
 
 				<div>
-					<div class="font-mono text-xs sm:text-sm">
-						<LargeTextInput
-							placeholder="Config not loaded or not found"
-							:disabled="!$checkPermissions(PERMISSIONS.server.config.write)"
-							ref="configInput"
-							v-model="configText"
-							class="mt-4 rounded w-full min-h-100 bg-gray-1 text-white-1 "
-							@keydown.tab.prevent="insertTab"
-						/>
+					<div class="bg-gray-2 p-4 rounded-md">
+						<p class="font-main font-bold text-gray-7">TOP SETTINGS</p>
+						<div class="flex gap-2 pt-2 text-sm">
+							<div v-for="highlight in highlightedEntries" class="flex font-mono bg-blue-1 rounded-md text-white">
+								<div class="pl-4 pt-2">{{ highlight }}:</div>
+								<div class="bg-blue-0 py-2 px-4 rounded-md ml-2">"{{ configAsJson["Settings"][highlight] }}"</div>
+							</div>
+						</div>
 					</div>
+
+					<FlexButton
+						:variant="BTN_VARIANT.SECONDARY"
+						leftIcon="edit"
+						leftIconSize="5"
+						:disabled="false"
+						class="mt-4"
+						@input="editorOpen = true"
+					>
+						EDIT CONFIG
+					</FlexButton>
+
+					<CodeEditor 
+						:open="editorOpen"
+						v-model="configText" 
+						@cancel="editorOpen = false"
+						@save="saveAndCloseEditor"
+					/>
+
 					<div v-if="!jsonIsValid" class="flex items-center bg-gray-1 w-max py-2 px-4 rounded mt-2">
 						<Icon icon="warning" size="4" color="text-red-5" />
 						<p class="font-mono text-red-5 ml-2">Invalid JSON</p>
 					</div>
 				</div>
 
-				<div class="flex justify-end w-full mt-4" v-if="dirtyConfig && !loadingSaveConfig">
-					<FlexButton
-						:variant="BTN_VARIANT.DANGER"
-						@input="resetConfig"
-						class="mr-4"
-					>
-						<p class="font-main font-bold py-2 px-8 md:px-12">DISCARD</p>
-					</FlexButton>
-					<FlexButton
-						:variant="BTN_VARIANT.PRIMARY"
-						@input="saveConfig"
-					>
-						<p class="font-main font-bold py-2 px-8 md:px-12">SAVE</p>
-					</FlexButton>
-				</div>
-				<div v-else-if="loadingSaveConfig" class="flex items-center justify-end mt-8 mr-4 mb-4">
+				<div v-if="loadingSaveConfig" class="flex items-center justify-end mt-8 mr-4 mb-4">
 					<Spinner class="h-5 w-5 text-teal-3" />
 					<p class="font-main font-bold text-teal-4 mx-2">SAVING...</p>
 				</div>
@@ -92,17 +96,20 @@
 </template>
 
 <script>
+import CodeEditor from '../../../common/CodeEditor.vue';
 import { useServerStore } from '../../../../stores/serverStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import FlexButton from '../../../common/FlexButton.vue';
 import LargeTextInput from '../../../common/LargeTextInput.vue';
+import Icon from '@/components/common/Icon.vue';
 
 export default {
 	mixins: [],
 	components: {
 		LargeTextInput,
+		CodeEditor,
 	},
 	props: {
 		selectedServerData: {
@@ -121,12 +128,17 @@ export default {
 			serverStore: useServerStore(),
 			configText: "",
 			loadingSaveConfig: false,
+			editorOpen: false,
+			highlightedEntries: [
+				"ServerPassword",
+				"MaxSlots",
+				"HardcoreOnly",
+				"MediumcoreOnly",
+				"SoftcoreOnly"
+			]
 		}
 	},
 	computed: {
-		dirtyConfig() {
-			return this.configText !== JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance]?.config, null, 2);
-		},
 		jsonIsValid() {
 			try {
 				JSON.parse(this.configText);
@@ -140,21 +152,20 @@ export default {
 				return 'Unknown config';
 			}
 			return this.serverStore.serverConfigs[this.selectedInstance]?.isDefaultConfig ? 'Default configuration' : 'Custom configuration';
+		},
+		configAsJson() {
+			try {
+				const parsed = JSON.parse(this.configText);
+				return parsed;
+			} catch (e) {
+				return { "Settings": {} };
+			}
 		}
 	},
 	methods: {
-		insertTab() {
-			const input = this.$refs.configInput.$el;
-			const start = input.selectionStart;
-			const end = input.selectionEnd;
-			
-			// Insert 2 spaces at the cursor position
-			this.configText = this.configText.substring(0, start) + '  ' + this.configText.substring(end);
-			
-			// Move cursor after the inserted spaces
-			this.$nextTick(() => {
-				input.selectionStart = input.selectionEnd = start + 2;
-			});
+		saveAndCloseEditor() {
+			this.editorOpen = false;
+			this.saveConfig();
 		},
 
 		async fetchServerConfig() {

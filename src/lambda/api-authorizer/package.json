@@ -2,6 +2,7 @@
   "name": "ttesm-api-authorizer",
   "version": "1.0.0",
   "description": "Stage-aware Lambda authorizer for API Gateway",
+  "type": "module",
   "main": "index.js",
   "dependencies": {
     "aws-jwt-verify": "^4.0.1"

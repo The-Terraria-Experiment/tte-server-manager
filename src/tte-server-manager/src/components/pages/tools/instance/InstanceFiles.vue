@@ -26,7 +26,7 @@
 			</FlexButton>
 
 			<div class="flex flex-col sm:grid grid-cols-2 m-4 gap-4">
-				<template v-for="(path, nickname) in serverStore.instanceFileRoots[selectedInstanceData.id]">
+				<template v-for="(path, nickname) in filePathLocations">
 					<div class="bg-gray-5 rounded-xl p-4 h-max">
 						<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
 							<p class="text-sm">{{ readPathsAuth ? path : nickname }}/</p>
@@ -157,13 +157,13 @@ export default {
 			const roots = Object.values(this.serverStore.instanceFileRoots[this.selectedInstanceData.id] ?? []);
 			const existingFiles = (this.serverStore.instanceFiles[this.selectedInstanceData.id] || [])
 				.map(d => d.key)
-				.filter(p => roots.some(root => p.startsWith(`${this.selectedInstanceData.id}${root}`)))
+				.filter(p => roots.some(root => p.startsWith(`${this.selectedInstanceData.id}${root}/`)))
 				.map(s => s.replace(this.selectedInstanceData.id, ""));
 
 			const sortedFiles = Object.fromEntries(roots.map(r => [r, []]));
 			existingFiles.forEach(path => {
 				roots.forEach(root => {
-					if (path.startsWith(root)) {
+					if (path.startsWith(`${root}/`)) {
 						let shortPath = path.replace(root, "");
 						if (shortPath[0] === "/") {
 							shortPath = shortPath.slice(1);
@@ -176,13 +176,16 @@ export default {
 			return sortedFiles;
 		},
 		fileLocationCount() {
-			return Object.keys(this.instancePaths || {})?.length || 0;
+			return Object.keys(this.filePathLocations || {})?.length || 0;
 		},
 		instancePaths() {
 			return this.serverStore.instanceFileRoots[this.selectedInstanceData.id];
 		},
 		readPathsAuth() {
 			return this.$checkPermissions(PERMISSIONS.instance.files.paths.read);
+		},
+		filePathLocations() {
+			return Object.fromEntries(Object.entries(this.instancePaths || {}).filter(([pname, _]) => this.$checkResourceAccess(`filepath::${this.serverStore.selectedInstanceID}::${pname}`)));
 		}
 	},
 	methods: {

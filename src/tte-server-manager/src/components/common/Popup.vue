@@ -1,6 +1,9 @@
 <template>
 	<Teleport to="body">
-		<div :class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[layer], { 'overlay-open': open, 'overlay-closed': !open }]" />
+		<div 
+			:class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[layer], { 'overlay-open': open, 'overlay-closed': !open }]" 
+			@click="xClicked"
+		/>
 		
 		<Transition
 			enter-active-class="popup-enter"
@@ -62,7 +65,7 @@ export default {
 		},
 		bodyClass: {
 			type: String,
-			default: "w-1/2 h-1/2"
+			default: "w-11/12 sm:w-1/2 h-1/2"
 		},
 		headerText: {
 			type: String,

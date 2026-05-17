@@ -2,3 +2,4 @@
 /help/*
 /node_modules/*
 /scripts/*
+**/tsbuild/**

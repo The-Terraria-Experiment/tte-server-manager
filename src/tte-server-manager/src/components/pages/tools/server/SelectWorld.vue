@@ -12,7 +12,7 @@
 		<template #summary>
 			<p class="text-2xl text-teal-4">{{ instanceWorldFiles.length }} world{{ plural(instanceWorldFiles.length) }} available</p>
 		</template>
-		<template #content>
+		<template #content v-if="serverIsAvailable">
 			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
 			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
 				<div :class="['grid px-2 py-2 overflow-x-auto', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
@@ -90,14 +90,19 @@
 				</div>
 			</div>
 		</template>
+		<template #content v-else>
+			<p class="font-main font-bold text-gray-7 px-5">WORLD CREATION IN PROGRESS, PLEASE WAIT</p>
+		</template>
 	</StatusTile>
 </template>
 
 <script>
 import screen from '../../../../mixins/screen';
 import { useServerStore } from '../../../../stores/serverStore';
+import { TASK_IDS } from '../../../../stores/statusStore';
+import { useStatusStore } from '../../../../stores/statusStore';
 import { post } from '../../../../util/api';
-import { BTN_VARIANT } from '../../../../util/constants';
+import { BTN_VARIANT, WORLD_STATES } from '../../../../util/constants';
 import { formatFileSize, plural } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import { getDateOffset } from '../../../../util/timeutils';
@@ -110,20 +115,14 @@ export default {
 		Checkbox,
 	},
 	props: {
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
-		selectedServerData: {
-			type: Object,
-			required: true,
-		}
+		
 	},
 	data() {
 		return {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
+			statusStore: useStatusStore(),
 			selectWorld: {
 				selectedWorld: null,
 				port: 7777,
@@ -141,11 +140,25 @@ export default {
 	},
 	computed: {
 		instanceWorldFiles() {
-			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
+			const fileRoots = this.serverStore.instanceFileRoots[this.selectedInstance] || {};
+			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
+			const worldRoots = worldPathNicknames
+				.filter(nickname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${nickname}`))
+				.map(nickname => fileRoots[nickname])
+				.filter((path) => !!path);
 			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
-				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}`)))
+				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}/`)))
 				.map(s => ({ name: s.key.replace(this.selectedInstance, ""), size: s.size }));
 		},
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
+		},
+		serverIsAvailable() {
+			return this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
+		}
 	},
 	methods: {
 		formatFileSize,
@@ -229,31 +242,8 @@ export default {
 		},
 
 		pollInstanceState() {
-			const maxRefreshes = 3;
-			let refreshesDone = 1;
-
-			const refreshAt = getDateOffset(5000).valueOf();
-			this.$emit("autoRefreshAt", refreshAt);
-
-			this.statusPollInterval = setInterval(() => {
-				if (refreshesDone >= maxRefreshes) {
-					this.stopPoll();
-				} else {
-					const refreshAt = getDateOffset(5000).valueOf();
-					this.$emit("autoRefreshAt", refreshAt);
-				}
-
-				refreshesDone++;
-			}, 6000);
-		},
-
-		stopPoll() {
-			clearInterval(this.statusPollInterval);
-			this.$emit("autoRefreshAt", null);
+			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => this.selectedServerData.state);
 		}
-	},
-	beforeUnmount() {
-		this.stopPoll();
 	}
 }
 </script>

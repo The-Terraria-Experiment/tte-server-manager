@@ -36,6 +36,7 @@ export default {
 			userStore: useUserStore(),
 			loading: {
 				permissions: false,
+				instances: false,
 				save: false,
 			},
 			PERMISSIONS,

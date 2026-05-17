@@ -33,9 +33,9 @@
 			:open="profilePopupOpen"
 			@xClicked="profilePopupOpen = false"
 			headerText="Profile"
-			bodyClass="w-11/12 md:w-1/4 h-1/3 sm:h-1/4 min-h-60 min-w-80"
+			bodyClass="w-11/12 md:w-1/4 h-1/2 sm:h-1/3 min-h-60 min-w-80"
 		>
-			<div class="w-full h-full flex flex-col  justify-between items-center p-4">
+			<div class="w-full h-full flex flex-col justify-between items-center p-4">
 				<div>
 					<p class="text-gray-6 font-main font-bold text-center mb-2">Display Name</p>
 					<div 
@@ -55,6 +55,19 @@
 					<div v-else class="flex items-center">
 						<Spinner class="h-6 w-6 m-2 text-cream" thickness="4" />
 						<p class="font-main font-bold text-cream">Please wait...</p>
+					</div>
+				</FlexButton>
+
+				<FlexButton 
+					class="my-4" 
+					:variant="BTN_VARIANT.SECONDARY"
+					@input="handleClearCache"
+					:disabled="loadingClearCache"
+				>
+					<p v-if="!loadingClearCache" class="font-main font-bold py-2 px-4 md:px-8">CLEAR CACHE</p>
+					<div v-else class="flex items-center">
+						<Spinner class="h-6 w-6 m-2" thickness="4" />
+						<p class="font-main font-bold">Working...</p>
 					</div>
 				</FlexButton>
 			</div>
@@ -89,6 +102,7 @@ export default {
 			BTN_VARIANT,
 			profilePopupOpen: false,
 			logoutClicked: false,
+			loadingClearCache: false,
 		}
 	},
 	setup() {
@@ -112,6 +126,12 @@ export default {
 			this.logoutClicked = true;
 			await this.userStore.signOut();
 			this.router.push('/');
+		},
+		async handleClearCache() {
+			this.loadingClearCache = true;
+			sessionStorage.clear();
+			await new Promise((res, rej) => setTimeout(res, 500));
+			this.loadingClearCache = false;
 		}
 	}
 }

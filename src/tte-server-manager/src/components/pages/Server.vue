@@ -21,7 +21,6 @@
 			<RefreshButton
 				:loading="serverStore.somethingIsLoading"
 				@input="refresh"
-				:refresh-at="autoRefreshAt"
 			/>
 			<FlexButton
 				v-if="$checkPermissions(PERMISSIONS.system.dropcache)"
@@ -30,7 +29,7 @@
 				leftIconSize="5"
 				@input="dropTshockTokenCache"
 			>
-				DROP TSHOCK TOKEN CACHE
+				DROP TOKEN CACHE
 			</FlexButton>
 		</div>
 	</div>
@@ -44,41 +43,43 @@
 		</template>
 	</StatusTile>
 
-	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..." />
+	<MajorLoader 
+		v-else-if="serverStore.isLoadingList" 
+		text="Loading Instances..." 
+	/>
 
 	<BasicServerInfo 
 		v-if="selectedInstance"
-		:selected-server-data="selectedServerData"
-		:selected-instance="selectedInstance"
-		@autoRefreshAt="autoRefreshAt = $event"
-		@refresh="refresh"
 	/>
 
 	<SelectWorld 
-		v-if="selectedInstance && !selectedServerData.state" 
-		:selected-instance="selectedInstance" 
-		:selected-server-data="selectedServerData" 
-		@autoRefreshAt="autoRefreshAt = $event"	
+		v-if="selectWorldAllowed"
 	/>
 
 	<CreateWorld 
-		v-if="selectedInstance && !selectedServerData.state" 
-		:selected-instance="selectedInstance" 
-		:selected-server-data="selectedServerData" 
-		@autoRefreshAt="autoRefreshAt = $event"
+		v-if="createWorldAllowed"
+		ref="createWorld"
 		@refresh="refresh"
 	/>
 
 	<ServerConfig 
-		v-if="selectedInstance"
-		:selected-server-data="selectedServerData"
-		:selected-instance="selectedInstance" 
+		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
+
+	<StatusTile v-if="selectedInstanceData?.state && !selectedInstanceData.online" class="mt-4">
+		<template #header>
+			<Icon icon="circle-info" color="text-gray-6" size="4" />
+			<p class="text-gray-6 ml-2 text-lg">Instance Offline</p>
+		</template>
+		<template #summary>
+			<p class="text-2xl text-teal-4">Instance is offline. Launch the instance first to start a server.</p>
+		</template>
+	</StatusTile>
 </template>
 
 <script>
 import { useServerStore } from '../../stores/serverStore';
-import { BTN_VARIANT } from '../../util/constants';
+import { BTN_VARIANT, WORLD_STATES } from '../../util/constants';
 import { PERMISSIONS } from '../../util/permissionValues';
 import Dropdown from '../common/Dropdown.vue';
 import RefreshButton from '../common/RefreshButton.vue';
@@ -86,10 +87,12 @@ import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import FlexButton from '../common/FlexButton.vue';
-import { post } from '../../util/api';
+import { get, post } from '../../util/api';
 import CreateWorld from './tools/server/CreateWorld.vue';
 import ManageBans from './tools/server/ManageBans.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
+import { useStatusStore } from '../../stores/statusStore';
+import { TASK_IDS } from '../../stores/statusStore';
 
 
 export default {
@@ -112,18 +115,10 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
-			autoRefreshAt: null,
+			statusStore: useStatusStore(),
 		}
 	},
-	computed: {		
-		selectedServerData() {
-			return {
-				...(this.serverStore.serverStatusData[this.selectedInstance] || {}),
-				state: Boolean(this.serverStore.serverStatusData[this.selectedInstance]?.status),
-				players: this.serverStore.serverStatusData[this.selectedInstance]?.players,
-				world: this.serverStore.serverStatusData[this.selectedInstance]?.world,
-			}
-		},
+	computed: {
 		filteredInstanceOptions() {
 			return this.serverStore.instanceOptions.filter(i => this.$checkResourceAccess(`server::${i.id}`));
 		},
@@ -134,6 +129,18 @@ export default {
 			set(value) {
 				this.serverStore.selected.instance = value;
 			}
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
+		},
+		selectedInstanceData() {
+			return this.serverStore.selectedInstanceData;
+		},
+		selectWorldAllowed() {
+			return this.selectedInstance && !this.selectedServerData.state && this.selectedInstanceData?.online && this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
+		},
+		createWorldAllowed() {
+			return this.selectedInstance && !this.selectedServerData.state && this.selectedInstanceData?.online;
 		}
 	},
 	methods: {
@@ -196,6 +203,15 @@ export default {
 			}
 		},
 
+		async fetchWorldCreationStatus() {
+			const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+
+			if (status && status.found !== false) {
+				this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
+				this.$refs.createWorld.startWorldCreatePolling(status);
+			}
+		},
+
 		async dropTshockTokenCache() {
 			this.$validatePermissions(PERMISSIONS.system.dropcache);
 
@@ -208,21 +224,28 @@ export default {
 			}
 		}
 	},
-	async mounted() {
+	async created() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			await this.fetchInstanceList();
 			if (this.$checkPermissions(PERMISSIONS.instance.files.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
 			if (this.$checkPermissions(PERMISSIONS.server.status.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
-				this.fetchServerStatus();
+				await this.fetchServerStatus();
+				this.fetchWorldCreationStatus();
 			}
 		}
+
+		this.statusStore.subscribeToTask(TASK_IDS.SERVER_STATUS_CHECK, this.fetchServerStatus);
 	},
 	watch: {
 		selectedInstance(value) {
 			if (this.$checkResourceAccess(`server::${value}`)) {
-				this.fetchServerStatus();
+				const doFetches = async () => {
+					await this.fetchServerStatus();
+					this.fetchWorldCreationStatus();
+				};
+				doFetches();
 			}
 			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkPermissions(PERMISSIONS.instance.files.read)) {
 				this.fetchInstanceFiles(this.selectedInstance);

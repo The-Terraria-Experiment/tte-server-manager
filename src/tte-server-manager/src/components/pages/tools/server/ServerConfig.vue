@@ -5,6 +5,8 @@
 			:selected-instance="selectedInstance" 
 		/>
 
+		<OtherConfigFile />
+
 		<ManageBans 
 			v-if="selectedInstance && selectedServerData.state"
 			:selected-server-data="selectedServerData"
@@ -14,7 +16,9 @@
 </template>
 
 <script>
+import { useServerStore } from '../../../../stores/serverStore';
 import ManageBans from './ManageBans.vue';
+import OtherConfigFile from './OtherConfigFile.vue';
 import TshockConfigFile from './TshockConfigFile.vue';
 
 
@@ -23,24 +27,23 @@ export default {
 	components: {
 		ManageBans,
 		TshockConfigFile,
+		OtherConfigFile,
 	},
 	props: {
-		selectedServerData: {
-			type: Object,
-			required: true
-		},
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
+		
 	},
 	data() {
 		return {
-			
+			serverStore: useServerStore(),
 		}
 	},
 	computed: {
-		
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
+		}
 	},
 	methods: {
 		

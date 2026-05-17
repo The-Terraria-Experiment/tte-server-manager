@@ -36,10 +36,10 @@
 							<ValueInput placeholder="Path value" v-model="entry[1]" class="w-100"/>
 						</div>
 						<div class="flex justify-center items-center">
-							<Checkbox class="h-5 w-5" :value="updatedWorldPaths.has(entry[1])" @input="toggleWorldPath(entry[1])" />
+							<Checkbox class="h-5 w-5" :value="updatedWorldPaths.has(entry[0])" @input="toggleWorldPath(entry[0])" />
 						</div>
 						<div class="flex justify-center items-center cursor-pointer">
-							<Icon icon="xmark" size="5" color="text-red-4" :title="`Delete path '${entry[1]}'`" @click="deletePath(i)" />
+							<Icon icon="xmark" size="5" color="text-red-4" :title="`Delete path '${entry[0]}'`" @click="deletePath(i)" />
 						</div>
 					</template>
 				</div>
@@ -129,6 +129,13 @@ export default {
 		},
 		async savePaths() {
 			this.$validatePermissions(PERMISSIONS.instance.files.paths.write);
+
+			for (let path of this.updatedPaths) {
+				if (!/^[a-zA-Z0-9_]+$/.test(path[0])) {
+					this.$alert.error("Invalid path nickname. Nicknames can only include alphanumeric characters and underscores");
+					return;
+				}
+			}
 
 			if (this.saveLoading) return;
 			this.saveLoading = true;

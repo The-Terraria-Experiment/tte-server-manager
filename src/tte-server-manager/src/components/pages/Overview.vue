@@ -53,7 +53,7 @@
 			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">The Terraria Experiment Server Manager</h1>
 			<p class="font-main font-semibold text-white-0 mt-4">Welcome! Parts of this site are still under construction. There may be bugs, bad UI/UX, or broken tools.</p>
 			<p class="font-main font-semibold text-white-0 mt-4">
-				Please report any issues you find by messaging in <span class="text-yellow-2">#mod-help</span> in the Discord server. Make sure to ping <span class="text-yellow-2">@havoc</span>.
+				Please report any issues you find by messaging in <span class="text-yellow-2">#server-general</span> in the Discord server. Make sure to ping <span class="text-yellow-2">@havoc</span>.
 			</p>
 			<p class="font-main font-semibold text-white-0 mt-4">Thank you!</p>
 		</div>

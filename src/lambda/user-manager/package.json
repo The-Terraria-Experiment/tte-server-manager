@@ -2,6 +2,7 @@
   "name": "user-manager",
   "version": "1.0.0",
   "description": "User and permissions management Lambda",
+  "type": "module",
   "main": "index.js",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",

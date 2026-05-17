@@ -19,9 +19,8 @@
 
 		<RefreshButton 
 			class="mt-4"
-			:loading="serverStore.isLoadingStatus(selectedInstance)" 
-			@input="refresh" 
-			:refresh-at="autoRefreshAt" 
+			:loading="serverStore.isLoadingStatus(selectedInstance) || statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK)" 
+			@input="refresh"
 		/>
 	</div>
 	
@@ -39,9 +38,9 @@
 
 	<BasicInstanceInfo 
 		v-if="selectedInstance"
+		:key="selectedInstance"
 		:selected-instance-data="selectedInstanceData" 
-		:loading="loading" 
-		@autoRefreshAt="autoRefreshAt = $event" 
+		:loading="loading"
 	/>
 
 	<InstanceFilePaths 
@@ -68,6 +67,8 @@ import BasicInstanceInfo from './tools/instance/BasicInstanceInfo.vue';
 import InstanceFiles from './tools/instance/InstanceFiles.vue';
 import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
+import { useStatusStore } from '../../stores/statusStore';
+import { TASK_IDS } from '../../stores/statusStore';
 
 export default {
 	mixins: [],
@@ -88,11 +89,12 @@ export default {
 			PERMISSIONS,
 			serverStore: useServerStore(),
 			userStore: useUserStore(),
+			statusStore: useStatusStore(),
+			TASK_IDS,
 			loading: {
 				stateChange: false,
 				fileUpload: false,
-			},
-			autoRefreshAt: null
+			}
 		}
 	},
 	computed: {
@@ -190,6 +192,10 @@ export default {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
 		}
+
+		this.statusStore.subscribeToTask(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
+			this.refresh();
+		});
 	},
 	watch: {
 		selectedInstance(value) {

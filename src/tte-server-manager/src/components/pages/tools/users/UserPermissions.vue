@@ -20,6 +20,15 @@
 			</div>
 		</template>
 		<template #content>
+			<FuzzyMatchSearch 
+				class="z-20 relative -mb-20 ml-4"
+				placeholder="Filter users..."
+				:data="sortedPermissionsData"
+				comparisonKey="displayName"
+				@update="filteredUserData = $event"
+				sortResults
+			/>
+
 			<div class="grid overflow-x-auto pt-40 relative pr-20 text-sm" :style="userPermsCols" @scroll="updateUserTableScroll">
 				<div :class="['sticky left-0 bg-gray-3 px-4 py-2 flex items-center z-10', stickyShadow]">
 					<div class="bg-gray-3 h-60 absolute w-full left-0 bottom-5 z-10 facadeStickyShadow"></div>
@@ -31,7 +40,7 @@
 					</div>
 				</template>
 
-				<template v-for="(user, idx) of sortedPermissionsData">
+				<template v-for="(user, idx) of filteredUserData">
 					<div :class="['sticky left-0 p-2 flex items-center z-10 overflow-x-auto', stickyShadow, idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
 						<p class="font-mono font-semibold text-cream text-nowrap">{{ user.displayName || user.username }}</p>
 					</div>
@@ -76,6 +85,7 @@ import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 import RefreshButton from '../../../common/RefreshButton.vue';
+import FuzzyMatchSearch from '../../../common/FuzzyMatchSearch.vue';
 
 
 export default {
@@ -83,6 +93,7 @@ export default {
 	components: {
 		Checkbox,
 		RefreshButton,
+		FuzzyMatchSearch,
 	},
 	props: {
 		loading: {
@@ -102,6 +113,7 @@ export default {
 			userTableScroll: 0,
 			updatedPermissions: {},
 			dirtyPermissions: false,
+			filteredUserData: [],
 		}
 	},
 	computed: {
@@ -139,7 +151,7 @@ export default {
 			if (this.userTableScroll >= 2) {
 				return 'tableStickyShadow';
 			}
-		},
+		}
 	},
 	methods: {
 		updateUserTableScroll(event) {
@@ -208,6 +220,9 @@ export default {
 			}
 		}
 	},
+	mounted() {
+		this.filteredUserData = this.sortedPermissionsData;
+	}
 }
 </script>
 

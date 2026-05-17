@@ -1,6 +1,10 @@
 import { defineStore } from 'pinia'
 import { getCurrentUser, fetchAuthSession, signOut as amplifySignOut } from 'aws-amplify/auth';
 
+const USE_CACHE = true;
+const CACHE_TTL = 3 * 60 * 1000; /// 3min
+const CACHE_KEY = "ttesm-user-cache";
+
 export const useUserStore = defineStore("userstore", {
 	state: () => ({
 		user: null,
@@ -56,22 +60,46 @@ export const useUserStore = defineStore("userstore", {
 		async loadPermissions() {
 			try {
 				const idToken = await this.getIdToken();
-				const response = await fetch(
-					`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/users/permissions/getown`,
-					{
-						headers: {
-							'Authorization': `Bearer ${idToken}`,
-						},
-					}
-				);
-				
-				if (response.ok) {
-					const data = await response.json();
+
+				const applyUserData = (data) => {
 					this.accountData = data?.entries || null;
 					this.permissions = data?.entries?.permissions || [];
 					this.resourceAccess = data?.entries.resourceAccess || [];
 					this.user.displayName = data?.entries?.displayName || "";
 					this.user.username = data?.entries?.username || "";
+				};
+
+				let existingCache;
+				try {
+					existingCache = JSON.parse(sessionStorage.getItem(CACHE_KEY));
+				} catch (e) {
+					existingCache = null;
+				}
+				if (USE_CACHE && existingCache && existingCache.expiresAt > Date.now()) {
+					applyUserData(existingCache);
+				} else {
+					const response = await fetch(
+						`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000'}/users/permissions/getown`,
+						{
+							headers: {
+								'Authorization': `Bearer ${idToken}`,
+							},
+						}
+					);
+					
+					let data;
+					if (response.ok) {
+						data = await response.json();
+						applyUserData(data);
+					}
+
+					if (USE_CACHE) {
+						const userCacheData = {
+							...data,
+							expiresAt: Date.now() + CACHE_TTL
+						}
+						sessionStorage.setItem(CACHE_KEY, JSON.stringify(userCacheData));
+					}
 				}
 			} catch (error) {
 				console.error('Failed to load permissions:', error);

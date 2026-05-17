@@ -10,9 +10,22 @@
 				<p class="text-gray-6 ml-2 text-lg">Create World</p>
 			</template>
 			<template #summary>
-				<p class="text-2xl text-teal-4">World creation available</p>
+				<p class="text-2xl text-teal-4">{{ mainText }}</p>
 			</template>
-			<template #content>
+			<template #content v-if="worldCreationInProgress && !worldCreatePopupOpen">
+				<div class="p-5 flex flex-col justify-between h-full">
+					<div>
+						<div class="flex items-center justify-center mb-4">
+							<Spinner class="h-5 w-5 text-teal-4" />
+							<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
+						</div>
+						<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
+						<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
+						<p class="font-mono text-gray-8 text-xs mt-3 text-center">Initiated by: {{ lastWorldCreateStatus.requestedBy || "(?)" }}</p>
+					</div>
+				</div>
+			</template>
+			<template #content v-else>
 				<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
 				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3 gap-4 mx-4">
 					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
@@ -103,12 +116,11 @@
 				<div>
 					<div class="flex items-center justify-center mb-4">
 						<Spinner class="h-5 w-5 text-teal-4" />
-						<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStatusLabel }}</p>
+						<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
 					</div>
-					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateProgressMessage }}</p>
-					<p class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ worldCreateProgress }}%</p>
+					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
+					<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
 				</div>
-				<p v-if="worldCreateJobId" class="font-mono text-gray-6 text-xs mt-1 text-center">Job: {{ worldCreateJobId }}</p>
 			</div>
 		</Popup>
 	</div>
@@ -116,12 +128,34 @@
 
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
+import { TASK_IDS, useStatusStore } from '../../../../stores/statusStore';
 import { get, post } from '../../../../util/api';
+import delay from '../../../../util/delay';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Dropdown from "../../../common/Dropdown.vue";
 import Popup from "../../../common/Popup.vue";
 
+const defaultNewWorldData = () => ({
+	size: 1,
+	difficulty: 3,
+	evil: 1,
+	name: "",
+	seed: "fortheworthy",
+	maxPlayers: 16,
+	port: 7777,
+	worldFileLocation: null
+});
+
+const defaultLastWorldCreateStatus = () => ({
+	requestedBy: null,
+	status: "",
+	step: "",
+	progress: -1,
+	createdAt: null,
+	updatedAt: null,
+	jobID: null
+});
 
 export default {
 	mixins: [],
@@ -130,30 +164,15 @@ export default {
 		Dropdown,
 	},
 	props: {
-		selectedInstance: {
-			type: [String, null],
-			required: true
-		},
-		selectedServerData: {
-			type: Object,
-			required: true,
-		}
+		
 	},
 	data() {
 		return {
 			PERMISSIONS,
 			BTN_VARIANT,
 			serverStore: useServerStore(),
-			newWorldData: {
-				size: 1,
-				difficulty: 3,
-				evil: 1,
-				name: "",
-				seed: "fortheworthy",
-				maxPlayers: 16,
-				port: 7777,
-				worldFileLocation: null
-			},
+			statusStore: useStatusStore(),
+			newWorldData: defaultNewWorldData(),
 			worldSizeDropdownOptions: [
 				{ id: 1, text: "Small" },
 				{ id: 2, text: "Medium" },
@@ -170,130 +189,97 @@ export default {
 				{ id: 2, text: "Expert" },
 				{ id: 3, text: "Master" },
 			],
-			createWorldTexts: [
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"A new adventure awaits...",
-				"This is the one",
-				"Worlds without number",
-				"Simulator? I hardly know 'er",
-			],
-			chosenCreateWorldText: null,
 			worldCreatePopupOpen: false,
-			worldCreateJobId: null,
-			worldCreateProgress: 0,
-			worldCreateProgressMessage: "Preparing world creation",
-			worldCreateStatus: "idle",
-			worldCreatePollHandle: null,
+			lastWorldCreateStatus: defaultLastWorldCreateStatus(),
 		}
 	},
 	computed: {
 		worldFileLocationOptions() {
-			const worldRoots = Object.values(this.serverStore.instanceWorldPaths[this.selectedInstance] ?? []);
+			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
+			const worldRoots = worldPathNicknames.filter(pname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${pname}`));
 			return worldRoots.map(r => ({ id: r, text: r }));
 		},
-		worldCreateStatusLabel() {
-			if (this.worldCreateStatus === "completed") return "World Created";
-			if (this.worldCreateStatus === "failed") return "World Creation Failed";
-			if (this.worldCreateStatus === "queued") return "Queued";
+		worldCreateStageLabel() {
+			if (this.lastWorldCreateStatus.status === "completed") return "World Created";
+			if (this.lastWorldCreateStatus.status === "failed") return "World Creation Failed";
+			if (this.lastWorldCreateStatus.status === "queued") return "Queued";
 			return "Working";
+		},
+		worldCreateStepLabel() {
+			if (this.lastWorldCreateStatus.step === "queued") return "Queued";
+			if (this.lastWorldCreateStatus.step === "starting-tshock") return "Starting TShock";
+			if (this.lastWorldCreateStatus.step === "waiting-for-world-file") return "Generating world file";
+			if (this.lastWorldCreateStatus.step === "uploading-world-file") return "Uploading world file";
+			if (this.lastWorldCreateStatus.step === "completed") return "Launching world";
+			return "World creation started";
+		},
+		worldCreationInProgress() {
+			return this.lastWorldCreateStatus.progress >= 0;
+		},
+		mainText() {
+			return this.worldCreationInProgress ? "World creation in progress" : "World creation available";
+		},
+		selectedInstance() {
+			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
 		}
 	},
 	methods: {
-		openWorldCreatePopup(jobId, message = "World creation started") {
+		openWorldCreatePopup() {
 			this.worldCreatePopupOpen = true;
-			this.worldCreateJobId = jobId;
-			this.worldCreateProgress = 0;
-			this.worldCreateProgressMessage = message;
 			this.worldCreateStatus = "queued";
 		},
 		closeWorldCreatePopup() {
 			this.worldCreatePopupOpen = false;
-			this.worldCreatePollHandle = null;
-			this.worldCreateJobId = null;
-		},
-		stopWorldCreatePolling() {
-			if (this.worldCreatePollHandle) {
-				clearInterval(this.worldCreatePollHandle);
-				this.worldCreatePollHandle = null;
-			}
 		},
 		async pollWorldCreateStatus() {
-			if (!this.worldCreateJobId || !this.selectedInstance) return;
+			if (!this.selectedInstance) {
+				console.warn("Tried to poll creation status, but found no selected instance");
+				return;
+			}
 
 			try {
-				const data = await get(
-					`/server/${this.selectedInstance}/world/create/${this.worldCreateJobId}/status`,
-					PERMISSIONS.server.world.create
-				);
+				const statusResult = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
 
-				this.worldCreateStatus = data.status || "running";
-				this.worldCreateProgress = Number(data.progress || 0);
-				this.worldCreateProgressMessage = data.message || "Working";
-
-				if (data.isDone || ["completed", "failed"].includes(data.status)) {
-					this.stopWorldCreatePolling();
-					this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
-
-					if (data.status === "completed") {
-						this.worldCreateProgress = 100;
-						this.$alert.success("World created and saved successfully");
-						this.worldCreateProgressMessage = "Waiting for server launch";
-						setTimeout(() => {
-							setTimeout(() => this.$emit("refresh"), 500);
-							setTimeout(() => this.closeWorldCreatePopup(), 1200);
-						}, 7000);
-					} else {
-						this.$alert.error(data.error || data.message || "World creation failed");
-						this.closeWorldCreatePopup();
-					}
+				if (statusResult && statusResult.found !== false) {
+					this.lastWorldCreateStatus = statusResult;
 				}
 			} catch (error) {
-				this.stopWorldCreatePolling();
+				this.statusStore.cancelRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK);
 				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 				this.closeWorldCreatePopup();
 				this.$alert.error("Lost connection while tracking world creation status");
 				console.error(error);
 			}
 		},
-		startWorldCreatePolling() {
-			this.stopWorldCreatePolling();
-			this.pollWorldCreateStatus();
-			this.worldCreatePollHandle = setInterval(() => {
-				this.pollWorldCreateStatus();
-			}, 3000);
+		startWorldCreatePolling(firstStatus) {
+			this.lastWorldCreateStatus = firstStatus;
+			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => ["failed", "completed"].includes(this.lastWorldCreateStatus.status), 5000, 60);
 		},
 		async createWorld() {
 			this.$validatePermissions(PERMISSIONS.server.world.create);
 
-
 			if (this.serverStore.loading.worldLaunch[this.selectedInstance]) return;
 
-			if (
-				this.newWorldData.size < 1 || this.newWorldData.size > 3 || 
-				this.newWorldData.difficulty < 1 || this.newWorldData.difficulty > 4 ||
-				this.newWorldData.evil < 1 || this.newWorldData.evil > 3 ||
-				!this.newWorldData.name || !/^[a-zA-Z0-9_\s]+$/.test(this.newWorldData.name) ||
-				!this.newWorldData.maxPlayers ||
-				!this.newWorldData.worldFileLocation
-			) {
-				this.$alert.error("Invalid world data");
-				return;
+			const conditions = [
+				[this.newWorldData.size < 1 || this.newWorldData.size > 3, "Invalid world size"],
+				[this.newWorldData.difficulty < 1 || this.newWorldData.difficulty > 4, "Invalid world difficulty"],
+				[this.newWorldData.evil < 1 || this.newWorldData.evil > 3, "Invalid world evil"],
+				[!this.newWorldData.name || !/^[a-zA-Z0-9_\s]+$/.test(this.newWorldData.name), "World name can only include alphanumeric characters, underscores, and whitespace"],
+				[!this.newWorldData.maxPlayers, "Cannot have 0 max players"],
+				[!this.newWorldData.worldFileLocation, "Invalid file location"]
+			];
+
+			for (let condition of conditions) {
+				if (condition[0]) {
+					this.$alert.error(condition[1]);
+					return;
+				}
 			}
 
+			this.newWorldData.name = this.newWorldData.name.replace(/\s/g, '_');
 			this.serverStore.loading.worldLaunch[this.selectedInstance] = true;
 
 			try {
@@ -309,12 +295,8 @@ export default {
 					worldFolderPath: this.newWorldData.worldFileLocation
 				});
 
-				if (!queued?.jobId) {
-					throw new Error("World create request did not return a job ID");
-				}
-
-				this.openWorldCreatePopup(queued.jobId, queued.progressMessage || queued.message || "World creation started");
-				this.startWorldCreatePolling();
+				this.openWorldCreatePopup();
+				this.startWorldCreatePolling(defaultLastWorldCreateStatus());
 			} catch (e) {
 				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 				if (e.message.includes("Instances not in a valid state")) {
@@ -325,16 +307,30 @@ export default {
 				}
 			}
 		},
-		getRandomCreateText() {
-			const index = Math.floor(Math.random() * this.createWorldTexts.length);
-			return this.createWorldTexts[index];
+		async handleCreationFinished() {
+			if (this.lastWorldCreateStatus.status === "completed") {
+				this.newWorldData = defaultNewWorldData();
+				if (this.worldCreatePopupOpen) {
+					this.$alert.success("World created, saved, and launched successfully");
+				} else {
+					this.$alert.info("World creation completed");
+				}
+				await delay(7000);
+				this.$emit("refresh");
+				await delay(1200);
+				this.closeWorldCreatePopup();
+			} else {
+				this.$alert.error("World creation failed");
+				this.closeWorldCreatePopup();
+			}
+
+			this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
+			this.lastWorldCreateStatus = defaultLastWorldCreateStatus();
 		}
 	},
-	mounted() {
-		this.chosenCreateWorldText = this.getRandomCreateText();
-	},
-	beforeUnmount() {
-		this.stopWorldCreatePolling();
+	created() {
+		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.pollWorldCreateStatus);
+		this.statusStore.subscribeToTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, this.handleCreationFinished);
 	},
 	watch: {
 		worldFileLocationOptions(value) {
