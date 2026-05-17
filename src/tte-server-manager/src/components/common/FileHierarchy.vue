@@ -31,7 +31,7 @@
 		<template v-for="file in levelFiles">
 			<div class="ml-6 flex items-center mt-1 reveal-delete-icon">
 				<Icon icon="file-solid" size="4" color="text-white-0" />
-				<p :class="['font-mono ml-2 text-white-0', {'cursor-pointer hover:text-white-1': !editable}]" @click="emitPicked(this.__path)">{{ file }}</p>
+				<p :class="['font-mono ml-2 text-white-0', {'cursor-pointer hover:text-white-1': !editable}]" @click="emitPicked(this.__path.concat(file))">{{ file }}</p>
 				<Icon 
 					v-if="editable"
 					icon="xmark" 

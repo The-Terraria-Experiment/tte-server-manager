@@ -45,13 +45,14 @@
 						leftIcon="arrow-rotate-right"
 						:disabled="false"
 						@input="reloadConfig"
+						class="mb-4"
 					>
 						RELOAD CONFIG IN TSHOCK
 					</FlexButton>
 				</div>
 
 				<div>
-					<div class="bg-gray-2 p-4 rounded-md mt-4">
+					<div class="bg-gray-2 p-4 rounded-md">
 						<p class="font-main font-bold text-gray-7">TOP SETTINGS</p>
 						<div class="flex gap-2 pt-2 text-sm">
 							<div v-for="highlight in highlightedEntries" class="flex font-mono bg-blue-1 rounded-md text-white">
@@ -102,6 +103,7 @@ import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import FlexButton from '../../../common/FlexButton.vue';
 import LargeTextInput from '../../../common/LargeTextInput.vue';
+import Icon from '@/components/common/Icon.vue';
 
 export default {
 	mixins: [],
