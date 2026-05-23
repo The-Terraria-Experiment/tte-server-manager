@@ -242,7 +242,7 @@ export default {
 		},
 
 		pollInstanceState() {
-			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => this.selectedServerData.state);
+			this.statusStore.startRepeatingTask(TASK_IDS.SERVER_STATUS_CHECK, () => this.selectedServerData.state);
 		}
 	}
 }
