@@ -8,10 +8,11 @@ import { Parsers } from "./shared/utils/Parsers.js";
 import { ResponseUtil } from "./shared/utils/APIResponse.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { Permissions } from "./shared/utils/Perms.js";
+import { pushLog } from "./actions/pushLog.js";
 
 const automatedEndpoints: KeyedEndpointList = {
 	"POST /logging/{id}/push": {
-		action: null,
+		action: pushLog,
 	},
 };
 
