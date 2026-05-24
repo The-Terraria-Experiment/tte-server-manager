@@ -68,7 +68,6 @@ export class DynamoDao {
 	}
 
 	public async PutItem(tableName: string, item: Record<string, unknown>): Promise<boolean> {
-		Assert.ObjectHasTruthyKey(item, "uid", "'Item' must have a UID value");
 		Assert.IsTruthyString(tableName, "Table name required for put");
 
 		const cmd = new PutCommand({
