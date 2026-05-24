@@ -1,6 +1,6 @@
 <template>
 	<StatusTile 
-		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+		class="grow mt-2 gradient-tile"
 		collapsible
 		:perm-required="PERMISSIONS.server.world.select"
 		:loading="serverStore.loading.files[selectedInstance]"

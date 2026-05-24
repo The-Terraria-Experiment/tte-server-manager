@@ -1,7 +1,7 @@
 <template>
 	<div>
 		<StatusTile
-			:class="['grow mt-4 sm:mt-8 sm:mx-1 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
+			:class="['grow mt-2 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			:collapsible="selectedServerData.state"
 			:perm-required="PERMISSIONS.server.status.read"
 			:loading="statusLoading || statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)"

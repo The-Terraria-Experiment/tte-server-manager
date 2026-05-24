@@ -1,11 +1,11 @@
 <template>
-	<div class="flex flex-col sm:grid sm:grid-cols-4">
+	<div class="flex flex-col sm:grid sm:grid-cols-4 mt-2 sm:mt-6 gap-2">
 		<ServerState />
 
 		<Players />
 
 		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			class="grow sm:mt-2 gradient-tile"
 			collapsible
 			:perm-required="PERMISSIONS.server.status.read"
 		>
@@ -43,7 +43,7 @@
 		</StatusTile>
 
 		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			class="grow sm:mt-2 gradient-tile"
 			:collapsible="!!ruleEntryCount"
 			:perm-required="PERMISSIONS.server.status.read"
 		>

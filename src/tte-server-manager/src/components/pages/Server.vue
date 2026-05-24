@@ -1,39 +1,49 @@
 <template>
-	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
-		<div class="title-bg-gradient"></div>
-		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0">MANAGE GAME SERVER</h1>
-		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View and manage game server status</p>
-	</div>
-
-	<div 
-		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
-		class="bg-gray-3 p-4 rounded-xl"
-	>
-		<p class="font-main font-bold text-gray-7 mb-2">HOST INSTANCE</p>
-		<Dropdown 
-			:options="filteredInstanceOptions"
-			v-model="selectedInstance"
-			inputClass="bg-teal-3 text-white-1"
-			iconColor="text-white-1"
-		/>
-
-		<div class="flex flex-col sm:flex-row gap-4 mt-4">
-			<RefreshButton
-				:loading="serverStore.somethingIsLoading"
-				@input="refresh"
-			/>
-			<FlexButton
-				v-if="$checkPermissions(PERMISSIONS.system.dropcache)"
-				:variant="BTN_VARIANT.SECONDARY"
-				leftIcon="ban"
-				leftIconSize="5"
-				@input="dropTshockTokenCache"
-			>
-				DROP TOKEN CACHE
-			</FlexButton>
+	<div class="sm:grid sm:grid-cols-2 gap-2">
+		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full w-full p-4 mb-4 sm:mb-8 flex flex-col items-center justify-center']">
+			<!-- <div class="title-bg-gradient"></div> -->
+			<div class="flex items-center">
+				<Icon icon="gamepad" size="8" color="text-white-1 sm:text-teal-4" />
+				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0 ml-3">MANAGE GAME SERVER</h1>
+			</div>
+			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View and manage game server status</p>
 		</div>
+		<div
+			v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
+			class="bg-gray-1 p-4 rounded-xl"
+		>
+			<p class="font-main font-bold text-gray-7 mb-2">PICK HOST INSTANCE</p>
+			<Dropdown
+				:options="filteredInstanceOptions"
+				v-model="selectedInstance"
+				inputClass="bg-teal-3 text-white-1"
+				iconColor="text-white-1"
+			/>
+			<div class="flex flex-col sm:flex-row gap-4 mt-4">
+				<RefreshButton
+					:loading="serverStore.somethingIsLoading"
+					@input="refresh"
+				/>
+				<FlexButton
+					v-if="$checkPermissions(PERMISSIONS.system.dropcache)"
+					:variant="BTN_VARIANT.SECONDARY"
+					leftIcon="ban"
+					leftIconSize="5"
+					@input="dropTshockTokenCache"
+				>
+					DROP TOKEN CACHE
+				</FlexButton>
+			</div>
+		</div>
+
+		<div v-else class="bg-gray-1 rounded-xl"></div>
 	</div>
-	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
+
+
+	<StatusTile 
+		v-if="!$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && !filteredInstanceOptions.length"
+		class="mt-4"
+	>
 		<template #header>
 			<Icon icon="warning" color="text-yellow-2" size="4" />
 			<p class="text-yellow-2 ml-2 text-lg">No Data</p>
@@ -45,6 +55,7 @@
 
 	<MajorLoader 
 		v-else-if="serverStore.isLoadingList" 
+		class="mt-4"
 		text="Loading Instances..." 
 	/>
 
@@ -61,6 +72,8 @@
 		ref="createWorld"
 		@refresh="refresh"
 	/>
+
+	<BrowseLogs />
 
 	<ServerConfig 
 		v-if="selectedInstance && selectedInstanceData?.online"
@@ -93,6 +106,7 @@ import ManageBans from './tools/server/ManageBans.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
+import BrowseLogs from './tools/server/BrowseLogs.vue';
 
 
 export default {
@@ -106,6 +120,7 @@ export default {
 		CreateWorld,
 		ManageBans,
 		ServerConfig,
+		BrowseLogs,
 	},
 	props: {
 		

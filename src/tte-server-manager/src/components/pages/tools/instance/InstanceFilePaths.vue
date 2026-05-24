@@ -3,7 +3,7 @@
 		v-if="selectedInstanceData.state === 'ONLINE'"
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.paths.read, PERMISSIONS.instance.files.paths.write]"
 		collapsible
-		class="mt-4 sm:mt-8"
+		class="mt-2"
 		:loading="saveLoading"
 	>
 		<template #header>

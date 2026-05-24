@@ -1,26 +1,24 @@
 <template>
-	<div>
+	<div class="flex">
 		<StatusTile
-			:class="['mt-4 sm:mt-8']"
-			collapsible
+			:class="['sm:mt-2 grow h-auto!']"
 			:perm-required="PERMISSIONS.server.config.read"
 			:loading="loadingSaveConfig || loadingFile"
 		>
 			<template #header>
 				<Icon icon="gear" color="text-gray-6" size="5" />
-				<p class="text-gray-6 ml-2 text-lg">Other Configs</p>
+				<p class="text-gray-6 ml-2 text-lg">Custom Configs</p>
 			</template>
-			<template #summary>
+			<!-- <template #summary>
 				<p class="text-2xl text-teal-4">{{ summaryText }}</p>
-			</template>
+			</template> -->
 			<template #content>
-				<div class="flex px-4 pb-4 gap-2">
-					<div class="bg-gray-2 rounded-md p-3 w-full">
-						<p class="font-main font-bold text-gray-7">FIND CONFIG FILE</p>
-						<div class="flex gap-4 flex-wrap mt-4">
+				<div class="flex px-3 pb-4 gap-2">
+					<div class="rounded-md px-1 w-full">
+						<div class="flex gap-4 flex-wrap">
 							<Dropdown
 								placeholder="Choose parent folder..."
-								class="sm:max-w-1/4"
+								class="sm:max-w-1/2"
 								inputClass="bg-teal-3 text-white-1"
 								iconColor="text-white-1"
 								:options="fileRootOptions"
@@ -33,7 +31,7 @@
 								:disabled="!searchRoot"
 								@input="openPicker"
 							>
-								PICK FILE
+								PICK {{ !!selectedRelativePath ? 'NEW' : '' }} FILE
 							</FlexButton>
 						</div>
 						<div class="mt-4 flex items-center">
