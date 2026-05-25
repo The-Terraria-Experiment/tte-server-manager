@@ -79,7 +79,7 @@
 		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
 
-	<StatusTile v-if="selectedInstanceData?.state && !selectedInstanceData.online" class="mt-4">
+	<StatusTile v-if="selectedInstanceData?.state && !selectedInstanceData.online" class="mt-2">
 		<template #header>
 			<Icon icon="circle-info" color="text-gray-6" size="4" />
 			<p class="text-gray-6 ml-2 text-lg">Instance Offline</p>
