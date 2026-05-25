@@ -92,7 +92,6 @@ export const getLogs = async (event: AuthorizedEvent, context: Context) => {
 
 	const expressionAttributeNames: Record<string, string> = {
 		"#pk": partitionKeyName,
-		"#ts": "timestamp",
 	};
 	const expressionAttributeValues: Record<string, unknown> = {
 		":pk": partitionKeyValue,
@@ -100,13 +99,16 @@ export const getLogs = async (event: AuthorizedEvent, context: Context) => {
 
 	const timeConditions: string[] = [];
 	if (startTime !== null && endTime !== null) {
+		expressionAttributeNames["#ts"] = "timestamp";
 		timeConditions.push("#ts BETWEEN :startTime AND :endTime");
 		expressionAttributeValues[":startTime"] = startTime;
 		expressionAttributeValues[":endTime"] = endTime;
 	} else if (startTime !== null) {
+		expressionAttributeNames["#ts"] = "timestamp";
 		timeConditions.push("#ts >= :startTime");
 		expressionAttributeValues[":startTime"] = startTime;
 	} else if (endTime !== null) {
+		expressionAttributeNames["#ts"] = "timestamp";
 		timeConditions.push("#ts <= :endTime");
 		expressionAttributeValues[":endTime"] = endTime;
 	}
