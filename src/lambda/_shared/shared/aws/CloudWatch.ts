@@ -35,6 +35,45 @@ export class CWLogger {
 
 	private static readonly outgoing = new Map<string, Promise<PutLogEventsCommandOutput>>();
 
+	private static isTransientAwsError(error: unknown): boolean {
+		if (!(error instanceof Error)) {
+			return false;
+		}
+
+		const message = error.message || "";
+		return [
+			"Signature expired",
+			"RequestExpired",
+			"InvalidSignatureException",
+			"RequestTimeout",
+			"RequestTimeoutException",
+			"Throttling",
+			"TooManyRequestsException",
+			"RequestThrottled",
+		].some((phrase) => message.includes(phrase));
+	}
+
+	private static sleep(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	private static async sendWithRetry(command: any, maxAttempts = 2): Promise<any> {
+		let attempt = 0;
+		while (true) {
+			try {
+				return await CWLogger.cloudwatchClient.send(command);
+			} catch (error) {
+				if (attempt < maxAttempts && CWLogger.isTransientAwsError(error)) {
+					attempt += 1;
+					await CWLogger.sleep(100 * attempt);
+					continue;
+				}
+
+				throw error;
+			}
+		}
+	}
+
 	public static async logEntry(
 		functionName: string,
 		logType: "actions" | "errors",
@@ -56,7 +95,7 @@ export class CWLogger {
 		try {
 			if (!CWLogger.existingStreams.has(streamKey)) {
 				try {
-					await CWLogger.cloudwatchClient.send(
+					await CWLogger.sendWithRetry(
 						new CreateLogStreamCommand({
 							logGroupName,
 							logStreamName,
@@ -80,7 +119,7 @@ export class CWLogger {
 
 			const logID = `${logGroupName}-${logStreamName}-${`${Date.now()}-${Math.random().toString(36).slice(2, 10)}`}`;
 
-			const logPromise = CWLogger.cloudwatchClient.send(
+			const logPromise = CWLogger.sendWithRetry(
 				new PutLogEventsCommand({
 					logGroupName,
 					logStreamName,
@@ -94,10 +133,11 @@ export class CWLogger {
 			);
 
 			CWLogger.outgoing.set(logID, logPromise);
-
-			await logPromise;
-
-			CWLogger.outgoing.delete(logID);
+			try {
+				await logPromise;
+			} finally {
+				CWLogger.outgoing.delete(logID);
+			}
 		} catch (error) {
 			const err = error as Error;
 			console.error(`CloudWatch logging to stream [${streamKey}] failed: ${err.message}`);
