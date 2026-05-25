@@ -44,18 +44,19 @@
 									<Icon icon="edit" color="text-white-1" size="5" />
 								</div>
 							</div>
-							<DateTimePickerPopup
-								:open="timeFilterStartPopupOpen"
-								@close="timeFilterStartPopupOpen = false"
-								@cancel="timeFilterStartPopupOpen = false; timeFilterStart = null;"
-								v-model="timeFilterStart"
-							/>
-							<DateTimePickerPopup
-								:open="timeFilterEndPopupOpen"
-								@close="timeFilterEndPopupOpen = false"
-								@cancel="timeFilterEndPopupOpen = false; timeFilterEnd = null;"
-								v-model="timeFilterEnd"
-							/>
+
+							<FlexButton
+								class=""
+								:variant="BTN_VARIANT.SECONDARY"
+								leftIcon="clock"
+								leftIconSize="4"
+								:disabled="loadingActiveSession"
+								:loading="loadingActiveSession"
+								@input="detectRunningSession"
+							>
+								DETECT ACTIVE SESSION
+							</FlexButton>
+							
 						</div>
 						<div v-if="logsFilter === FILTER.EVENT" class="flex flex-wrap gap-2 mt-2">
 							<template v-for="(eventName, eventCode) in EVENT_NAMES">
@@ -157,6 +158,19 @@
 				</div>
 			</div>
 		</Popup>
+
+		<DateTimePickerPopup
+			:open="timeFilterStartPopupOpen"
+			@close="timeFilterStartPopupOpen = false"
+			@cancel="timeFilterStartPopupOpen = false; timeFilterStart = null;"
+			v-model="timeFilterStart"
+		/>
+		<DateTimePickerPopup
+			:open="timeFilterEndPopupOpen"
+			@close="timeFilterEndPopupOpen = false"
+			@cancel="timeFilterEndPopupOpen = false; timeFilterEnd = null;"
+			v-model="timeFilterEnd"
+		/>
 	</div>
 </template>
 
@@ -236,6 +250,7 @@ export default {
 			timeFilterEndPopupOpen: false,
 			logViewPopupOpen: false,
 			loading: false,
+			loadingActiveSession: false,
 
 			logPageSize: 50,
 			logs: [],
@@ -249,6 +264,9 @@ export default {
 	computed: {
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
+		},
+		selectedServerData() {
+			return this.serverStore.selectedServerData;
 		},
 		queryParams() {
 			const params = {
@@ -344,6 +362,35 @@ export default {
 			}
 
 			this.logsPage = this.logsPage + 1;
+		},
+		async detectRunningSession() {
+			await this.$validatePermissions(PERMISSIONS.server.logs.read);
+
+			if (this.loadingActiveSession) return;
+			this.loadingActiveSession = true;
+
+			try {
+				await this.serverStore.fetchServerStatus(this.selectedInstance);
+				const uptime = this.selectedServerData.uptime ?? "";
+
+				const timeRegex = /^(\d+)\.(\d{2}):(\d{2}):(\d{2}$)/gm;
+				if (!uptime || !uptime.match(timeRegex)) {
+					this.$alert.error("Invalid session duration. Could not detect session.");
+					return;
+				}
+
+				const results = timeRegex.exec(uptime);
+				const [full, days, hours, minutes, seconds] = results; // not entirely sure that the first number is days, I've never had a session get long enough for it to be not 0
+
+				const totalInSec = (parseInt(days) * 24 * 60 * 60) + (parseInt(hours) * 60 * 60) + (parseInt(minutes) * 60) + parseInt(seconds);
+				const sessionStart = Date.now() - (totalInSec * 1000) - (60 * 1000); // plus one minute of grace
+
+				this.timeFilterStart = new Date(sessionStart).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+			} catch (e) {
+				this.$alert.error("Failed to detect session");
+			} finally {
+				this.loadingActiveSession = false;
+			}
 		}
 	},
 }
