@@ -31,7 +31,8 @@ export const pushLog = async (event: AuthorizedEvent, context: Context) => {
 			schema: payload.schemaVersion,
 			plugin: payload.pluginVersion,
 			server: payload.server.version
-		}
+		},
+		expireAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60 // 1 month
 	};
 
 	const DB = new DynamoDao();

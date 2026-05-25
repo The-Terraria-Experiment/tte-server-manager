@@ -23,7 +23,8 @@ export type LogDataEntry = {
 		schema: string,
 		plugin: string,
 		server: string
-	}
+	},
+	expireAt: number,
 };
 
 export enum PlayerEvent {
