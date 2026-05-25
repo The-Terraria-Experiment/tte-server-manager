@@ -1,0 +1,8 @@
+{
+  "name": "auto-shutoff-manager",
+  "version": "1.0.0",
+  "description": "Auto shutoff manager Lambda",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {}
+}

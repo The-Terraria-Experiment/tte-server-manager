@@ -1,6 +1,6 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { TShockAPI } from "../utils/TShockAPI.js";
+import { TShockAPI } from "../shared/utils/TShockAPI.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Parsers } from "../shared/utils/Parsers.js";

@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const LAMBDA_TSCONFIG = path.join(ROOT_DIR, "tsconfig.lambda.json");
 
-const FUNCTIONS = ["instance-manager", "server-manager", "user-manager", "logs-manager", "cognito-user-link", "system-manager", "api-authorizer"];
+const FUNCTIONS = ["instance-manager", "server-manager", "user-manager", "logs-manager", "cognito-user-link", "system-manager", "api-authorizer", "auto-shutoff-manager"];
 const BUILD_DIR = path.join(__dirname, "dist");
 const COMPILED_DIR = path.join(ROOT_DIR, "tsbuild", "lambda");
 const WORKSPACE_DIR = path.join(ROOT_DIR, "tsbuild", "lambda-workspace");
