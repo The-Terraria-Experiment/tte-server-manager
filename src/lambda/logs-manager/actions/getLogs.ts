@@ -1,5 +1,7 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
+import { PERMISSIONS } from "../shared/permissionValues.js";
+import { Permissions } from "../shared/utils/Perms.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { PlayerEvent, ServerEvent } from "../shared/schema/LogsTable.js";
@@ -48,6 +50,10 @@ export const getLogs = async (event: AuthorizedEvent, context: Context) => {
 		return ResponseUtil.ValidationError("Invalid player identifier");
 	}
 
+	if (typeof event.parsedBody?.ip !== "string" && event.parsedBody?.ip !== null) {
+		return ResponseUtil.ValidationError("Invalid IP address");
+	}
+
 	if (event.parsedBody?.lastValue === undefined) {
 		return ResponseUtil.ValidationError("Invalid query params");
 	}
@@ -74,6 +80,7 @@ export const getLogs = async (event: AuthorizedEvent, context: Context) => {
 	const eventTypesRaw = event.parsedBody?.eventTypes ?? null;
 	const eventTypes = eventTypesRaw ? Array.from(new Set(eventTypesRaw)) : null;
 	const playerName = event.parsedBody?.player ?? null;
+	const ipAddress = event.parsedBody?.ip ?? null;
 	const startTime = event.parsedBody?.startTime ?? null;
 	const endTime = event.parsedBody?.endTime ?? null;
 	const lastValue = event.parsedBody?.lastValue ?? null;
@@ -86,9 +93,17 @@ export const getLogs = async (event: AuthorizedEvent, context: Context) => {
 		return ResponseUtil.ValidationError("Specify either eventType or player, not both");
 	}
 
-	const indexName = eventType !== null ? "event" : playerName !== null ? "player" : undefined;
-	const partitionKeyName = eventType !== null ? "eventType" : playerName !== null ? "playerName" : "serverID";
-	const partitionKeyValue = eventType !== null ? eventType : playerName !== null ? playerName : serverKey;
+	if (ipAddress !== null) {
+		await Permissions.ValidatePermission(event, PERMISSIONS.server.logs.ips.read);
+
+		if (eventType !== null || eventTypes !== null || playerName !== null) {
+			return ResponseUtil.ValidationError("Specify ip only when not querying by eventType, eventTypes, or player");
+		}
+	}
+
+	const indexName = eventType !== null ? "event" : playerName !== null ? "player" : ipAddress !== null ? "ipaddress" : undefined;
+	const partitionKeyName = eventType !== null ? "eventType" : playerName !== null ? "playerName" : ipAddress !== null ? "ip" : "serverID";
+	const partitionKeyValue = eventType !== null ? eventType : playerName !== null ? playerName : ipAddress !== null ? ipAddress : serverKey;
 
 	const expressionAttributeNames: Record<string, string> = {
 		"#pk": partitionKeyName,

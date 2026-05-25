@@ -77,6 +77,9 @@
 						<div v-if="logsFilter === FILTER.PLAYER" class="mt-2">
 							<ValueInput v-model="playerFilter" placeholder="Player username" />
 						</div>
+						<div v-if="logsFilter === FILTER.IP" class="mt-2">
+							<ValueInput v-model="ipFilter" placeholder="IP address" />
+						</div>
 						<FlexButton
 							:title="sameQuery ? 'This query is already loaded' : ''"
 							class="mt-4"
@@ -115,13 +118,14 @@
 		>
 			<div class="px-4 pb-4 flex flex-col h-full">
 				<p class="my-2 text-gray-6 font-bold italic">Dates and times are displayed in your time zone</p>
-				<div class="grid log-grid text-white-0 font-mono text-sm overflow-auto relative">
+				<div class="grid text-white-0 font-mono text-sm overflow-auto relative" :style="gridStyle">
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Timestamp</div>
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Username</div>
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Event</div>
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">World</div>
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Player Group</div>
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">TShock Login</div>
+					<div v-if="canViewIP" class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">IP</div>
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Players Online</div>
 					<template v-for="(log, i) in currentLogsPage">
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ new Date(log.timestamp).toLocaleString() }}</div>
@@ -130,6 +134,7 @@
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.worldName }}</div>
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.playerGroup }}</div>
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.isLoggedIn }}</div>
+						<div v-if="canViewIP" :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.ip }}</div>
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.playersActive }}</div>
 					</template>
 				</div>
@@ -191,7 +196,8 @@ import { PERMISSIONS } from '@/util/permissionValues';
 const FILTER = {
 	ALL: "all",
 	PLAYER: "player",
-	EVENT: "event"
+	EVENT: "event",
+	IP: "ip",
 };
 
 const EVENT = {
@@ -246,6 +252,7 @@ export default {
 			timeFilterEnd: null,
 			eventFilter: new Set([EVENT.PJOIN, EVENT.PLEAVE, EVENT.PDEATH, EVENT.PSPAWN]),
 			playerFilter: "",
+			ipFilter: "",
 			timeFilterStartPopupOpen: false,
 			timeFilterEndPopupOpen: false,
 			logViewPopupOpen: false,
@@ -274,6 +281,7 @@ export default {
 				startTime: this.timeFilterStart ? Date.parse(this.timeFilterStart) : null,
 				endTime: this.timeFilterEnd ? Date.parse(this.timeFilterEnd) : null,
 				player: this.logsFilter === FILTER.PLAYER ? this.playerFilter : null,
+				ip: this.logsFilter === FILTER.IP ? this.ipFilter : null,
 			};
 
 			if (this.logsFilter === FILTER.EVENT) {
@@ -293,6 +301,12 @@ export default {
 		},
 		currentLogsPage() {
 			return this.logs.slice(this.logsPage * this.logPageSize, (this.logsPage + 1) * this.logPageSize);
+		},
+		canViewIP() {
+			return this.$checkPermissions(PERMISSIONS.server.logs.ips.read);
+		},
+		gridStyle() {
+			return `grid-template-columns: repeat(${this.canViewIP ? 8 : 7}, minmax(max-content, 1fr));`;
 		}
 	},
 	methods: {
@@ -327,6 +341,10 @@ export default {
 			}
 			if (this.queryParams.startTime && this.queryParams.endTime && this.queryParams.startTime > this.queryParams.endTime) {
 				this.$alert.warning("The 'from' time must be before the 'to' time");
+				return;
+			}
+			if (this.queryParams.ip && !this.queryParams.ip.match(/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/gm)) {
+				this.$alert.warning("Invalid IP address");
 				return;
 			}
 
@@ -393,11 +411,13 @@ export default {
 			}
 		}
 	},
+	mounted() {
+		if (this.$checkPermissions(PERMISSIONS.server.logs.ips.read)) {
+			this.filterByOptions.push({ id: FILTER.IP, text: "Specific IP address" });
+		}
+	}
 }
 </script>
 
 <style scoped>
-.log-grid {
-	grid-template-columns: repeat(7, minmax(max-content, 1fr));
-}
 </style>
