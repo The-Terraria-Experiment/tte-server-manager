@@ -64,7 +64,7 @@ export const useUserStore = defineStore("userstore", {
 				const applyUserData = (data) => {
 					this.accountData = data?.entries || null;
 					this.permissions = data?.entries?.permissions || [];
-					this.resourceAccess = data?.entries.resourceAccess || [];
+					this.resourceAccess = data?.entries?.resourceAccess || [];
 					this.user.displayName = data?.entries?.displayName || "";
 					this.user.username = data?.entries?.username || "";
 				};
@@ -75,7 +75,7 @@ export const useUserStore = defineStore("userstore", {
 				} catch (e) {
 					existingCache = null;
 				}
-				if (USE_CACHE && existingCache && existingCache.expiresAt > Date.now()) {
+				if (USE_CACHE && existingCache && existingCache.expiresAt > Date.now() && existingCache.entries) {
 					applyUserData(existingCache);
 				} else {
 					const response = await fetch(
@@ -94,6 +94,9 @@ export const useUserStore = defineStore("userstore", {
 					}
 
 					if (USE_CACHE) {
+						if (!data || !Object.values(data).length) {
+							throw new Error("No perm data");
+						}
 						const userCacheData = {
 							...data,
 							expiresAt: Date.now() + CACHE_TTL
