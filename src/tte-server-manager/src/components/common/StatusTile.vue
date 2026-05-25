@@ -7,6 +7,7 @@
 			<div class="flex flex-col grow font-main font-bold">
 				<div class="flex items-center px-4 pt-2 pb-2">
 					<slot name="header"></slot>
+					<Spinner v-if="!$slots.summary && loading" class="h-5 w-5 text-teal-3 ml-2"/>
 				</div>
 				<div class="px-4 pb-4" v-if="$slots.summary">
 					<div class="flex items-center">

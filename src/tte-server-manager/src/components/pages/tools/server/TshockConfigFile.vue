@@ -8,21 +8,19 @@
 			<Icon icon="gear" color="text-gray-6" size="5" />
 			<p class="text-gray-6 ml-2 text-lg">Main TShock Config</p>
 		</template>
-		<template #summary>
-			<div class="w-full">
-				<div class="bg-gray-2 px-4 pt-4 pb-2 rounded-md">
-					<p class="font-main font-bold text-gray-7">TOP SETTINGS</p>
-					<div class="flex gap-2 pt-2 text-sm overflow-x-auto">
-						<div v-for="highlight in highlightedEntries" class="flex font-mono bg-blue-1 rounded-md text-white mb-2">
-							<div class="pl-4 pt-2">{{ highlight }}:</div>
-							<div class="bg-blue-0 py-2 px-4 rounded-md ml-2">"{{ configAsJson["Settings"][highlight] }}"</div>
+		<template #content>
+			<div class="px-4 pb-4">
+				<div class="w-full mb-4">
+					<div class="bg-gray-2 px-4 pt-4 pb-2 rounded-md">
+						<p class="font-main font-bold text-gray-7">TOP SETTINGS</p>
+						<div class="flex gap-2 pt-2 text-sm overflow-x-auto">
+							<div v-for="highlight in highlightedEntries" class="flex font-mono bg-blue-1 rounded-md text-white mb-2">
+								<div class="pl-4 pt-2">{{ highlight }}:</div>
+								<div class="bg-blue-0 py-2 px-4 rounded-md ml-2">"{{ configAsJson["Settings"][highlight] }}"</div>
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
-		</template>
-		<template #content>
-			<div class="px-4 pb-4">
 				<div class="flex gap-4">
 					<!-- Currently I don't think S3 pricing is expensive enough to need this, but it's here if we want to limit the bucket reads a bit -->
 					<!-- <FlexButton
@@ -78,7 +76,7 @@
 						@save="saveAndCloseEditor"
 					/>
 
-					<div v-if="!jsonIsValid" class="flex items-center bg-gray-1 w-max py-2 px-4 rounded mt-2">
+					<div v-if="!jsonIsValid && !loadingSaveConfig" class="flex items-center bg-gray-1 w-max py-2 px-4 rounded mt-2">
 						<Icon icon="warning" size="4" color="text-red-5" />
 						<p class="font-mono text-red-5 ml-2">Invalid JSON</p>
 					</div>
@@ -170,6 +168,7 @@ export default {
 			this.$validatePermissions(PERMISSIONS.server.config.read);
 
 			if (!this.selectedInstance) return;
+			this.loadingSaveConfig = true;
 
 			try {
 				await this.serverStore.fetchServerConfig(this.selectedInstance);
@@ -177,6 +176,8 @@ export default {
 			} catch (e) {
 				this.$alert.error("Error getting server config");
 				console.error(e);
+			} finally {
+				this.loadingSaveConfig = false;
 			}
 		},
 
