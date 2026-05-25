@@ -3,7 +3,7 @@
 		v-if="selectedInstanceData.state === 'ONLINE'"
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
 		collapsible
-		class="mt-4 sm:mt-8"
+		class="mt-2"
 	>
 		<template #header>
 			<Icon icon="folder-open" color="text-gray-6" size="5" />

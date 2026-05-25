@@ -21,6 +21,22 @@ export interface UpdateConfig {
 	ReturnValues?: "NONE" | "ALL_OLD" | "UPDATED_OLD" | "ALL_NEW" | "UPDATED_NEW";
 }
 
+export interface QueryConfig {
+	keyCondition: string;
+	filterExpression?: string;
+	expressionAttributeNames?: Record<string, string>;
+	expressionAttributeValues?: Record<string, unknown>;
+	indexName?: string;
+	limit?: number;
+	exclusiveStartKey?: Record<string, unknown>;
+	scanIndexForward?: boolean;
+}
+
+export interface QueryResult {
+	items: Record<string, unknown>[];
+	lastKey: Record<string, unknown> | null;
+}
+
 export class DynamoDao {
 	private static instance: DynamoDao | null = null;
 	private readonly docClient!: DynamoDBDocumentClient;
@@ -68,7 +84,6 @@ export class DynamoDao {
 	}
 
 	public async PutItem(tableName: string, item: Record<string, unknown>): Promise<boolean> {
-		Assert.ObjectHasTruthyKey(item, "uid", "'Item' must have a UID value");
 		Assert.IsTruthyString(tableName, "Table name required for put");
 
 		const cmd = new PutCommand({
@@ -129,37 +144,54 @@ export class DynamoDao {
 		}
 	}
 
-	public async Query(
-		tableName: string,
-		keyCondition: string,
-		filterExpression?: string,
-	): Promise<Record<string, unknown>[]> {
+	public async Query(tableName: string, config: QueryConfig): Promise<QueryResult> {
 		Assert.IsTruthyString(tableName, "Table name required for query");
-		Assert.IsTruthyString(keyCondition, "Key condition required for query");
+		Assert.IsTruthyString(config.keyCondition, "Key condition required for query");
 
 		const cmd = new QueryCommand({
 			TableName: tableName,
-			KeyConditionExpression: keyCondition,
-			...(filterExpression ? { FilterExpression: filterExpression } : {}),
+			KeyConditionExpression: config.keyCondition,
+			...(config.filterExpression ? { FilterExpression: config.filterExpression } : {}),
+			...(config.expressionAttributeNames
+				? { ExpressionAttributeNames: config.expressionAttributeNames }
+				: {}),
+			...(config.expressionAttributeValues
+				? { ExpressionAttributeValues: config.expressionAttributeValues }
+				: {}),
+			...(config.indexName ? { IndexName: config.indexName } : {}),
+			...(config.limit ? { Limit: config.limit } : {}),
+			...(config.exclusiveStartKey ? { ExclusiveStartKey: config.exclusiveStartKey } : {}),
+			...(typeof config.scanIndexForward === "boolean"
+				? { ScanIndexForward: config.scanIndexForward }
+				: {}),
 		});
 
 		await CWLogger.CAction(3, CW_LOG_GENERAL, {
 			userId: null,
 			action: "shared-dynamo-query",
 			resource: null,
-			details: { tableName, keyCondition, filterExpression },
+			details: {
+				tableName,
+				keyCondition: config.keyCondition,
+				filterExpression: config.filterExpression,
+				indexName: config.indexName,
+				limit: config.limit,
+			},
 		});
 
 		try {
 			const response = await this.docClient.send(cmd);
-			return (response.Items as Record<string, unknown>[]) || [];
+			return {
+				items: (response.Items as Record<string, unknown>[]) || [],
+				lastKey: (response.LastEvaluatedKey as Record<string, unknown>) || null,
+			};
 		} catch (error) {
 			CWLogger.Error(CW_LOG_GENERAL, {
 				error: error instanceof Error ? error.message : String(error),
 				stack: error instanceof Error ? error.stack : undefined,
 				details: { action: "query", tableName },
 			});
-			return [];
+			return { items: [], lastKey: null };
 		}
 	}
 

@@ -3,12 +3,13 @@
 		:class="['bg-gray-3 rounded-xl overflow-hidden h-max', { 'not-allowed-tile': !validated }]"
 		v-if="validated"
 	>
-		<div class="flex w-full items-stretch" @click="toggle">
+		<div :class="[{ 'flex w-full items-stretch': collapsible }]" @click="toggle">
 			<div class="flex flex-col grow font-main font-bold">
-				<div class="flex items-center px-4 pt-2 pb-4">
+				<div class="flex items-center px-4 pt-2 pb-2">
 					<slot name="header"></slot>
+					<Spinner v-if="!$slots.summary && loading" class="h-5 w-5 text-teal-3 ml-2"/>
 				</div>
-				<div class="px-4 pb-4">
+				<div class="px-4 pb-4" v-if="$slots.summary">
 					<div class="flex items-center">
 						<slot name="summary"></slot>
 						<Spinner v-if="loading" class="h-6 w-6 text-teal-3 ml-2"/>

@@ -46,5 +46,9 @@
 		"allowJs": true
 	},
 	"include": ["./**/*.ts", "./**/*.js"],
-	"exclude": ["./**/node_modules", "./**/tsbuild"]
+	"exclude": [
+		"./**/node_modules",
+		"./**/tsbuild",
+		"./src/tte-server-manager/dist"
+	]
 }

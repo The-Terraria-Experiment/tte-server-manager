@@ -1,6 +1,6 @@
 <template>
 	<StatusTile 
-		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+		class="grow sm:mt-2 gradient-tile"
 		:collapsible="!!selectedServerData.playercount"
 		:perm-required="PERMISSIONS.server.status.read"
 	>

@@ -29,6 +29,9 @@ export const PERMISSIONS = {
 			inventory: {
 				read: "server.player.inventory.read",
 			},
+		},
+		logs: {
+			read: "server.logs.read",
 		}
 	},
 	instance: {

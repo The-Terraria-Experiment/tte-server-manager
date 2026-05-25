@@ -1,18 +1,17 @@
 <template>
-	<!-- <div class="flex flex-col sm:grid sm:grid-cols-2 gap-2"> -->
-		<TshockConfigFile 
+	<div class="flex flex-col sm:grid sm:grid-cols-2 gap-2">
+		<TshockConfigFile
 			:selected-server-data="selectedServerData"
-			:selected-instance="selectedInstance" 
+			:selected-instance="selectedInstance"
 		/>
-
 		<OtherConfigFile />
+	</div>
 
-		<ManageBans 
-			v-if="selectedInstance && selectedServerData.state"
-			:selected-server-data="selectedServerData"
-			:selected-instance="selectedInstance" 
-		/>
-	<!-- </div> -->
+	<ManageBans 
+		v-if="selectedInstance && selectedServerData.state"
+		:selected-server-data="selectedServerData"
+		:selected-instance="selectedInstance" 
+	/>
 </template>
 
 <script>

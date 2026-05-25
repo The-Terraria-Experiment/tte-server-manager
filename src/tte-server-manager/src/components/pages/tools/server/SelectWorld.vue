@@ -1,6 +1,6 @@
 <template>
 	<StatusTile 
-		class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+		class="grow mt-2 gradient-tile"
 		collapsible
 		:perm-required="PERMISSIONS.server.world.select"
 		:loading="serverStore.loading.files[selectedInstance]"
@@ -242,7 +242,7 @@ export default {
 		},
 
 		pollInstanceState() {
-			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => this.selectedServerData.state);
+			this.statusStore.startRepeatingTask(TASK_IDS.SERVER_STATUS_CHECK, () => this.selectedServerData.state);
 		}
 	}
 }

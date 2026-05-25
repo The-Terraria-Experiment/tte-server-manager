@@ -107,6 +107,7 @@ export default {
 	emits: ['xClicked'],
 	methods: {
 		xClicked() {
+			if (this.xDisabled) return;
 			this.setState?.(this.preModifiedState);
 			this.$emit('xClicked');
 		},

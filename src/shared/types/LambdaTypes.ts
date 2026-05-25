@@ -13,3 +13,9 @@ export type EndpointList = {
 		permRequired: PermissionValue
 	}
 }
+
+export type KeyedEndpointList = {
+	[key: string]: {
+		action: ((event: AuthorizedEvent, context: Context) => Promise<APIGatewayProxyResult> | APIGatewayProxyResult) | null,
+	}
+}

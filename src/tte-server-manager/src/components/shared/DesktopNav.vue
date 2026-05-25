@@ -25,6 +25,8 @@
 				<div class="mt-1">USERS</div>
 			</FlexButton>
 		</RouterLink>
+
+		<div class="absolute w-36 h-2 bg-gray-3 -top-2 left-0"></div>
 	</div>
 </template>
 

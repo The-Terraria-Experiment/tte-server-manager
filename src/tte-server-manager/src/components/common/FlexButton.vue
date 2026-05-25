@@ -7,7 +7,7 @@
 			<div class="flex items-center">
 				<Spinner v-if="loading" class="h-4 w-4 text-teal-3" thickness="4" />
 				<Icon v-else-if="leftIcon" :icon="leftIcon" :color="disabled ? 'text-gray-6' : 'text-teal-3'" :size="leftIconSize" />
-				<p :class="['ml-2 font-main font-bold flex', disabled ? 'text-gray-6' : 'text-teal-3']">
+				<p :class="['ml-2 font-main font-bold flex', disabled ? 'text-gray-6' : 'text-teal-3']" v-if="$slots.default">
 					<slot></slot>
 				</p>
 			</div>

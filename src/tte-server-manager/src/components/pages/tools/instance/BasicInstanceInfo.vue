@@ -1,7 +1,7 @@
 <template>
-	<div class="flex flex-col sm:grid sm:grid-cols-4">
+	<div class="flex flex-col sm:grid sm:grid-cols-4 mt-2 sm:mt-6">
 		<StatusTile 
-			:class="['grow mt-4 sm:mt-8 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
+			:class="['grow mt-2 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
 			:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
 			:perm-required="PERMISSIONS.instance.status.read"
 			display-if-not-allowed
@@ -49,7 +49,7 @@
 		</StatusTile>
 
 		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			class="grow mt-2 sm:mx-1 gradient-tile"
 			:perm-required="PERMISSIONS.instance.status.read"
 		>
 			<template #header>
@@ -67,7 +67,7 @@
 		</StatusTile>
 
 		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:mx-1 gradient-tile"
+			class="grow mt-2 sm:mx-1 gradient-tile"
 			:perm-required="PERMISSIONS.instance.status.read"
 		>
 			<template #header>
@@ -81,7 +81,7 @@
 		</StatusTile>
 
 		<StatusTile 
-			class="grow mt-4 sm:mt-8 sm:ml-1 gradient-tile"
+			class="grow mt-2 sm:ml-1 gradient-tile"
 			:perm-required="PERMISSIONS.instance.status.read"
 		>
 			<template #header>
@@ -212,7 +212,7 @@ export default {
 				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstanceData.id).text;
 				const response = await post(`/instance/${this.selectedInstanceData.id}/start`, PERMISSIONS.instance.status.start);
 				await delay(2000);
-				this.$alert.info(`Initiated startup of instance '${instanceName}'`);
+				this.$alert.success(`Initiated startup of instance '${instanceName}'`);
 				this.pollInstanceState([INSTANCE_STATES.ONLINE, INSTANCE_STATES.OFFLINE]);
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {

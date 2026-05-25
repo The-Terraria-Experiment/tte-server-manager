@@ -1,30 +1,39 @@
 <template>
-	<div :class="['bg-gray-3 rounded-xl overflow-hidden h-max w-full p-4 mb-4 sm:mb-8']">
-		<div class="title-bg-gradient"></div>
-		<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0">MANAGE INSTANCE</h1>
-		<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View machine status and manage files</p>
-	</div>
-	
-	<div 
-		v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
-		class="bg-gray-3 p-4 rounded-xl"
-	>
-		<p class="font-main font-bold text-gray-7 mb-2">VIEW INSTANCE</p>
-		<Dropdown 
-			:options="filteredInstanceOptions"
-			v-model="selectedInstance"
-			inputClass="bg-teal-3 text-white-1"
-			iconColor="text-white-1"
-		/>
+	<div class="sm:grid sm:grid-cols-2 w-full gap-2">
+		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full p-4 mb-4 sm:mb-8 flex flex-col justify-center items-center']">
+			<!-- <div class="title-bg-gradient"></div> -->
+			<div class="flex items-center">
+				<Icon icon="server" size="6" color="text-white-1 sm:text-teal-4" />
+				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0 ml-3">MANAGE INSTANCE</h1>
+			</div>
+			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View machine status and manage files</p>
+		</div>
+		
+		<div
+			v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
+			class="bg-gray-1 p-4 rounded-xl"
+		>
+			<p class="font-main font-bold text-gray-7 mb-2">PICK INSTANCE</p>
+			<Dropdown
+				:options="filteredInstanceOptions"
+				v-model="selectedInstance"
+				inputClass="bg-teal-3 text-white-1"
+				iconColor="text-white-1"
+			/>
+			<RefreshButton
+				class="mt-4"
+				:loading="serverStore.isLoadingStatus(selectedInstance) || statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK)"
+				@input="refresh"
+			/>
+		</div>
 
-		<RefreshButton 
-			class="mt-4"
-			:loading="serverStore.isLoadingStatus(selectedInstance) || statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK)" 
-			@input="refresh"
-		/>
+		<div v-else class="bg-gray-1 rounded-xl"></div>
 	</div>
 	
-	<StatusTile v-else-if="!serverStore.isLoadingList && !filteredInstanceOptions.length">
+	<StatusTile 
+		v-if="!$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && !filteredInstanceOptions.length" 
+		class="mt-4"
+	>
 		<template #header>
 			<Icon icon="warning" color="text-yellow-2" size="4" />
 			<p class="text-yellow-2 ml-2 text-lg">No Data</p>
@@ -34,7 +43,11 @@
 		</template>
 	</StatusTile>
 
-	<MajorLoader v-else-if="serverStore.isLoadingList" text="Loading Instances..."/>
+	<MajorLoader 
+		v-else-if="serverStore.isLoadingList" 
+		text="Loading Instances..." 
+		class="mt-4" 
+	/>
 
 	<BasicInstanceInfo 
 		v-if="selectedInstance"
@@ -69,6 +82,7 @@ import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
+import Icon from '../common/Icon.vue';
 
 export default {
 	mixins: [],
