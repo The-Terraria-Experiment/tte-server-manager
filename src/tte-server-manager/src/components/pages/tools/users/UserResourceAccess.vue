@@ -9,7 +9,7 @@
 		<template #content>
 			<div class="relative z-0">
 				<FuzzyMatchSearch
-					class="ml-4 mb-4"
+					class="ml-4 mb-4 z-0"
 					placeholder="Filter users..."
 					:data="sortedPermissionsData"
 					comparisonKey="displayName"
