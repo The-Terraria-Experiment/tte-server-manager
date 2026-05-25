@@ -9,9 +9,9 @@
 				<Icon icon="earth" color="text-gray-6" size="4" />
 				<p class="text-gray-6 ml-2 text-lg">Create World</p>
 			</template>
-			<template #summary>
+			<!-- <template #summary>
 				<p class="text-2xl text-teal-4">{{ mainText }}</p>
-			</template>
+			</template> -->
 			<template #content v-if="worldCreationInProgress && !worldCreatePopupOpen">
 				<div class="p-5 flex flex-col justify-between h-full">
 					<div>

@@ -10,9 +10,9 @@
 				<Icon icon="file-lines" color="text-gray-6" size="4" />
 				<p class="text-gray-6 ml-2 text-lg">Player Logs</p>
 			</template>
-			<template #summary>
+			<!-- <template #summary>
 				<p class="text-2xl text-teal-4">Logs available</p>
-			</template>
+			</template> -->
 			<template #content>
 				<div class="px-4 pb-4">
 					<div class="bg-gray-2 p-4 rounded-md">
