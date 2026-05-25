@@ -9,6 +9,7 @@ import { ResponseUtil } from "./shared/utils/APIResponse.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { Permissions } from "./shared/utils/Perms.js";
 import { pushLog } from "./actions/pushLog.js";
+import { getLogs } from "./actions/getLogs.js";
 
 const automatedEndpoints: KeyedEndpointList = {
 	"POST /logging/{id}/push": {
@@ -18,7 +19,7 @@ const automatedEndpoints: KeyedEndpointList = {
 
 const endpoints: EndpointList = {
 	"POST /logging/{id}/fetch": {
-		action: null,
+		action: getLogs,
 		permRequired: PERMISSIONS.server.logs.read,
 	},
 };
