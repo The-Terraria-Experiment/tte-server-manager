@@ -2,7 +2,6 @@
 	<div>
 		<StatusTile
 			class="grow mt-2 gradient-tile"
-			collapsible
 			:perm-required="PERMISSIONS.server.logs.read"
 			:loading="loading"
 		>
@@ -15,9 +14,8 @@
 			</template> -->
 			<template #content>
 				<div class="px-4 pb-4">
-					<div class="bg-gray-2 p-4 rounded-md">
-						<p class="font-main font-bold text-gray-7">FILTER LOGS:</p>
-						<div class="flex flex-wrap gap-2 items-center mt-2">
+					<div class="">
+						<div class="flex flex-wrap gap-2 items-center">
 							<Dropdown
 								class="sm:max-w-1/4"
 								inputClass="bg-teal-3 text-white-1"
@@ -26,7 +24,7 @@
 								v-model="logsFilter"
 							/>
 		
-							<div class="py-1 pl-3 pr-1 bg-gray-3 rounded-md font-main font-bold text-white-0 flex items-center">
+							<div class="py-1 pl-3 pr-1 bg-gray-2 rounded-md font-main font-bold text-white-0 flex items-center">
 								<p>From:</p>
 								<div
 									@click="timeFilterStartPopupOpen = true"
@@ -36,7 +34,7 @@
 									<Icon icon="edit" color="text-white-1" size="5" />
 								</div>
 							</div>
-							<div class="py-1 pl-3 pr-1 bg-gray-3 rounded-md font-main font-bold text-white-0 flex items-center">
+							<div class="py-1 pl-3 pr-1 bg-gray-2 rounded-md font-main font-bold text-white-0 flex items-center">
 								<p>To:</p>
 								<div
 									@click="timeFilterEndPopupOpen = true"
@@ -79,18 +77,20 @@
 							<ValueInput v-model="playerFilter" placeholder="Player username" />
 						</div>
 						<FlexButton
+							:title="sameQuery ? 'This query is already loaded' : ''"
 							class="mt-4"
 							:variant="BTN_VARIANT.SECONDARY"
 							leftIcon="cloud-download"
 							leftIconSize="5"
 							:disabled="loading || sameQuery"
+							:loading="loading"
 							@input="fetchInitial"
 						>
-							RUN QUERY
+							FETCH LOGS
 						</FlexButton>
 					</div>
-					<div v-if="queryWasRun" class="mt-4 mx-2">
-						<p class="font-main font-bold text-gray-8">{{ logs.length }} log entries loaded</p>
+					<div v-if="queryWasRun" class="mt-4">
+						<p class="font-main font-bold text-gray-8">{{ logs.length }} log entries currently loaded</p>
 						<FlexButton
 							v-if="logs.length > 0"
 							class="mt-2"
