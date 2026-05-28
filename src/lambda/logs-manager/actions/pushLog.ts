@@ -1,7 +1,6 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
-import { LambdaDao } from "../shared/aws/Lambda.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { LOGS_TABLE, SYSTEM_TABLE } from "../shared/vars.js";
 import { PlayerEvent, type LogDataEntry, type PayloadSchemaV1 } from "../shared/schema/LogsTable.js";
