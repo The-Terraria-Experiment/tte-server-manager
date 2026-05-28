@@ -9,3 +9,16 @@ export type SystemWorldCreateEntry = {
 	updatedAt?: string,
 	jobID?: string
 };
+
+export type AutoShutoffStateEntry = {
+	uid?: string,
+	serverId?: string,
+	lastPlayerLogAt?: number | null,
+	lastPlayersActive?: number | null,
+	lastPlayerEventType?: string | null,
+	sequenceStage?: string | null,
+	sequenceUpdatedAt?: number | null,
+	shutdownRequestedAt?: number | null,
+	ec2StopRequestedAt?: number | null,
+	lastUpdatedAt?: number | null,
+};
