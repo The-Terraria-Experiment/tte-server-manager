@@ -10,7 +10,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { TShockAPI } from "../utils/TShockAPI.js";
+import { TShockAPI } from "../shared/utils/TShockAPI.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
