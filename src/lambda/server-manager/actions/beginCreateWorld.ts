@@ -11,7 +11,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Delay } from "../shared/utils/Delay.js";
 import { S3Dao } from "../shared/aws/S3.js";
-import { TShockAPI } from "../utils/TShockAPI.js";
+import { TShockAPI } from "../shared/utils/TShockAPI.js";
 
 const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFilePath: string): string => {
 	// Validate and quote paths to handle spaces safely

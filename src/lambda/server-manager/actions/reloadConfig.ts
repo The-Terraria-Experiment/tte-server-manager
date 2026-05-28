@@ -5,7 +5,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { TShockAPI } from "../utils/TShockAPI.js";
+import { TShockAPI } from "../shared/utils/TShockAPI.js";
 import { Assert } from "../shared/utils/Assert.js";
 
 export const reloadConfig = async (event: AuthorizedEvent) => {
