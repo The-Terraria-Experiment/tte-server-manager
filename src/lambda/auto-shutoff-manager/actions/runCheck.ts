@@ -23,6 +23,11 @@ const STOP_MESSAGE = "Server shutting down due to inactivity.";
 export async function runCheck(serverId: string, stage: CheckStage): Promise<CheckResult> {
 	const idleStatus = await getIdleStatus(serverId, IDLE_MINUTES);
 
+	CWLogger.CAction(2, FUNC_NAMES.AUTO_SHUTOFF_MGR, {
+		userId: "[auto-shutoff]",
+		action: "run-check",
+	});
+
 	if (!idleStatus.lastPlayerLogAt) {
 		await updateAutoShutoffState(serverId, {
 			sequenceStage: `cancelled-${stage}`,
@@ -159,11 +164,14 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 				};
 			}
 
-			await CWLogger.Action(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
+			await CWLogger.Error(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
 				userId: AUTO_SHUTOFF_USER_ID,
 				action: "stop-server",
-				status: "failed",
-				resource: serverId,
+				error: "server did not stop",
+				details: {
+					serverId,
+					target
+				}
 			});
 			return {
 				serverId,

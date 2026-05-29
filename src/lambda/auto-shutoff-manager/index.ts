@@ -10,6 +10,14 @@ export const handler = async (event: SQSEvent, context: Context) => {
 	void context;
 	const results: unknown[] = [];
 
+	CWLogger.Action(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
+		userId: "[auto-shutoff]",
+		action: "invoke",
+		details: {
+			event
+		}
+	});
+
 	for (const record of event.Records || []) {
 		const message = parseMessage(record.body);
 		switch (message.type || "tick") {
@@ -23,15 +31,23 @@ export const handler = async (event: SQSEvent, context: Context) => {
 				results.push(await handleEc2Stop(message));
 				break;
 			default:
-				await CWLogger.Action(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
+				await CWLogger.Error(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
 					userId: "[auto-shutoff]",
 					action: "skip",
-					status: "unknown-message-type",
+					error: "unknown message type " + message.type,
 					details: { rawBody: record.body },
 				});
 				results.push({ action: "skip", reason: "unknown-message-type" });
 		}
 	}
+
+	CWLogger.CAction(2, FUNC_NAMES.AUTO_SHUTOFF_MGR, {
+		userId: "[auto-shutoff]",
+		action: "invoke-complete",
+		details: {
+			results
+		}
+	});
 
 	await CWLogger.FlushAll();
 	return { ok: true, results };

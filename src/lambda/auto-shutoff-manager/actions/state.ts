@@ -9,11 +9,20 @@ export function buildStateKey(serverId: string): string {
 }
 
 export function getConfiguredServerIds(): string[] {
-	const raw = process.env.AUTO_SHUTOFF_SERVER_IDS || "";
+	const envKey = resolveAllowlistKey();
+	const raw = (envKey ? process.env[envKey] : undefined) || process.env.AUTO_SHUTOFF_SERVER_IDS || "";
 	return raw
 		.split(",")
 		.map((value) => value.trim())
 		.filter((value) => value.length > 0);
+}
+
+function resolveAllowlistKey(): string | null {
+	const env = (process.env.ACTIVE_ENV || "").trim();
+	if (!env) {
+		return null;
+	}
+	return `AUTO_SHUTOFF_SERVER_IDS_${env.toUpperCase()}`;
 }
 
 export async function getAutoShutoffState(serverId: string): Promise<AutoShutoffStateEntry | null> {
