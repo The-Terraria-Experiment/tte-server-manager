@@ -39,7 +39,6 @@ export async function updateAutoShutoffState(
 	const stateKey = buildStateKey(serverId);
 	await db.UpdateItem(SYSTEM_TABLE, stateKey, {
 		updates: {
-			uid: stateKey,
 			serverId,
 			lastUpdatedAt: Date.now(),
 			...updates,
