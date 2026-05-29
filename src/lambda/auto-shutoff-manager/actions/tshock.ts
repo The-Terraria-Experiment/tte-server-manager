@@ -54,7 +54,7 @@ export async function getTShockTarget(serverId: string): Promise<TShockTarget | 
 }
 
 export async function broadcastWarning(target: TShockTarget, message: string): Promise<boolean> {
-	const response = await callTShock(target, "/v2/server/broadcast", { message });
+	const response = await callTShock(target, "/v2/server/broadcast", { msg: message });
 	if (!response) {
 		return false;
 	}
