@@ -3,7 +3,7 @@ import { SqsDao } from "../shared/aws/SQS.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Assert } from "../shared/utils/Assert.js";
 import type { CheckResult, CheckStage } from "./types.js";
-import { getIdleStatus, updateAutoShutoffState } from "./state.js";
+import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
 import { broadcastWarning, getTShockTarget, stopServer } from "./tshock.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
@@ -22,6 +22,22 @@ const STOP_MESSAGE = "Server shutting down due to inactivity.";
 
 export async function runCheck(serverId: string, stage: CheckStage): Promise<CheckResult> {
 	const idleStatus = await getIdleStatus(serverId, IDLE_MINUTES);
+	const state = await getAutoShutoffState(serverId);
+	const pauseUntilAt = typeof state?.pauseUntilAt === "number" ? state.pauseUntilAt : null;
+	if (pauseUntilAt && pauseUntilAt > Date.now()) {
+		await updateAutoShutoffState(serverId, {
+			sequenceStage: `paused-${stage}`,
+			sequenceUpdatedAt: Date.now(),
+			scheduledShutdownAt: null,
+		});
+		return {
+			serverId,
+			stage,
+			action: "pause",
+			reason: "pause-active",
+			idleMinutes: idleStatus.idleMinutes,
+		};
+	}
 
 	CWLogger.CAction(2, FUNC_NAMES.AUTO_SHUTOFF_MGR, {
 		userId: "[auto-shutoff]",
@@ -32,6 +48,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 		await updateAutoShutoffState(serverId, {
 			sequenceStage: `cancelled-${stage}`,
 			sequenceUpdatedAt: Date.now(),
+			scheduledShutdownAt: null,
 		});
 		return {
 			serverId,
@@ -46,6 +63,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 		await updateAutoShutoffState(serverId, {
 			sequenceStage: `cancelled-${stage}`,
 			sequenceUpdatedAt: Date.now(),
+			scheduledShutdownAt: null,
 		});
 		return {
 			serverId,
@@ -72,6 +90,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			await updateAutoShutoffState(serverId, {
 				sequenceStage: stage,
 				sequenceUpdatedAt: Date.now(),
+				scheduledShutdownAt: Date.now() + (SECOND_CHECK_DELAY_SECONDS + FINAL_CHECK_DELAY_SECONDS + SHUTDOWN_DELAY_SECONDS) * 1000,
 			});
 			if (await broadcastWarning(target, WARNING_10_MINUTES)) {
 				await enqueueMessage(
@@ -97,6 +116,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			await updateAutoShutoffState(serverId, {
 				sequenceStage: stage,
 				sequenceUpdatedAt: Date.now(),
+				scheduledShutdownAt: Date.now() + (FINAL_CHECK_DELAY_SECONDS + SHUTDOWN_DELAY_SECONDS) * 1000,
 			});
 			if (await broadcastWarning(target, WARNING_5_MINUTES)) {
 				await enqueueMessage(
@@ -122,6 +142,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			await updateAutoShutoffState(serverId, {
 				sequenceStage: stage,
 				sequenceUpdatedAt: Date.now(),
+				scheduledShutdownAt: Date.now() + SHUTDOWN_DELAY_SECONDS * 1000,
 			});
 			if (await broadcastWarning(target, WARNING_2_MINUTES)) {
 				await enqueueMessage(
@@ -150,6 +171,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 					sequenceStage: stage,
 					sequenceUpdatedAt: Date.now(),
 					shutdownRequestedAt: Date.now(),
+					scheduledShutdownAt: null,
 				});
 				await enqueueMessage(
 					{ type: "ec2-stop", serverId },

@@ -11,7 +11,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { Assert } from "../shared/utils/Assert.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
-import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
+import type { AutoShutoffStateEntry, SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 
 export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 	void context;
@@ -28,20 +28,27 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 		const ec2 = new Ec2Dao();
 		const instance = await ec2.GetInstanceStatus(serverId);
 		const ip = instance.publicIp;
+		const DB = new DynamoDao();
+		const autoShutoffState = await DB.GetItem(SYSTEM_TABLE, `autoshutoff#${serverId}`) as AutoShutoffStateEntry | null;
+		const autoShutoff = autoShutoffState
+			? {
+				scheduledShutdownAt: autoShutoffState.scheduledShutdownAt ?? null,
+				pauseUntilAt: autoShutoffState.pauseUntilAt ?? null,
+				sequenceStage: autoShutoffState.sequenceStage ?? null,
+			}
+			: null;
 
 		if (!ip || ip === "PENDING") {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
 		if (instance.state !== InstanceState.RUNNING) {
-			return ResponseUtil.Success({ server: { status: false }, instance });
+			return ResponseUtil.Success({ server: { status: false }, instance, autoShutoff });
 		}
-
-		const DB = new DynamoDao();
 		const createWorldStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${serverId}`) as SystemWorldCreateEntry;
 
 		if (createWorldStatus) {
-			return ResponseUtil.Success({ server: { status: false }, instance });
+			return ResponseUtil.Success({ server: { status: false }, instance, autoShutoff });
 		}
 
 		const userId = Parsers.GetUserSub(event);
@@ -57,7 +64,7 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			details: { ip, instanceId: serverId, status },
 		});
 
-		return ResponseUtil.Success({ server: status, players: playerData, instance });
+		return ResponseUtil.Success({ server: status, players: playerData, instance, autoShutoff });
 	} catch (error: any) {
 		return ResponseUtil.Error(error?.message || "Failed to fetch server status");
 	}
