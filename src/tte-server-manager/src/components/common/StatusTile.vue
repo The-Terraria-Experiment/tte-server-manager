@@ -1,44 +1,55 @@
 <template>
 	<div 
-		:class="['bg-gray-3 rounded-xl overflow-hidden h-max', { 'not-allowed-tile': !validated }]"
+		:class="[
+			'bg-gray-3 rounded-xl h-max relative',
+			{ 'not-allowed-tile': !validated },
+			{ 'overflow-hidden': !floatingExpand && !collapsed }
+		]"
 		v-if="validated"
 	>
-		<div :class="[{ 'flex w-full items-stretch': collapsible }]" @click="toggle">
-			<div class="flex flex-col grow font-main font-bold">
-				<div class="flex items-center px-4 pt-2 pb-2">
-					<slot name="header"></slot>
-					<Spinner v-if="!$slots.summary && loading" class="h-5 w-5 text-teal-3 ml-2"/>
-				</div>
-				<div class="px-4 pb-4" v-if="$slots.summary">
-					<div class="flex items-center">
-						<slot name="summary"></slot>
-						<Spinner v-if="loading" class="h-6 w-6 text-teal-3 ml-2"/>
+		<div :class="[
+			floatingExpand ? 'rounded-xl overflow-hidden h-max transition-200 transition-all relative' : 'contents',
+			{ 'scale-x-[1.01] -translate-y-2 w-full shadow-2xl shadow-black': floatingExpand && !collapsed },
+			{'bg-gray-3 z-20': !collapsed || transitioning}]"
+		>
+			<div :class="[{ 'flex w-full items-stretch': collapsible }]" @click="toggle">
+				<div class="flex flex-col grow font-main font-bold">
+					<div class="flex items-center px-4 pt-2 pb-2">
+						<slot name="header"></slot>
+						<Spinner v-if="!$slots.summary && loading" class="h-5 w-5 text-teal-3 ml-2"/>
+					</div>
+					<div class="px-4 pb-4" v-if="$slots.summary">
+						<div class="flex items-center">
+							<slot name="summary"></slot>
+							<Spinner v-if="loading" class="h-6 w-6 text-teal-3 ml-2"/>
+						</div>
 					</div>
 				</div>
+				<div v-if="collapsible" class="cursor-pointer flex items-center px-2">
+					<Icon
+						icon="caret-down"
+						color="text-teal-4"
+						:class="['transition-transform duration-200', { 'rotate-180': !collapsed }]"
+					/>
+				</div>
 			</div>
-			<div v-if="collapsible" class="cursor-pointer flex items-center px-2">
-				<Icon 
-					icon="caret-down" 
-					color="text-teal-4" 
-					:class="['transition-transform duration-200', { 'rotate-180': !collapsed }]"
-				/>
-			</div>
+			
+			<Transition
+				:name="floatingExpand ? 'floating' : 'collapse'"
+				@before-enter="beforeEnter"
+				@enter="enter"
+				@after-enter="afterEnter"
+				@before-leave="beforeLeave"
+				@leave="leave"
+				@after-leave="afterLeave"
+			>
+				<div v-show="!collapsible || !collapsed">
+					<slot name="content"></slot>
+				</div>
+			</Transition>
 		</div>
-		
-		<Transition
-			name="collapse"
-			@before-enter="beforeEnter"
-			@enter="enter"
-			@after-enter="afterEnter"
-			@before-leave="beforeLeave"
-			@leave="leave"
-			@after-leave="afterLeave"
-		>
-			<div v-show="!collapsible || !collapsed">
-				<slot name="content"></slot>
-			</div>
-		</Transition>
 	</div>
+
 	<div v-else-if="!validated && displayIfNotAllowed">
 		<div class="flex w-full items-stretch">
 			<div class="flex flex-col grow font-main font-bold">
@@ -70,6 +81,10 @@ export default {
 			type: Boolean,
 			default: false
 		},
+		floatingExpand: {
+			type: Boolean,
+			default: false
+		},
 		permRequired: {
 			type: [String, Array, null],
 			default: null
@@ -86,11 +101,22 @@ export default {
 	data() {
 		return {
 			collapsed: !this.startOpen,
-			validated: true
+			validated: true,
+			transitioning: false,
+		}
+	},
+	computed: {
+		innerWrapStyle() {
+			if (this.floatingExpand && !this.collapsed) {
+				const rect = this.$el.getBoundingClientRect();
+				this.$el.height = rect.height;
+			}
 		}
 	},
 	methods: {
 		toggle() {
+			if (this.transitioning) return;
+
 			if (this.collapsible) {
 				this.collapsed = !this.collapsed;
 			}
@@ -98,6 +124,11 @@ export default {
 		beforeEnter(el) {
 			el.style.height = '0px';
 			el.style.overflow = 'hidden';
+			if (this.floatingExpand) {
+				this.transitioning = true;
+				const rect = this.$el.getBoundingClientRect();
+				this.$el.style.height = rect.height + "px";
+			}
 		},
 		enter(el) {
 			// Measure full height and animate to it
@@ -108,11 +139,15 @@ export default {
 			// Allow content to grow/shrink naturally after animation
 			el.style.height = 'auto';
 			el.style.overflow = '';
+			this.transitioning = false;
 		},
 		beforeLeave(el) {
 			// Set current height to enable transition back to 0
 			el.style.height = el.scrollHeight + 'px';
 			el.style.overflow = 'hidden';
+			if (this.floatingExpand) {
+				this.transitioning = true;
+			}
 		},
 		leave(el) {
 			// Force reflow and then collapse
@@ -123,6 +158,8 @@ export default {
 			// Clean inline styles after collapse completes
 			el.style.height = '';
 			el.style.overflow = '';
+			this.transitioning = false;
+			this.$el.style.height = "";
 		}
 	},
 	created() {
@@ -139,6 +176,19 @@ export default {
 .collapse-enter-active,
 .collapse-leave-active {
 	transition: height 200ms ease;
+}
+
+.floating-enter-active,
+.floating-leave-active {
+	transition: height 200ms ease;
+}
+
+.floating-shell-open {
+	z-index: 30;
+}
+
+.floating-shell-closed {
+	z-index: 20;
 }
 
 .not-allowed-tile {

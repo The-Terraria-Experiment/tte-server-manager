@@ -4,6 +4,7 @@
 			:class="['grow mt-2 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			:collapsible="selectedServerData.state"
 			:perm-required="PERMISSIONS.server.status.read"
+			:floatingExpand="!isMobile"
 			:loading="statusLoading || statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)"
 		>
 			<template #header>

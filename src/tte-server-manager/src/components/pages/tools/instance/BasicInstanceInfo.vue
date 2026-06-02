@@ -4,6 +4,7 @@
 			:class="['grow mt-2 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
 			:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
 			:perm-required="PERMISSIONS.instance.status.read"
+			:floatingExpand="!isMobile"
 			display-if-not-allowed
 		>
 			<template #header>

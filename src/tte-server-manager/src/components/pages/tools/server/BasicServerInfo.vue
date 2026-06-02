@@ -7,6 +7,7 @@
 		<StatusTile 
 			class="grow sm:mt-2 gradient-tile"
 			collapsible
+			:floatingExpand="!isMobile"
 			:perm-required="PERMISSIONS.server.status.read"
 		>
 			<template #header>
@@ -45,6 +46,7 @@
 		<StatusTile 
 			class="grow sm:mt-2 gradient-tile"
 			:collapsible="!!ruleEntryCount"
+			:floatingExpand="!isMobile"
 			:perm-required="PERMISSIONS.server.status.read"
 		>
 			<template #header>
