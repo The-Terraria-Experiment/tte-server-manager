@@ -15,9 +15,15 @@
 			</template>
 			<template #content>
 				<div v-if="selectedServerData.state">
+					<p class="font-main font-bold text-cream ml-4">Auto-Shutoff scheduled for:</p>
+					<p class="ml-4">{{ selectedServerData.autoShutoff ?? 'Not scheduled' }}</p>
+
+					<p class="font-main font-bold text-cream ml-4">Auto-Shutoff paused until:</p>
+					<p class="ml-4">{{ selectedServerData.pauseUntilAt ?? 'Not paused' }}</p>
+
 					<FlexButton
 						v-if="$checkPermissions(PERMISSIONS.server.status.stop) && showStopButton"
-						class="mx-4 mb-4"
+						class="mx-4 mb-4 mt-4"
 						:variant="BTN_VARIANT.DANGER"
 						@input="openConfirmStopPopup"
 					>

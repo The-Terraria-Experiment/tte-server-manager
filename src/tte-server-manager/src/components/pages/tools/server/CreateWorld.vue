@@ -206,6 +206,7 @@ export default {
 			return "Working";
 		},
 		worldCreateStepLabel() {
+			if (this.lastWorldCreateStatus.step === "preparing-instance") return "Launching Instance";
 			if (this.lastWorldCreateStatus.step === "queued") return "Queued";
 			if (this.lastWorldCreateStatus.step === "starting-tshock") return "Starting TShock";
 			if (this.lastWorldCreateStatus.step === "waiting-for-world-file") return "Generating world file";

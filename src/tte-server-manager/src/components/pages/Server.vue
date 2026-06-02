@@ -63,12 +63,9 @@
 		v-if="selectedInstance"
 	/>
 
-	<SelectWorld 
-		v-if="selectWorldAllowed"
-	/>
+	<SelectWorld />
 
 	<CreateWorld 
-		v-if="createWorldAllowed"
 		ref="createWorld"
 		@refresh="refresh"
 	/>
@@ -78,16 +75,6 @@
 	<ServerConfig 
 		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
-
-	<StatusTile v-if="selectedInstanceData?.state && !selectedInstanceData.online" class="mt-2">
-		<template #header>
-			<Icon icon="circle-info" color="text-gray-6" size="4" />
-			<p class="text-gray-6 ml-2 text-lg">Instance Offline</p>
-		</template>
-		<template #summary>
-			<p class="text-2xl text-teal-4">Instance is offline. Launch the instance first to start a server.</p>
-		</template>
-	</StatusTile>
 </template>
 
 <script>
@@ -151,12 +138,6 @@ export default {
 		selectedInstanceData() {
 			return this.serverStore.selectedInstanceData;
 		},
-		selectWorldAllowed() {
-			return this.selectedInstance && !this.selectedServerData.state && this.selectedInstanceData?.online && this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
-		},
-		createWorldAllowed() {
-			return this.selectedInstance && !this.selectedServerData.state && this.selectedInstanceData?.online;
-		}
 	},
 	methods: {
 		refresh() {
