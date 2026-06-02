@@ -91,7 +91,7 @@
 			</div>
 		</template>
 		<template #content v-else>
-			<p class="font-main font-bold text-gray-7 px-5">WORLD CREATION IN PROGRESS, PLEASE WAIT</p>
+			<p class="font-main font-bold text-gray-7 p-5">LAUNCH IN PROGRESS, PLEASE WAIT</p>
 		</template>
 	</StatusTile>
 </template>

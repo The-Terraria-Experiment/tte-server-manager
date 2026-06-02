@@ -63,9 +63,12 @@
 		v-if="selectedInstance"
 	/>
 
-	<SelectWorld />
+	<SelectWorld 
+		v-if="selectWorldAllowed"
+	/>
 
 	<CreateWorld 
+		v-if="createWorldAllowed"
 		ref="createWorld"
 		@refresh="refresh"
 	/>
@@ -138,6 +141,12 @@ export default {
 		selectedInstanceData() {
 			return this.serverStore.selectedInstanceData;
 		},
+		selectWorldAllowed() {
+			return this.selectedInstance && !this.selectedServerData.state && this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
+		},
+		createWorldAllowed() {
+			return this.selectedInstance && !this.selectedServerData.state;
+		}
 	},
 	methods: {
 		refresh() {
