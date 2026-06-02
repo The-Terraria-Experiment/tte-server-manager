@@ -1,5 +1,9 @@
 @reference "./theme.css";
 
+:root {
+	color-scheme: dark;
+}
+
 input[type="text"], input[type="number"], input[type="password"] {
 	border: none;
 	padding-top: 0.5rem;
