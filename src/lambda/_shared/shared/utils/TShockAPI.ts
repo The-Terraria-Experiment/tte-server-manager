@@ -22,6 +22,13 @@ type TokenData = TempToken & {
  * - tshock.rest.maintenance
  * - tshock.rest.useapi
  * - tshock.rest.cfg
+ * - tshock.rest.mute
+ * - tshock.rest.kill
+ * - tshock.rest.kick
+ * - tshock.rest.bans.*
+ * - tshock.rest.users.info
+ * - playerinfo.* (custom plugin)
+ * - tshock.rest.broadcast
  */
 
 export class TShockAPI {
