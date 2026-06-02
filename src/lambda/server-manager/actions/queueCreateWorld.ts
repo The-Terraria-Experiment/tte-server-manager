@@ -13,6 +13,7 @@ import { Assert } from "../shared/utils/Assert.js";
 import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 import type { UserDataEntry } from "../../_shared/shared/schema/UserTable.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
+import { SsmDao } from "../shared/aws/SSM.js";
 
 const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	const { worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName } = body;
@@ -125,6 +126,7 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 	});
 
 	const EC2 = new Ec2Dao();
+	const SSM = new SsmDao();
 	const status = await EC2.GetInstanceStatus(instanceID);
 	if (status.state === InstanceState.STOPPED) {
 		CWLogger.Action(FUNC_NAMES.SERV_MGR, {
@@ -139,6 +141,7 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 			}
 		});
 		await EC2.StartInstanceAndAwait(instanceID);
+		await SSM.WaitForInstanceSsm(instanceID);
 	} else if (
 		status.state === InstanceState.PENDING ||
 		status.state === InstanceState.SHUTDOWN ||

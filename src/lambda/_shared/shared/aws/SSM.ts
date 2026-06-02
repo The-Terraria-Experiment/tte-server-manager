@@ -18,6 +18,29 @@ export class SsmDao {
 		this.ssmClient = new SSMClient({ region: region || "us-east-2" });
 	}
 
+	public async WaitForInstanceSsm(
+		instanceID: string,
+		documentName: string = "AWS-RunShellScript",
+		commands: string[] = ["echo ssm-ready"],
+		pollInterval: number = 2000,
+		maxPolls: number = 30,
+	): Promise<SsmCommandResult> {
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-wait-for-ssm",
+			resource: null,
+			details: { instanceID, documentName },
+		});
+
+		if (documentName === "AWS-RunShellScript") {
+			return await this.ExecuteCommandGetResult(instanceID, commands, pollInterval, maxPolls);
+		}
+
+		// For other documents (e.g. Windows PowerShell), map the commands into the Parameters shape
+		const parameters: Record<string, string[]> = { commands };
+		return await this.ExecuteDocumentGetResult(instanceID, documentName, parameters, pollInterval, maxPolls);
+	}
+
 	public async ExecuteCommand(instanceId: string, commands: string[]): Promise<{ commandId: string }> {
 		const command = new SendCommandCommand({
 			InstanceIds: [instanceId],

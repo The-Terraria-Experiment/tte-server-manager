@@ -139,9 +139,11 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	await Permissions.ValidateResourceAccess(event, `filepath::${instanceID}::${matchingNickname}`);
 
 	const EC2 = new Ec2Dao();
+	const SSM = new SsmDao();
 	const status = await EC2.GetInstanceStatus(instanceID);
 	if (status.state === InstanceState.STOPPED) {
 		await EC2.StartInstanceAndAwait(instanceID);
+		await SSM.WaitForInstanceSsm(instanceID);
 	} else if (
 		status.state === InstanceState.PENDING ||
 		status.state === InstanceState.SHUTDOWN ||
@@ -166,8 +168,6 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	});
 
 	try {
-		const SSM = new SsmDao();
-
 		const guardResult = await SSM.ExecuteCommandGetResult(instanceID, [launchGuardCommand]);
 		const guardOutput = (guardResult.stdout || "").trim();
 
