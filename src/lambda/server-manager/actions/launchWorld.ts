@@ -143,7 +143,10 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	const status = await EC2.GetInstanceStatus(instanceID);
 	if (status.state === InstanceState.STOPPED) {
 		await EC2.StartInstanceAndAwait(instanceID);
-		await SSM.WaitForInstanceSsm(instanceID);
+		const ssmOK = await SSM.WaitForInstanceSsm(instanceID);
+		if (!ssmOK) {
+			throw new Error("SSM did not become ready");
+		}
 	} else if (
 		status.state === InstanceState.PENDING ||
 		status.state === InstanceState.SHUTDOWN ||

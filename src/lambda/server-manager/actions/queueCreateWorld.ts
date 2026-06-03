@@ -141,7 +141,10 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 			}
 		});
 		await EC2.StartInstanceAndAwait(instanceID);
-		await SSM.WaitForInstanceSsm(instanceID);
+		const ssmOK = await SSM.WaitForInstanceSsm(instanceID);
+		if (!ssmOK) {
+			throw new Error("SSM did not become ready");
+		}
 	} else if (
 		status.state === InstanceState.PENDING ||
 		status.state === InstanceState.SHUTDOWN ||

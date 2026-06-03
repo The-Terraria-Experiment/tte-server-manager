@@ -20,25 +20,28 @@ export class SsmDao {
 
 	public async WaitForInstanceSsm(
 		instanceID: string,
-		documentName: string = "AWS-RunShellScript",
-		commands: string[] = ["echo ssm-ready"],
-		pollInterval: number = 2000,
 		maxPolls: number = 30,
-	): Promise<SsmCommandResult> {
+	): Promise<boolean> {
 		await CWLogger.CAction(2, CW_LOG_GENERAL, {
 			userId: null,
 			action: "shared-aws-wait-for-ssm",
 			resource: null,
-			details: { instanceID, documentName },
+			details: { instanceID },
 		});
 
-		if (documentName === "AWS-RunShellScript") {
-			return await this.ExecuteCommandGetResult(instanceID, commands, pollInterval, maxPolls);
+		for (let i = 0; i < maxPolls; i++) {
+			await new Delay(2000);
+			try {
+				const result = await this.ExecuteCommandGetResult(instanceID, ["echo ssm-ready"], 500, 3);
+				if (result.commandID) {
+					return true;
+				}
+			} catch (e) {
+				// Premature commands will error out. That's fine, that's the purpose of this function so we'll just swallow that error.
+			}
 		}
 
-		// For other documents (e.g. Windows PowerShell), map the commands into the Parameters shape
-		const parameters: Record<string, string[]> = { commands };
-		return await this.ExecuteDocumentGetResult(instanceID, documentName, parameters, pollInterval, maxPolls);
+		return false;
 	}
 
 	public async ExecuteCommand(instanceId: string, commands: string[]): Promise<{ commandId: string }> {
