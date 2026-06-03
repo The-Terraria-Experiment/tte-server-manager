@@ -121,6 +121,12 @@ export default {
 				this.collapsed = !this.collapsed;
 			}
 		},
+		collapse() {
+			this.collapsed = true;
+		},
+		expand() {
+			this.collapsed = false;
+		},
 		beforeEnter(el) {
 			el.style.height = '0px';
 			el.style.overflow = 'hidden';
@@ -165,6 +171,13 @@ export default {
 	created() {
 		if (this.permRequired && !this.$checkPermissions(this.permRequired)) {
 			this.validated = false;
+		}
+	},
+	watch: {
+		collapsible(value) {
+			if (!value && !this.collapsed) {
+				this.collapse();
+			}
 		}
 	}
 }

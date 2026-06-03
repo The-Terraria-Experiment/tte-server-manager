@@ -206,9 +206,13 @@ export default {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
 		}
-
+	},
+	created() {
 		this.statusStore.subscribeToTask(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
-			this.refresh();
+			this.fetchInstanceStatus(this.selectedInstance);
+		});
+		this.statusStore.subscribeToTaskEnd(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
+			this.fetchInstanceFiles(this.selectedInstance);
 		});
 	},
 	watch: {

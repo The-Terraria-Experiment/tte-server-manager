@@ -2,7 +2,7 @@
 	<div>
 		<StatusTile
 			:class="['grow mt-2 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
-			:collapsible="selectedServerData.state"
+			:collapsible="selectedServerData.state && showStopButton"
 			:perm-required="PERMISSIONS.server.status.read"
 			:floatingExpand="!isMobile"
 			:loading="statusLoading || statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)"
@@ -16,12 +16,6 @@
 			</template>
 			<template #content>
 				<div v-if="selectedServerData.state">
-					<p class="font-main font-bold text-cream ml-4">Auto-Shutoff scheduled for:</p>
-					<p class="ml-4">{{ selectedServerData.autoShutoff ?? 'Not scheduled' }}</p>
-
-					<p class="font-main font-bold text-cream ml-4">Auto-Shutoff paused until:</p>
-					<p class="ml-4">{{ selectedServerData.pauseUntilAt ?? 'Not paused' }}</p>
-
 					<FlexButton
 						v-if="$checkPermissions(PERMISSIONS.server.status.stop) && showStopButton"
 						class="mx-4 mb-4 mt-4"

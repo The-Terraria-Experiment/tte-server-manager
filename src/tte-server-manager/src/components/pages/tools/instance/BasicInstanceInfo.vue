@@ -20,16 +20,18 @@
 			<template #content>
 				<div v-if="selectedInstanceData.state === 'ONLINE'">
 					<FlexButton 
-						v-if="$checkPermissions(PERMISSIONS.instance.status.stop) && !loading.stateChange && showStateChangeButtons"
+						v-if="$checkPermissions(PERMISSIONS.instance.status.stop)"
 						class="mx-4 mb-4" 
+						:disabled="loading.stateChange || !showStateChangeButtons"
 						:variant="BTN_VARIANT.DANGER"
 						@input="openConfirmStopPopup"
 					>
 						<p class="py-2 px-12">STOP</p>
 					</FlexButton>
 					<FlexButton 
-						v-if="$checkPermissions(PERMISSIONS.instance.status.restart) && !loading.stateChange && showStateChangeButtons"
+						v-if="$checkPermissions(PERMISSIONS.instance.status.restart)"
 						class="mx-4 mb-4" 
+						:disabled="loading.stateChange || !showStateChangeButtons"
 						:variant="BTN_VARIANT.DANGER"
 						@input="openConfirmRestartPopup"
 					>
@@ -38,8 +40,9 @@
 				</div>
 				<div v-if="selectedInstanceData.state === 'OFFLINE'">
 					<FlexButton 
-						v-if="$checkPermissions(PERMISSIONS.instance.status.start) && !loading.stateChange && showStateChangeButtons"
+						v-if="$checkPermissions(PERMISSIONS.instance.status.start)"
 						class="mx-4 mb-4" 
+						:disabled="loading.stateChange || !showStateChangeButtons"
 						:variant="BTN_VARIANT.PRIMARY"
 						@input="startInstance"
 					>
