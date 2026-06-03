@@ -13,8 +13,8 @@
 			{'bg-gray-3 z-20': !collapsed || transitioning}]"
 		>
 			<div :class="[{ 'flex w-full items-stretch': collapsible }]" @click="toggle">
-				<div class="flex flex-col grow font-main font-bold">
-					<div class="flex items-center px-4 pt-2 pb-2">
+				<div class="flex flex-col grow font-main font-bold min-w-0">
+					<div class="flex items-center px-4 pt-2 pb-2 min-w-0">
 						<slot name="header"></slot>
 						<Spinner v-if="!$slots.summary && loading" class="h-5 w-5 text-teal-3 ml-2"/>
 					</div>
