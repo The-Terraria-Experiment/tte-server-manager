@@ -5,38 +5,41 @@ import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 import type { AutoShutoffStateEntry } from "../shared/schema/SystemTable.js";
 
-type PauseBody = {
+type CancelBody = {
 	serverId?: string;
-	pauseUntilAt?: number;
 };
 
-export const pauseAutoshutoff = async (event: AuthorizedEvent, context: Context) => {
+export const cancelAutoShutoff = async (event: AuthorizedEvent, context: Context) => {
 	void context;
 
-	const body = (event.parsedBody || {}) as PauseBody;
+	const body = (event.parsedBody || {}) as CancelBody;
 	const serverId = body.serverId;
-	const pauseUntilAt = body.pauseUntilAt;
 
 	if (!serverId) {
 		return ResponseUtil.ValidationError("Server ID is required");
 	}
 
-	if (typeof pauseUntilAt !== "number" && pauseUntilAt !== null) {
-		return ResponseUtil.ValidationError("pauseUntilAt is required and must be a number");
+	const DB = new DynamoDao(`autoshutoff#${serverId}`);
+
+	const shutoffState = DB.GetItem(SYSTEM_TABLE, ``) as AutoShutoffStateEntry | null;
+	if (!shutoffState?.scheduledShutdownAt) {
+		return ResponseUtil.ValidationError("No scheduled auto-shutoff");
+	}
+	if (shutoffState.pauseUntilAt) {
+		return ResponseUtil.ValidationError("Auto-shutoff is paused");
 	}
 
-	const DB = new DynamoDao();
 	const autoShutoffKey = `autoshutoff#${serverId}`;
 	await DB.UpdateItem(SYSTEM_TABLE, autoShutoffKey, {
 		updates: {
 			serverId,
-			pauseUntilAt,
+			canceled: true,
 			scheduledShutdownAt: null,
-			sequenceStage: "paused-manual",
+			sequenceStage: "canceled-manual",
 			sequenceUpdatedAt: Date.now(),
 			lastUpdatedAt: Date.now(),
 		} satisfies AutoShutoffStateEntry,
 	});
 
-	return ResponseUtil.Success({ success: true, serverId, pauseUntilAt });
+	return ResponseUtil.Success({ success: true, serverId });
 };

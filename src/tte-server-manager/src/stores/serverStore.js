@@ -58,7 +58,8 @@ export const useServerStore = defineStore("serverstore", {
 				uptime: data?.uptime,					// string, "0.00:00:00"
 				serverpassword: data?.serverpassword,	// boolean, true if password is set
 				players: data?.players,					// array, player data
-				rules: data?.rules						// object, map of rules to usually bools, but some nums/strings
+				rules: data?.rules,						// object, map of rules to usually bools, but some nums/strings
+				autoShutoff: data?.autoShutoff			// object: { scheduledShutdownAt : number|null, pauseUntilAt: number|null, sequenceStage: string }
 			}
 		},
 		selectedInstanceData: (state) => {
@@ -123,7 +124,7 @@ export const useServerStore = defineStore("serverstore", {
 
 			try {
 				const data = await get(`/server/${instanceId}/status`, PERMISSIONS.server.status.read);
-				this.serverStatusData[instanceId] = data.server;
+				this.serverStatusData[instanceId] = { ...data.server, autoShutoff: data.autoShutoff ?? {} };
 				this.instanceStatusData[instanceId] = data.instance;
 
 				if (data.server.status === "200") {

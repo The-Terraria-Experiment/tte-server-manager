@@ -9,9 +9,9 @@
 	</template>
 	<template v-else-if="type === ACTIVE_DATE_VARIANT.COUNTDOWN">
 		<span>
-			<span v-if="timeValues.days > 0">{{ timeValues.days }}d</span>
-			<span v-if="timeValues.hours > 0">{{ timeValues.hours }}h</span>
-			<span v-if="timeValues.minutes > 0">{{ timeValues.minutes }}m</span>
+			<span v-if="timeValues.days > 0">{{ timeValues.days }}d </span>
+			<span v-if="timeValues.hours > 0">{{ timeValues.hours }}h </span>
+			<span v-if="timeValues.minutes > 0">{{ timeValues.minutes }}m </span>
 			<span v-if="timeValues.seconds >= 0">{{ timeValues.seconds }}s</span>
 		</span>
 	</template>

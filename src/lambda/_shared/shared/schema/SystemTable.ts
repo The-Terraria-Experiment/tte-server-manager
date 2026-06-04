@@ -20,6 +20,7 @@ export type AutoShutoffStateEntry = {
 	sequenceUpdatedAt?: number | null,
 	scheduledShutdownAt?: number | null,
 	pauseUntilAt?: number | null,
+	canceled?: boolean | null,
 	shutdownRequestedAt?: number | null,
 	ec2StopRequestedAt?: number | null,
 	lastUpdatedAt?: number | null,

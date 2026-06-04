@@ -14,12 +14,12 @@
 		>
 			<div :class="[{ 'flex w-full items-stretch': collapsible }]" @click="toggle">
 				<div class="flex flex-col grow font-main font-bold min-w-0">
-					<div class="flex items-center px-4 pt-2 pb-2 min-w-0">
+					<div class="flex items-center px-4 pt-2 pb-2 min-w-0 select-none">
 						<slot name="header"></slot>
 						<Spinner v-if="!$slots.summary && loading" class="h-5 w-5 text-teal-3 ml-2"/>
 					</div>
 					<div class="px-4 pb-4" v-if="$slots.summary">
-						<div class="flex items-center">
+						<div class="flex items-center select-none">
 							<slot name="summary"></slot>
 							<Spinner v-if="loading" class="h-6 w-6 text-teal-3 ml-2"/>
 						</div>

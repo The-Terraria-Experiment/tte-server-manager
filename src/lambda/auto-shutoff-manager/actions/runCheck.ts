@@ -14,7 +14,7 @@ const SECOND_CHECK_DELAY_SECONDS = 5 * 60;
 const FINAL_CHECK_DELAY_SECONDS = 3 * 60;
 const SHUTDOWN_DELAY_SECONDS = 2 * 60;
 
-const CANCEL_INSTRUCTIONS = " You should not be able to see this message! If you do, go to the server manager site, click 'Cancel Auto-Shutoff', and then alert @havoc!"
+const CANCEL_INSTRUCTIONS = " You should not be able to see this message! If you do, go to the server manager site, click 'Cancel Auto Shutoff', and then alert @havoc!"
 const WARNING_10_MINUTES = "Server will shut down in 10 minutes due to inactivity." + CANCEL_INSTRUCTIONS;
 const WARNING_5_MINUTES = "Server will shut down in 5 minutes due to inactivity." + CANCEL_INSTRUCTIONS;
 const WARNING_2_MINUTES = "Server will shut down in 2 minutes due to inactivity." + CANCEL_INSTRUCTIONS;
@@ -24,6 +24,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 	const idleStatus = await getIdleStatus(serverId, IDLE_MINUTES);
 	const state = await getAutoShutoffState(serverId);
 	const pauseUntilAt = typeof state?.pauseUntilAt === "number" ? state.pauseUntilAt : null;
+
 	if (pauseUntilAt && pauseUntilAt > Date.now()) {
 		await updateAutoShutoffState(serverId, {
 			sequenceStage: `paused-${stage}`,
@@ -35,6 +36,22 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			stage,
 			action: "pause",
 			reason: "pause-active",
+			idleMinutes: idleStatus.idleMinutes,
+		};
+	}
+
+	if (state?.canceled) {
+		await updateAutoShutoffState(serverId, {
+			canceled: false,
+			sequenceStage: `manual-cancel-accepted`,
+			sequenceUpdatedAt: Date.now(),
+			scheduledShutdownAt: null,
+		});
+		return {
+			serverId,
+			stage,
+			action: "cancel",
+			reason: "cancel-active",
 			idleMinutes: idleStatus.idleMinutes,
 		};
 	}
