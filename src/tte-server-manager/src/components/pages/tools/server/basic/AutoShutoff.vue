@@ -113,17 +113,15 @@ export default {
 			return Boolean(this.selectedServerData?.autoShutoff?.scheduledShutdownAt);
 		},
 		shutoffIsPaused() {
-			return Boolean(this.selectedServerData?.autoShutoff?.pauseUntilAt);
+			return Boolean(this.selectedServerData?.autoShutoff?.pauseUntilAt) && (this.selectedServerData?.autoShutoff?.pauseUntilAt > Date.now());
 		},
 		summaryText() {
-			if (this.selectedServerData?.autoShutoff?.pauseUntilAt) {
+			if (this.shutoffIsPaused) {
 				return "Paused";
 			}
-
 			if (!this.selectedServerData.state) {
 				return "Inactive";
 			}
-
 			return "Not scheduled";
 		},
 		shutoffScheduledFor() {

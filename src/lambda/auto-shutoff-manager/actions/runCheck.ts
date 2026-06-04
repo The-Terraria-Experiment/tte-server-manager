@@ -38,6 +38,10 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			reason: "pause-active",
 			idleMinutes: idleStatus.idleMinutes,
 		};
+	} else if (pauseUntilAt && pauseUntilAt < Date.now()) {
+		await updateAutoShutoffState(serverId, {
+			pauseUntilAt: null,
+		});
 	}
 
 	if (state?.canceled) {

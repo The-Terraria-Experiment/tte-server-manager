@@ -21,7 +21,7 @@ export const cancelAutoShutoff = async (event: AuthorizedEvent, context: Context
 
 	const DB = new DynamoDao();
 
-	const shutoffState = DB.GetItem(SYSTEM_TABLE, `autoshutoff#${serverId}`) as AutoShutoffStateEntry | null;
+	const shutoffState = await DB.GetItem(SYSTEM_TABLE, `autoshutoff#${serverId}`) as AutoShutoffStateEntry | null;
 	if (!shutoffState?.scheduledShutdownAt) {
 		return ResponseUtil.ValidationError("No scheduled auto-shutoff");
 	}
