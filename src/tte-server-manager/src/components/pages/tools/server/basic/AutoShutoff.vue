@@ -174,6 +174,7 @@ export default {
 				this.$alert.error("Failed to pause shutoff");
 			} finally {
 				this.loading = false;
+				this.serverStore.fetchServerStatus(this.selectedInstance);
 			}
 		},
 		async clearPause() {
@@ -194,6 +195,27 @@ export default {
 				this.$alert.error("Failed to clear auto-shutoff pause");
 			} finally {
 				this.loading = false;
+				this.serverStore.fetchServerStatus(this.selectedInstance);
+			}
+		},
+		async cancelShutoff() {
+			this.pauseUntilPickerOpen = false;
+
+			this.$validatePermissions(PERMISSIONS.server.status.start);
+
+			if (this.loading) return;
+			this.loading = true;
+
+			try {
+				await post("/system/autoshutoff/cancel", PERMISSIONS.server.status.start, {
+					serverId: this.selectedInstance,
+				});
+				this.$alert.success("Auto shutoff canceled");
+			} catch (e) {
+				this.$alert.error("Failed to cancel auto shutoff");
+			} finally {
+				this.loading = false;
+				this.serverStore.fetchServerStatus(this.selectedInstance);
 			}
 		}
 	},

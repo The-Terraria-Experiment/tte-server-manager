@@ -19,9 +19,9 @@ export const cancelAutoShutoff = async (event: AuthorizedEvent, context: Context
 		return ResponseUtil.ValidationError("Server ID is required");
 	}
 
-	const DB = new DynamoDao(`autoshutoff#${serverId}`);
+	const DB = new DynamoDao();
 
-	const shutoffState = DB.GetItem(SYSTEM_TABLE, ``) as AutoShutoffStateEntry | null;
+	const shutoffState = DB.GetItem(SYSTEM_TABLE, `autoshutoff#${serverId}`) as AutoShutoffStateEntry | null;
 	if (!shutoffState?.scheduledShutdownAt) {
 		return ResponseUtil.ValidationError("No scheduled auto-shutoff");
 	}
