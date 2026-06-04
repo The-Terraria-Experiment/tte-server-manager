@@ -25,7 +25,7 @@ export const cancelAutoShutoff = async (event: AuthorizedEvent, context: Context
 	if (!shutoffState?.scheduledShutdownAt) {
 		return ResponseUtil.ValidationError("No scheduled auto-shutoff");
 	}
-	if (shutoffState.pauseUntilAt) {
+	if (shutoffState?.pauseUntilAt && shutoffState?.pauseUntilAt > Date.now()) {
 		return ResponseUtil.ValidationError("Auto-shutoff is paused");
 	}
 
