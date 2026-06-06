@@ -219,14 +219,14 @@ export default {
 					this.$alert.warning("Could not launch server: instance is not running or not responding");
 				} else if (e.message.includes("Endpoint request timed out")) {
 					// Sometimes if the instance was off, it can take longer than 30s for the instance and SSM to fully come online
-					// If that happens, we'll give it another 30s before we call it failed
+					// If that happens, we'll give it another minute before we call it failed
 					this.pollInstanceState();
 					setTimeout(() => {
 						if (this.statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)) {
 							this.statusStore.cancelRepeatingTask(TASK_IDS.SERVER_STATUS_CHECK);
 							this.$alert.error("Error launching server: timeout");
 						}
-					}, 30 * 1000);
+					}, 60 * 1000);
 				} else {
 					this.$alert.error("Error launching server");
 					console.error(e);
