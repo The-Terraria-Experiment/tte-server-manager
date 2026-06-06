@@ -60,6 +60,22 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 		};
 	}
 
+	const serverStartedAt = typeof state?.serverStartedAt === "number" ? state.serverStartedAt : null;
+	if (serverStartedAt && (Date.now() - serverStartedAt) < IDLE_MINUTES * 60 * 1000) {
+		await updateAutoShutoffState(serverId, {
+			sequenceStage: `grace-${stage}`,
+			sequenceUpdatedAt: Date.now(),
+			scheduledShutdownAt: null,
+		});
+		return {
+			serverId,
+			stage,
+			action: "skip",
+			reason: "server-recently-started",
+			idleMinutes: idleStatus.idleMinutes,
+		};
+	}
+
 	CWLogger.CAction(2, FUNC_NAMES.AUTO_SHUTOFF_MGR, {
 		userId: "[auto-shutoff]",
 		action: "run-check",

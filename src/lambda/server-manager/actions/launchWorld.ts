@@ -12,6 +12,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { TShockAPI } from "../shared/utils/TShockAPI.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
+import { SYSTEM_TABLE } from "../shared/vars.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
@@ -206,6 +207,14 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 
 		// Clear out stale tokens
 		TShockAPI.DropTokenCache();
+
+		await DB.UpdateItem(SYSTEM_TABLE, `autoshutoff#${instanceID}`, {
+			updates: {
+				serverId: instanceID,
+				serverStartedAt: Date.now(),
+				lastUpdatedAt: Date.now(),
+			},
+		});
 
 		return ResponseUtil.Success({
 			message: " TShock server starting",
