@@ -11,6 +11,8 @@ import { Permissions } from "./shared/utils/Perms.js";
 import { clearnotice } from "./actions/clearnotice.js";
 import { notice } from "./actions/notice.js";
 import { readNotice } from "./actions/readNotice.js";
+import { pauseAutoshutoff } from "./actions/pauseAutoshutoff.js";
+import { cancelAutoShutoff } from "./actions/cancelAutoShutoff.js";
 
 const endpoints: EndpointList = {
 	"POST /system/postnotice": {
@@ -24,6 +26,14 @@ const endpoints: EndpointList = {
 	"GET /system/notice": {
 		action: readNotice,
 		permRequired: PERMISSIONS.access,
+	},
+	"POST /system/autoshutoff/pause": {
+		action: pauseAutoshutoff,
+		permRequired: PERMISSIONS.server.status.start,
+	},
+	"POST /system/autoshutoff/cancel": {
+		action: cancelAutoShutoff,
+		permRequired: PERMISSIONS.server.status.start,
 	},
 };
 

@@ -7,6 +7,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { CWLogger } from "./CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
+import { Delay } from "../utils/Delay.js";
 
 export const InstanceState = {
 	PENDING: "pending",
@@ -141,6 +142,27 @@ export class Ec2Dao {
 		return {
 			state: instance?.CurrentState?.Name ?? "unknown",
 		};
+	}
+
+	public async StartInstanceAndAwait(instanceId: string, intervalMs: number = 1000, max: number = 30): Promise<InstanceStatus> {
+		await CWLogger.CAction(3, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-start-instance-and-wait",
+			resource: null,
+			details: { instanceId },
+		});
+
+		await this.StartInstance(instanceId);
+
+		for (let i = 0; i < max; i++) {
+			await new Delay(intervalMs);
+			const result = await this.GetInstanceStatus(instanceId);
+			if (result.state === InstanceState.RUNNING) {
+				return result;
+			}
+		}
+
+		throw new Error(`Awaiting instance startup timed out`);
 	}
 
 	public async StopInstance(instanceId: string): Promise<{ state: string }> {

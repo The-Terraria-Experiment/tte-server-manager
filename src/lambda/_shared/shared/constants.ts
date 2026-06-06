@@ -5,6 +5,7 @@ export const FUNC_NAMES = {
 	COG_LINK: "ttesm-cognito-user-link",
 	SYS_MGR: "ttesm-system-manager",
 	LOG_MGR: "ttesm-logs-manager",
+	AUTO_SHUTOFF_MGR: "ttesm-auto-shutoff-manager",
 	AUTHORIZER: "ttesm-api-authorizer",
 };
 export const CW_LOG_GENERAL = "ttesm-actions-general";

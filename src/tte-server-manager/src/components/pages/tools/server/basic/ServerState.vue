@@ -2,8 +2,9 @@
 	<div>
 		<StatusTile
 			:class="['grow mt-2 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
-			:collapsible="selectedServerData.state"
+			:collapsible="selectedServerData.state && showStopButton"
 			:perm-required="PERMISSIONS.server.status.read"
+			:floatingExpand="!isMobile"
 			:loading="statusLoading || statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)"
 		>
 			<template #header>
@@ -17,7 +18,7 @@
 				<div v-if="selectedServerData.state">
 					<FlexButton
 						v-if="$checkPermissions(PERMISSIONS.server.status.stop) && showStopButton"
-						class="mx-4 mb-4"
+						class="mx-4 mb-4 mt-4"
 						:variant="BTN_VARIANT.DANGER"
 						@input="openConfirmStopPopup"
 					>

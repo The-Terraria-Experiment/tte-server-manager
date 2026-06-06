@@ -71,5 +71,14 @@ export default {
 </script>
 
 <style scoped>
+@reference "../../theme.css";
 
+input {
+	appearance: none;
+	@apply text-gray-1
+}
+
+input::placeholder {
+	appearance: none;
+}
 </style>

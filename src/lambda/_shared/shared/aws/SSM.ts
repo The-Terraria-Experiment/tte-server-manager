@@ -18,6 +18,32 @@ export class SsmDao {
 		this.ssmClient = new SSMClient({ region: region || "us-east-2" });
 	}
 
+	public async WaitForInstanceSsm(
+		instanceID: string,
+		maxPolls: number = 30,
+	): Promise<boolean> {
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-wait-for-ssm",
+			resource: null,
+			details: { instanceID },
+		});
+
+		for (let i = 0; i < maxPolls; i++) {
+			await new Delay(2000);
+			try {
+				const result = await this.ExecuteCommandGetResult(instanceID, ["echo ssm-ready"], 500, 3);
+				if (result.commandID) {
+					return true;
+				}
+			} catch (e) {
+				// Premature commands will error out. That's fine, that's the purpose of this function so we'll just swallow that error.
+			}
+		}
+
+		return false;
+	}
+
 	public async ExecuteCommand(instanceId: string, commands: string[]): Promise<{ commandId: string }> {
 		const command = new SendCommandCommand({
 			InstanceIds: [instanceId],

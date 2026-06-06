@@ -1,10 +1,10 @@
-import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { FUNC_NAMES } from "../shared/constants.js";
-import { Assert } from "../shared/utils/Assert.js";
-import { HttpMethod, Network, type RequestResponse } from "../shared/utils/Network.js";
-import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { CWLogger } from "../aws/CloudWatch.js";
+import { SecretsManagerDao } from "../aws/SecretsManager.js";
+import { FUNC_NAMES } from "../constants.js";
+import { Assert } from "./Assert.js";
+import { ResponseUtil } from "./APIResponse.js";
+import { HttpMethod, Network, type RequestResponse } from "./Network.js";
+import { Parsers } from "./Parsers.js";
 
 type TempToken = {
 	token: string,
@@ -22,6 +22,13 @@ type TokenData = TempToken & {
  * - tshock.rest.maintenance
  * - tshock.rest.useapi
  * - tshock.rest.cfg
+ * - tshock.rest.mute
+ * - tshock.rest.kill
+ * - tshock.rest.kick
+ * - tshock.rest.bans.*
+ * - tshock.rest.users.info
+ * - playerinfo.* (custom plugin)
+ * - tshock.rest.broadcast
  */
 
 export class TShockAPI {

@@ -32,6 +32,9 @@ export const PERMISSIONS = {
 		},
 		logs: {
 			read: "server.logs.read",
+			ips: {
+				read: "server.logs.ips.read",
+			}
 		}
 	},
 	instance: {

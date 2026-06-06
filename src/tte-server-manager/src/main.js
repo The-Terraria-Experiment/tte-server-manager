@@ -15,6 +15,7 @@ import Icon from './components/common/Icon.vue'
 import FlexButton from './components/common/FlexButton.vue'
 import NotAllowed from './components/common/NotAllowed.vue'
 import ValueInput from './components/common/ValueInput.vue'
+import screen from './mixins/screen'
 
 const pinia = createPinia();
 
@@ -40,6 +41,7 @@ app
 	.use(pinia)
 	.use(alertsPlugin)
 	.use(permissionsPlugin)
+	.mixin(screen)
 	.component('StatusTile', StatusTile)
 	.component('Spinner', Spinner)
 	.component('Icon', Icon)

@@ -12,7 +12,15 @@
 			<!-- <template #summary>
 				<p class="text-2xl text-teal-4">{{ mainText }}</p>
 			</template> -->
-			<template #content v-if="worldCreationInProgress && !worldCreatePopupOpen">
+			<template #content v-if="worldLaunchInProgress">
+				<div class="p-5 flex flex-col justify-between h-full">
+					<div class="flex items-center justify-center">
+						<Spinner class="h-5 w-5 text-teal-4" />
+						<p class="font-main font-bold text-gray-9 ml-3">World launch in progress</p>
+					</div>
+				</div>
+			</template>
+			<template #content v-else-if="worldCreationInProgress && !worldCreatePopupOpen">
 				<div class="p-5 flex flex-col justify-between h-full">
 					<div>
 						<div class="flex items-center justify-center mb-4">
@@ -206,6 +214,7 @@ export default {
 			return "Working";
 		},
 		worldCreateStepLabel() {
+			if (this.lastWorldCreateStatus.step === "preparing-instance") return "Launching Instance";
 			if (this.lastWorldCreateStatus.step === "queued") return "Queued";
 			if (this.lastWorldCreateStatus.step === "starting-tshock") return "Starting TShock";
 			if (this.lastWorldCreateStatus.step === "waiting-for-world-file") return "Generating world file";
@@ -215,6 +224,9 @@ export default {
 		},
 		worldCreationInProgress() {
 			return this.lastWorldCreateStatus.progress >= 0;
+		},
+		worldLaunchInProgress() {
+			return this.serverStore.loading.worldLaunch[this.selectedInstance];
 		},
 		mainText() {
 			return this.worldCreationInProgress ? "World creation in progress" : "World creation available";

@@ -8,6 +8,7 @@
 		@x-clicked="onCancel"
 	>
 		<div class="p-4">
+			<slot></slot>
 			<DateTimePicker
 				v-model="pendingValue"
 				:start-year="startYear"
@@ -47,7 +48,7 @@ export default {
 		},
 		bodyClass: {
 			type: String,
-			default: 'w-11/12 sm:w-3/4 lg:w-1/5 h-min',
+			default: 'w-11/12 sm:w-3/4 lg:w-1/5 lg:min-w-90 h-min',
 		},
 		layer: {
 			type: String,
@@ -72,7 +73,7 @@ export default {
 		iconColor: {
 			type: String,
 			default: 'text-white-1',
-		},
+		}
 	},
 	data() {
 		return {
@@ -96,7 +97,7 @@ export default {
 	},
 	methods: {
 		onConfirm() {
-			this.$emit('update:modelValue', this.pendingValue);
+			this.$emit('update:modelValue', this.asTimestamp ? Date.parse(this.pendingValue) : this.pendingValue);
 			this.$emit('close');
 		},
 		onCancel() {

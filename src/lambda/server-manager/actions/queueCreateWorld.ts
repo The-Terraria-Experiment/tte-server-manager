@@ -12,6 +12,8 @@ import type { NewWorldRequestData } from "../index.js";
 import { Assert } from "../shared/utils/Assert.js";
 import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 import type { UserDataEntry } from "../../_shared/shared/schema/UserTable.js";
+import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
+import { SsmDao } from "../shared/aws/SSM.js";
 
 const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	const { worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName } = body;
@@ -122,6 +124,36 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 			instanceID
 		}
 	});
+
+	const EC2 = new Ec2Dao();
+	const SSM = new SsmDao();
+	const status = await EC2.GetInstanceStatus(instanceID);
+	if (status.state === InstanceState.STOPPED) {
+		CWLogger.Action(FUNC_NAMES.SERV_MGR, {
+			userId: Parsers.GetUserSub(event),
+			action: "launch-instance",
+			status: "preparing-instance",
+			resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
+			details: {
+				params: event.parsedBody,
+				jobID,
+				instanceID
+			}
+		});
+		await EC2.StartInstanceAndAwait(instanceID);
+		const ssmOK = await SSM.WaitForInstanceSsm(instanceID);
+		if (!ssmOK) {
+			throw new Error("SSM did not become ready");
+		}
+	} else if (
+		status.state === InstanceState.PENDING ||
+		status.state === InstanceState.SHUTDOWN ||
+		status.state === InstanceState.TERMINATED ||
+		status.state === InstanceState.STOPPING
+	) {
+		// We'll allow unknown, cause maybe that's ok. If not, the SSM will error out
+		return ResponseUtil.ValidationError("Instance is not running");
+	}
 
 	const Lambda = new LambdaDao();
 	const { worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName } = event.parsedBody || {};

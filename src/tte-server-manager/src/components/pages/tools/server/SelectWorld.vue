@@ -91,7 +91,7 @@
 			</div>
 		</template>
 		<template #content v-else>
-			<p class="font-main font-bold text-gray-7 px-5">WORLD CREATION IN PROGRESS, PLEASE WAIT</p>
+			<p class="font-main font-bold text-gray-7 p-5">LAUNCH IN PROGRESS, PLEASE WAIT</p>
 		</template>
 	</StatusTile>
 </template>
@@ -217,12 +217,21 @@ export default {
 			} catch (e) {
 				if (e.message.includes("Instances not in a valid state")) {
 					this.$alert.warning("Could not launch server: instance is not running or not responding");
+				} else if (e.message.includes("Endpoint request timed out")) {
+					// Sometimes if the instance was off, it can take longer than 30s for the instance and SSM to fully come online
+					// If that happens, we'll give it another minute before we call it failed
+					this.pollInstanceState();
+					setTimeout(() => {
+						if (this.statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)) {
+							this.statusStore.cancelRepeatingTask(TASK_IDS.SERVER_STATUS_CHECK);
+							this.$alert.error("Error launching server: timeout");
+						}
+					}, 60 * 1000);
 				} else {
 					this.$alert.error("Error launching server");
 					console.error(e);
+					this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 				}
-			} finally {
-				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 			}
 		},
 
@@ -244,6 +253,11 @@ export default {
 		pollInstanceState() {
 			this.statusStore.startRepeatingTask(TASK_IDS.SERVER_STATUS_CHECK, () => this.selectedServerData.state);
 		}
+	},
+	created() {
+		this.statusStore.subscribeToTaskEnd(TASK_IDS.SERVER_STATUS_CHECK, () => {
+			this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
+		});
 	}
 }
 </script>

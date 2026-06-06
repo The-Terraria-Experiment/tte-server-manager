@@ -10,7 +10,9 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { TShockAPI } from "../utils/TShockAPI.js";
+import { TShockAPI } from "../shared/utils/TShockAPI.js";
+import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
+import { SYSTEM_TABLE } from "../shared/vars.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
@@ -137,6 +139,25 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	// Validate user has access to this specific path
 	await Permissions.ValidateResourceAccess(event, `filepath::${instanceID}::${matchingNickname}`);
 
+	const EC2 = new Ec2Dao();
+	const SSM = new SsmDao();
+	const status = await EC2.GetInstanceStatus(instanceID);
+	if (status.state === InstanceState.STOPPED) {
+		await EC2.StartInstanceAndAwait(instanceID);
+		const ssmOK = await SSM.WaitForInstanceSsm(instanceID);
+		if (!ssmOK) {
+			throw new Error("SSM did not become ready");
+		}
+	} else if (
+		status.state === InstanceState.PENDING ||
+		status.state === InstanceState.SHUTDOWN ||
+		status.state === InstanceState.TERMINATED ||
+		status.state === InstanceState.STOPPING
+	) {
+		// We'll allow unknown, cause maybe that's ok. If not, the SSM will error out
+		return ResponseUtil.ValidationError("Instance is not running");
+	}
+
 	const launchCommand = buildLaunchWorldTShockCommand(worldFilePath, port, maxPlayers, password);
 	const launchGuardCommand = buildPreLaunchGuardPath();
 
@@ -151,8 +172,6 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	});
 
 	try {
-		const SSM = new SsmDao();
-
 		const guardResult = await SSM.ExecuteCommandGetResult(instanceID, [launchGuardCommand]);
 		const guardOutput = (guardResult.stdout || "").trim();
 
@@ -188,6 +207,14 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 
 		// Clear out stale tokens
 		TShockAPI.DropTokenCache();
+
+		await DB.UpdateItem(SYSTEM_TABLE, `autoshutoff#${instanceID}`, {
+			updates: {
+				serverId: instanceID,
+				serverStartedAt: Date.now(),
+				lastUpdatedAt: Date.now(),
+			},
+		});
 
 		return ResponseUtil.Success({
 			message: " TShock server starting",

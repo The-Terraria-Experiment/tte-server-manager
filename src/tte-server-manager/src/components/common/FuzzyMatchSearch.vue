@@ -50,7 +50,9 @@ export default {
 
 			const scored = this.data
 				.map(d => {
-					const score = similarity(query, d[this.comparisonKey].toLocaleLowerCase());
+					const similarityScore = similarity(query, d[this.comparisonKey].toLocaleLowerCase());
+					const hasSubstring = (d[this.comparisonKey].toLocaleLowerCase()).includes(query);
+					const score = hasSubstring ? 1 : similarityScore;
 					return { data: d, score };
 				})
 				.filter(d => d.score >= this.filterThreshold);
