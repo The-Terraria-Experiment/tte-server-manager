@@ -257,8 +257,11 @@ function parseNumber(value: string | undefined, fallback: number): number {
 }
 
 async function enqueueMessage(message: object, delaySeconds: number): Promise<void> {
-	const queueUrl = process.env.AUTO_SHUTOFF_QUEUE_URL || "";
+	let queueUrl = process.env.AUTO_SHUTOFF_QUEUE_URL || "";
 	Assert.IsTruthyString(queueUrl, "AUTO_SHUTOFF_QUEUE_URL is not set");
+	if (process.env.ACTIVE_ENV === "stage") {
+		queueUrl += "-stage";
+	}
 	const sqs = new SqsDao();
 	await sqs.SendMessage(queueUrl, message, delaySeconds);
 }
