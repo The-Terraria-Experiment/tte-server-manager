@@ -17,6 +17,7 @@
 					:type="ACTIVE_DATE_VARIANT.COUNTDOWN"
 					:date="shutoffScheduledFor"
 					class="font-main font-bold text-teal-4 text-2xl"
+					@countdownExpired="refreshStatus"
 				/>
 				<p v-else class="text-2xl text-teal-4">{{ summaryText }}</p>
 			</template>
@@ -79,6 +80,7 @@ import FlexButton from '@/components/common/FlexButton.vue';
 import { useServerStore } from '@/stores/serverStore';
 import { post } from '@/util/api';
 import { ACTIVE_DATE_VARIANT, BTN_VARIANT } from '@/util/constants';
+import delay from '@/util/delay';
 import { PERMISSIONS } from '@/util/permissionValues';
 
 
@@ -116,6 +118,9 @@ export default {
 			return Boolean(this.selectedServerData?.autoShutoff?.pauseUntilAt) && (this.selectedServerData?.autoShutoff?.pauseUntilAt > Date.now());
 		},
 		summaryText() {
+			if (this.selectedServerData?.autoShutoff?.sequenceStage === "shutdown") {
+				return "Shutting down";
+			}
 			if (this.shutoffIsPaused) {
 				return "Paused";
 			}
@@ -215,6 +220,10 @@ export default {
 				this.loading = false;
 				this.serverStore.fetchServerStatus(this.selectedInstance);
 			}
+		},
+		async refreshStatus() {
+			await delay(2000);
+			await this.serverStore.fetchServerStatus(this.selectedInstance);
 		}
 	},
 }
