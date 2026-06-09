@@ -106,17 +106,17 @@
 
 	<Popup
 		body-class="h-max w-11/12 sm:w-1/2 lg:w-1/3"
-		header-text="FILE INFO"
+		:header-text="fileInfoDetails.isFolder ? 'FOLDER INFO' : 'FILE INFO'"
 		:open="fileInfoPopupOpen"
 		@x-clicked="fileInfoPopupOpen = false"
 	>
 		<div class="p-4 flex flex-col gap-3 font-main">
 			<div class="bg-gray-2 rounded px-3 py-1 font-mono break-all text-sm text-white-0">
-				{{ fileInfoDetails.pathRoot + "/" + (fileInfoDetails.path || []).join("/") }}
+				{{ fileInfoDetails.pathRoot + "/" + (fileInfoDetails.path || []).join("/") }}{{ fileInfoDetails.isFolder ? "/" : "" }}
 			</div>
 			<div class="flex gap-8 mt-1 mx-1">
 				<div>
-					<p class="text-white-2 text-xs font-semibold mb-1">SIZE</p>
+					<p class="text-white-2 text-xs font-semibold mb-1">{{ fileInfoDetails.isFolder ? 'TOTAL SIZE' : 'SIZE' }}</p>
 					<p class="text-white-0 font-mono text-sm">{{ formatFileSize(fileInfoDetails.size) }}</p>
 				</div>
 				<div>
@@ -126,15 +126,13 @@
 			</div>
 			<div class="flex justify-between mt-6">
 				<FlexButton
-					class=""
-					:disabled="loadingDownload"
 					:variant="BTN_VARIANT.DANGER"
 					@input="openDeleteFromInfo"
 				>
 					<p class="py-2 px-12">DELETE</p>
 				</FlexButton>
 				<FlexButton
-					class=""
+					v-if="!fileInfoDetails.isFolder"
 					leftIcon="download"
 					:disabled="loadingDownload"
 					:variant="BTN_VARIANT.SECONDARY"
@@ -199,6 +197,7 @@ export default {
 				path: [],
 				pathRoot: "",
 				fileName: "",
+				isFolder: false,
 				size: 0,
 				lastModified: null,
 			},
@@ -247,7 +246,7 @@ export default {
 
 		handlePicked(data, pathRoot) {
 			if (data.isFolder) {
-				this.openConfirmDeletePopup(data, pathRoot);
+				this.openFolderInfoPopup(data, pathRoot);
 			} else {
 				this.openFileInfoPopup(data, pathRoot);
 			}
@@ -263,16 +262,39 @@ export default {
 				path,
 				pathRoot,
 				fileName,
+				isFolder: false,
 				size: fileMeta?.size ?? 0,
 				lastModified: fileMeta?.lastModified ?? null,
 			};
 			this.fileInfoPopupOpen = true;
 		},
 
+		openFolderInfoPopup(data, pathRoot) {
+			const { path } = data;
+			const folderPrefix = `${this.selectedInstanceData.id}${pathRoot}/${path.join("/")}/`;
+			const allFiles = this.serverStore.instanceFiles[this.selectedInstanceData.id] || [];
+			const folderFiles = allFiles.filter(f => f.key.startsWith(folderPrefix));
+			const totalSize = folderFiles.reduce((sum, f) => sum + (f.size ?? 0), 0);
+			const lastModified = folderFiles.reduce((latest, f) => {
+				if (!f.lastModified) return latest;
+				if (!latest) return f.lastModified;
+				return new Date(f.lastModified) > new Date(latest) ? f.lastModified : latest;
+			}, null);
+			this.fileInfoDetails = {
+				path,
+				pathRoot,
+				fileName: path[path.length - 1],
+				isFolder: true,
+				size: totalSize,
+				lastModified,
+			};
+			this.fileInfoPopupOpen = true;
+		},
+
 		openDeleteFromInfo() {
-			// this.fileInfoPopupOpen = false;
+			this.fileInfoPopupOpen = false;
 			this.openConfirmDeletePopup(
-				{ path: this.fileInfoDetails.path, isFolder: false },
+				{ path: this.fileInfoDetails.path, isFolder: this.fileInfoDetails.isFolder },
 				this.fileInfoDetails.pathRoot
 			);
 		},
