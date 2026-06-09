@@ -62,7 +62,7 @@ export const downloadFile = async (event: AuthorizedEvent, context: Context) => 
 		pathComponents.push(fileName);
 		const s3Key = pathComponents.join("/");
 
-		const downloadUrl = await S3.GetSignedDownloadUrl(bucketName, s3Key, 3600);
+		const downloadUrl = await S3.GetSignedDownloadUrl(bucketName, s3Key, 3600, fileName);
 
 		await CWLogger.Action(FUNC_NAMES.INST_MGR, {
 			userId: Parsers.GetUserSub(event),
