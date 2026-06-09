@@ -32,10 +32,10 @@
 							<p class="text-sm">{{ readPathsAuth ? path : nickname }}/</p>
 						</div>
 
-						<FileHierarchy 
+						<FileHierarchy
 							class="mt-4 -ml-4"
 							:files="instanceFiles[path]"
-							@deleteClicked="($e) => openConfirmDeletePopup($e, path)"
+							@picked="($e) => handlePicked($e, path)"
 							@addClicked="($e) => openFileUploadPopup($e, path)"
 						/>
 					</div>
@@ -87,6 +87,7 @@
 	<Popup
 		body-class="h-1/3 w-11/12 sm:w-1/2 lg:w-1/4"
 		header-text="CONFIRM"
+		layer="2"
 		:open="confirmDeletePopupOpen"
 		@x-clicked="confirmDeletePopupOpen = false"
 		:buttons="[
@@ -96,19 +97,60 @@
 	>
 		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
 			<p class="text-white-0 py-2">
-				Are you sure you want to delete 
+				Are you sure you want to delete
 				{{ deleteDetails.isFolder ? 'this folder? This includes any files and folders in it.' : 'this file?' }}
 			</p>
 			<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm text-white-0">{{ deleteDetails.pathRoot + "/" + deleteDetails.path.join("/") }}</div>
 		</div>
 	</Popup>
+
+	<Popup
+		body-class="h-max w-11/12 sm:w-1/2 lg:w-1/3"
+		:header-text="fileInfoDetails.isFolder ? 'FOLDER INFO' : 'FILE INFO'"
+		:open="fileInfoPopupOpen"
+		@x-clicked="fileInfoPopupOpen = false"
+	>
+		<div class="p-4 flex flex-col gap-3 font-main">
+			<div class="bg-gray-2 rounded px-3 py-1 font-mono break-all text-sm text-white-0">
+				{{ fileInfoDetails.pathRoot + "/" + (fileInfoDetails.path || []).join("/") }}{{ fileInfoDetails.isFolder ? "/" : "" }}
+			</div>
+			<div class="flex gap-8 mt-1 mx-1">
+				<div>
+					<p class="text-white-2 text-xs font-semibold mb-1">{{ fileInfoDetails.isFolder ? 'TOTAL SIZE' : 'SIZE' }}</p>
+					<p class="text-white-0 font-mono text-sm">{{ formatFileSize(fileInfoDetails.size) }}</p>
+				</div>
+				<div>
+					<p class="text-white-2 text-xs font-semibold mb-1">LAST MODIFIED</p>
+					<p class="text-white-0 font-mono text-sm">{{ fileInfoDetails.lastModified ? new Date(fileInfoDetails.lastModified).toLocaleString() : '—' }}</p>
+				</div>
+			</div>
+			<div class="flex justify-between mt-6">
+				<FlexButton
+					:variant="BTN_VARIANT.DANGER"
+					@input="openDeleteFromInfo"
+				>
+					<p class="py-2 px-12">DELETE</p>
+				</FlexButton>
+				<FlexButton
+					v-if="!fileInfoDetails.isFolder"
+					leftIcon="download"
+					:disabled="loadingDownload"
+					:variant="BTN_VARIANT.SECONDARY"
+					@input="downloadFileAction"
+				>
+					DOWNLOAD
+				</FlexButton>
+			</div>
+		</div>
+	</Popup>
 </template>
 
 <script>
+import FlexButton from '@/components/common/FlexButton.vue';
 import { useServerStore } from '../../../../stores/serverStore';
 import { deleteRequest, post, put } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
-import { plural } from '../../../../util/format';
+import { plural, formatFileSize } from '../../../../util/format';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 import FileHierarchy from '../../../common/FileHierarchy.vue';
@@ -150,6 +192,16 @@ export default {
 				pathRoot: ""
 			},
 			confirmDeletePopupOpen: false,
+			fileInfoPopupOpen: false,
+			fileInfoDetails: {
+				path: [],
+				pathRoot: "",
+				fileName: "",
+				isFolder: false,
+				size: 0,
+				lastModified: null,
+			},
+			loadingDownload: false,
 		}
 	},
 	computed: {
@@ -190,6 +242,87 @@ export default {
 	},
 	methods: {
 		plural,
+		formatFileSize,
+
+		handlePicked(data, pathRoot) {
+			if (data.isFolder) {
+				this.openFolderInfoPopup(data, pathRoot);
+			} else {
+				this.openFileInfoPopup(data, pathRoot);
+			}
+		},
+
+		openFileInfoPopup(data, pathRoot) {
+			const { path } = data;
+			const fileName = path[path.length - 1];
+			const s3Key = `${this.selectedInstanceData.id}${pathRoot}/${path.join("/")}`;
+			const fileMeta = (this.serverStore.instanceFiles[this.selectedInstanceData.id] || [])
+				.find(f => f.key === s3Key);
+			this.fileInfoDetails = {
+				path,
+				pathRoot,
+				fileName,
+				isFolder: false,
+				size: fileMeta?.size ?? 0,
+				lastModified: fileMeta?.lastModified ?? null,
+			};
+			this.fileInfoPopupOpen = true;
+		},
+
+		openFolderInfoPopup(data, pathRoot) {
+			const { path } = data;
+			const folderPrefix = `${this.selectedInstanceData.id}${pathRoot}/${path.join("/")}/`;
+			const allFiles = this.serverStore.instanceFiles[this.selectedInstanceData.id] || [];
+			const folderFiles = allFiles.filter(f => f.key.startsWith(folderPrefix));
+			const totalSize = folderFiles.reduce((sum, f) => sum + (f.size ?? 0), 0);
+			const lastModified = folderFiles.reduce((latest, f) => {
+				if (!f.lastModified) return latest;
+				if (!latest) return f.lastModified;
+				return new Date(f.lastModified) > new Date(latest) ? f.lastModified : latest;
+			}, null);
+			this.fileInfoDetails = {
+				path,
+				pathRoot,
+				fileName: path[path.length - 1],
+				isFolder: true,
+				size: totalSize,
+				lastModified,
+			};
+			this.fileInfoPopupOpen = true;
+		},
+
+		openDeleteFromInfo() {
+			this.fileInfoPopupOpen = false;
+			this.openConfirmDeletePopup(
+				{ path: this.fileInfoDetails.path, isFolder: this.fileInfoDetails.isFolder },
+				this.fileInfoDetails.pathRoot
+			);
+		},
+
+		async downloadFileAction() {
+			this.loadingDownload = true;
+			try {
+				const { path, pathRoot, fileName } = this.fileInfoDetails;
+				const dirPath = path.slice(0, -1).join("/") || undefined;
+				const response = await post(
+					`/instance/${this.selectedInstanceData.id}/files/download`,
+					PERMISSIONS.instance.files.read,
+					{ pathRoot, path: dirPath, fileName }
+				);
+				const a = document.createElement("a");
+				a.href = response.downloadUrl;
+				a.download = fileName;
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+			} catch (e) {
+				this.$alert.error("Error generating download link");
+				console.error(e);
+			} finally {
+				this.loadingDownload = false;
+			}
+		},
+
 		cancelFilePicker() {
 			this.isFilePickerOpen = false;
 			this.addFilePath = null;

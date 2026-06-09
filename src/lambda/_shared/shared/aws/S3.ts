@@ -138,10 +138,11 @@ export class S3Dao {
 		return getSignedUrl(this.s3Client, command, { expiresIn });
 	}
 
-	public async GetSignedDownloadUrl(bucketName: string, key: string, expiresIn = 3600): Promise<string> {
+	public async GetSignedDownloadUrl(bucketName: string, key: string, expiresIn = 3600, fileName?: string): Promise<string> {
 		const command = new GetObjectCommand({
 			Bucket: bucketName,
 			Key: key,
+			ResponseContentDisposition: `attachment; filename="${fileName ?? key.split("/").pop()}"`,
 		});
 
 		await CWLogger.CAction(2, CW_LOG_GENERAL, {
