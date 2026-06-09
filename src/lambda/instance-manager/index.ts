@@ -22,6 +22,7 @@ import { readFileRoots } from "./actions/readFileRoots.js";
 import { getInstanceFiles } from "./actions/getInstanceFiles.js";
 import { readFileContent } from "./actions/readFileContent.js";
 import { writeFileContent } from "./actions/writeFileContent.js";
+import { downloadFile } from "./actions/downloadFile.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
@@ -67,6 +68,10 @@ const endpoints: EndpointList = {
 	"POST /instance/{id}/files/delete": {
 		action: deleteFiles,
 		permRequired: PERMISSIONS.instance.files.write,
+	},
+	"POST /instance/{id}/files/download": {
+		action: downloadFile,
+		permRequired: PERMISSIONS.instance.files.read,
 	},
 	"PUT /instance/{id}/files/content": {
 		action: writeFileContent,

@@ -139,7 +139,7 @@ export default {
 		forceRefresh() {
 			this.fetchFiles({ force: true });
 		},
-		filePicked(path) {
+		filePicked({ path }) {
 			this.$emit("picked", path);
 			this.$emit("close");
 		}

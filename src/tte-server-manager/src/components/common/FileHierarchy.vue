@@ -7,22 +7,21 @@
 					<p :class="['font-mono ml-2 text-white-0']">{{ key }}</p>
 					<Icon
 						v-if="editable"
-						icon="xmark" 
-						size="4" 
-						color="text-red-5" 
-						class="opacity-0 cursor-pointer ml-2" 
-						title="Delete folder and sub-items" 
-						@click="emitDeleteClicked({ path: this.__path.concat(key), isFolder: true })"
+						icon="ellipsis-vertical"
+						size="4"
+						color="text-white-1"
+						class="opacity-0 cursor-pointer ml-2"
+						title="Folder options"
+						@click="emitPicked({ path: __path.concat(key), isFolder: true })"
 					/>
 				</div>
 				
-				<FileHierarchy 
+				<FileHierarchy
 					:editable="editable"
 					:__isRoot="false"
 					:files="[]"
 					:__path="__path.concat(key)"
 					:__structure="builtStructure || __structure"
-					@deleteClicked="emitDeleteClicked"
 					@addClicked="emitAddClicked"
 					@picked="emitPicked"
 				/>
@@ -31,15 +30,15 @@
 		<template v-for="file in levelFiles">
 			<div class="ml-6 flex items-center mt-1 reveal-delete-icon">
 				<Icon icon="file-solid" size="4" color="text-white-0" />
-				<p :class="['font-mono ml-2 text-white-0', {'cursor-pointer hover:text-white-1': !editable}]" @click="emitPicked(this.__path.concat(file))">{{ file }}</p>
-				<Icon 
+				<p :class="['font-mono ml-2 text-white-0 cursor-pointer hover:text-white-1']" @click="emitPicked({ path: __path.concat(file), isFolder: false })">{{ file }}</p>
+				<Icon
 					v-if="editable"
-					icon="xmark" 
-					size="4" 
-					color="text-red-5" 
-					class="opacity-0 cursor-pointer ml-2" 
-					title="Delete file" 
-					@click="emitDeleteClicked({ path: this.__path.concat(file), isFolder: false })"
+					icon="ellipsis-vertical"
+					size="4"
+					color="text-white-1"
+					class="opacity-0 cursor-pointer ml-2"
+					title="File options"
+					@click="emitPicked({ path: __path.concat(file), isFolder: false })"
 				/>
 			</div>
 		</template>
@@ -132,11 +131,8 @@ export default {
 		emitAddClicked(path = null) {
 			this.$emit('addClicked', path);
 		},
-		emitDeleteClicked(data) {
-			this.$emit('deleteClicked', data);
-		},
-		emitPicked(path) {
-			this.$emit("picked", path);
+		emitPicked(data) {
+			this.$emit("picked", data);
 		}
 	},
 	created() {
