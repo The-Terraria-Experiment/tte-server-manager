@@ -4,6 +4,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { S3Dao } from "../shared/aws/S3.js";
+import { SsmDao } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
@@ -16,6 +17,7 @@ type DownloadFileBody = {
 
 const DB = new DynamoDao();
 const S3 = new S3Dao();
+const SSM = new SsmDao();
 
 export const downloadFile = async (event: AuthorizedEvent, context: Context) => {
 	void context;
@@ -61,6 +63,16 @@ export const downloadFile = async (event: AuthorizedEvent, context: Context) => 
 		}
 		pathComponents.push(fileName);
 		const s3Key = pathComponents.join("/");
+
+		const localPathComponents = [pathRoot];
+		if (path) {
+			localPathComponents.push(path);
+		}
+		localPathComponents.push(fileName);
+		const localFilePath = localPathComponents.join("/");
+
+		const { commandId } = await S3.SyncInstanceFileToS3(instanceId, localFilePath, bucketName, s3Key);
+		await SSM.PollForCommandCompletion(commandId, instanceId);
 
 		const downloadUrl = await S3.GetSignedDownloadUrl(bucketName, s3Key, 3600, fileName);
 
