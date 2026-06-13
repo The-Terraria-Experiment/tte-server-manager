@@ -1,5 +1,6 @@
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
+import { SsmDao } from "../shared/aws/SSM.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { TShockAPI } from "../shared/utils/TShockAPI.js";
 
@@ -83,6 +84,30 @@ export async function stopServer(target: TShockTarget, message: string): Promise
 	});
 
 	return true;
+}
+
+export async function pingTShock(target: TShockTarget): Promise<boolean> {
+	const response = await callTShock(target, "/v2/server/status");
+	return response !== null;
+}
+
+export async function checkTShockProcessViaSSM(serverId: string): Promise<boolean> {
+	try {
+		const ssm = new SsmDao();
+		const result = await ssm.ExecuteCommandGetResult(
+			serverId,
+			["if pgrep -af 'TerrariaServer|TShock' >/dev/null 2>&1; then echo 'TSHOCK_RUNNING'; else echo 'TSHOCK_NOT_RUNNING'; fi"],
+		);
+		return !(result.stdout || "").includes("TSHOCK_NOT_RUNNING");
+	} catch (error) {
+		await CWLogger.Error(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
+			userId: AUTO_SHUTOFF_USER_ID,
+			action: "ssm-process-check",
+			error: error instanceof Error ? error.message : String(error),
+			details: { serverId },
+		});
+		return true; // conservative: assume running if check fails
+	}
 }
 
 async function callTShock(
