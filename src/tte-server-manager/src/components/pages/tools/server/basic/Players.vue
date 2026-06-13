@@ -3,6 +3,7 @@
 		class="grow sm:mt-2 gradient-tile"
 		:collapsible="!!selectedServerData.playercount"
 		:perm-required="PERMISSIONS.server.status.read"
+		floatingExpand
 	>
 		<template #header>
 			<Icon icon="people-group" color="text-gray-6" size="4" />
@@ -12,7 +13,7 @@
 			<p class="text-2xl text-teal-4">{{ playerCountText }}</p>
 		</template>
 		<template #content>
-			<div v-if="selectedServerData.players?.length" class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap">
+			<div v-if="selectedServerData.players?.length" class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap max-h-100 overflow-y-auto">
 				<template v-for="player in selectedServerData.players">
 					<div 
 						class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1 hover:bg-gray-6 transition-colors duration-100" 
