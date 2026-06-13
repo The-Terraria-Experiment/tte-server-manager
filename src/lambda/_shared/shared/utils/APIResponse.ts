@@ -13,7 +13,7 @@ export function resolveCorsOrigin(requestOrigin?: string): string {
 	if (requestOrigin && ALLOWED_ORIGINS.has(requestOrigin)) {
 		return requestOrigin;
 	}
-	return ALLOWED_ORIGINS.size > 0 ? [...ALLOWED_ORIGINS][0] : "*";
+	return ALLOWED_ORIGINS.size > 0 ? [...ALLOWED_ORIGINS][0]! : "*";
 }
 
 export const CORS_HEADERS: Record<string, string> = {
