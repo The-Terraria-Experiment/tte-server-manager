@@ -403,7 +403,9 @@ export default {
 				const totalInSec = (parseInt(days) * 24 * 60 * 60) + (parseInt(hours) * 60 * 60) + (parseInt(minutes) * 60) + parseInt(seconds);
 				const sessionStart = Date.now() - (totalInSec * 1000) - (60 * 1000); // plus one minute of grace
 
-				this.timeFilterStart = new Date(sessionStart).toISOString().replace("T", " ").replace(/\.\d{3}Z$/, "");
+				const d = new Date(sessionStart);
+				const pad = n => String(n).padStart(2, '0');
+				this.timeFilterStart = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 			} catch (e) {
 				this.$alert.error("Failed to detect session");
 			} finally {
