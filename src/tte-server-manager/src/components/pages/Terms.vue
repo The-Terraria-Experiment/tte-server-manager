@@ -23,11 +23,25 @@
 		</ul>
 		<p>We also require you to provide a display name of your choosing once you log in. This name is only used so admins can identify you as someone we already know.</p>
 
-		<p>We don't collect any sort of user-identifying data, aside from logging actions taken within the app. Logs include your display name and an ID unique to this app, which can be linked back to the rest of your account for the site.</p>
+		<p>Within the site, we don't collect any sort of user-identifying data, aside from logging actions taken within the app. 
+			Logs include your display name and an ID unique to this app, which can be linked back to the rest of your account for the site.</p>
 
-		<h2>How we use your information</h2>
+		<br/>
+		<p>If you play on our Terraria servers, we collect:</p>
+		<ul>
+			<li>Your Terraria account name</li>
+			<li>Your IP address</li>
+			<li>When you were active on our servers</li>
+		</ul>
+		<p>We collect this information for moderation purposes and to ensure our servers are free of malicious users. 
+			We will use your IP address exclusively for this purpose, and it will not leave our system.</p>
+		<p>In addition, only site admins are allowed to access IP addresses.</p>
+		
+
+		<h2>How we use your personal information</h2>
 		<p>We use your email to log you in. We use the display name to identify you in logs and for assigning permissions.</p>
-		<p>Logs are kept for a max of 1 month in general, unless we need to hold onto them for security/analysis reasons. But that's rare and only if you're being sketchy.</p>
+		<p>All logs are kept for a max of 1 month in general, unless we need to hold onto them for security/analysis reasons.</p>
+		<p>We will not sell your personal information.</p>
 
 		<h2>Managing your data</h2>
 		<p>If you want your data deleted, contact an admin (specifically @havoc) in the Terraria Experiment discord and we'll get your data cleaned out of our system.</p>
@@ -35,7 +49,7 @@
 
 		<h2>Cookies and tracking</h2>
 		<p>Cookies are used as part of the login process, like nearly all login systems.</p>
-		<p>We don't track you. I don't even know how to do that or why that would help me.</p>
+		<p>We don't track you in any way.</p>
 
 		<h2>Security</h2>
 		<p>All of your information is encrypted, both while stored and in transit.</p>
