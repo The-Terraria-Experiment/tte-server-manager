@@ -3,7 +3,7 @@ import type { AuthorizedEvent } from "../../shared/types/APIGatewayTypes.js";
 import type { EndpointList } from "../../shared/types/LambdaTypes.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "./shared/constants.js";
-import { errorHandler } from "./shared/middleware/errorHandler.js";
+import { createHandler } from "./shared/middleware/createHandler.js";
 import { ResponseUtil } from "./shared/utils/APIResponse.js";
 import { Parsers } from "./shared/utils/Parsers.js";
 import { Permissions } from "./shared/utils/Perms.js";
@@ -216,4 +216,4 @@ const h = async (event: AuthorizedEvent | NewWorldRequestData, context: Context)
 	return result;
 };
 
-export const handler = errorHandler(Parsers.InsertParsedBody(h));
+export const handler = createHandler(Parsers.InsertParsedBody(h));

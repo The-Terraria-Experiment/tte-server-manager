@@ -1,7 +1,7 @@
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../shared/types/APIGatewayTypes.js";
 import type { EndpointList } from "../../shared/types/LambdaTypes.js";
-import { errorHandler } from "./shared/middleware/errorHandler.js";
+import { createHandler } from "./shared/middleware/createHandler.js";
 import { Parsers } from "./shared/utils/Parsers.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { FUNC_NAMES } from "./shared/constants.js";
@@ -121,4 +121,4 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 	return result;
 }
 
-export const handler = errorHandler(Parsers.InsertParsedBody(h));
+export const handler = createHandler(Parsers.InsertParsedBody(h));
