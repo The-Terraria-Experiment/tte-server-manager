@@ -61,7 +61,9 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 	}
 
 	const serverStartedAt = typeof state?.serverStartedAt === "number" ? state.serverStartedAt : null;
-	if (serverStartedAt && (Date.now() - serverStartedAt) < IDLE_MINUTES * 60 * 1000) {
+	const instanceStartedAt = typeof state?.instanceStartedAt === "number" ? state.instanceStartedAt : null;
+	const mostRecentStartAt = Math.max(serverStartedAt ?? 0, instanceStartedAt ?? 0) || null;
+	if (mostRecentStartAt && (Date.now() - mostRecentStartAt) < IDLE_MINUTES * 60 * 1000) {
 		await updateAutoShutoffState(serverId, {
 			sequenceStage: `grace-${stage}`,
 			sequenceUpdatedAt: Date.now(),
@@ -71,7 +73,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			serverId,
 			stage,
 			action: "skip",
-			reason: "server-recently-started",
+			reason: "recently-started",
 			idleMinutes: idleStatus.idleMinutes,
 		};
 	}
