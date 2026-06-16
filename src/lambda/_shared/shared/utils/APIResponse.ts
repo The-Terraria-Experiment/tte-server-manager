@@ -2,8 +2,22 @@ import type { APIGatewayProxyResult } from "aws-lambda";
 import { CWLogger } from "../aws/CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
 
+const ALLOWED_ORIGINS: Set<string> = new Set(
+	(process.env.ALLOWED_ORIGIN || "")
+		.split(",")
+		.map(o => o.trim())
+		.filter(Boolean)
+);
+
+export function resolveCorsOrigin(requestOrigin?: string): string {
+	if (requestOrigin && ALLOWED_ORIGINS.has(requestOrigin)) {
+		return requestOrigin;
+	}
+	return ALLOWED_ORIGINS.size > 0 ? [...ALLOWED_ORIGINS][0]! : "*";
+}
+
 export const CORS_HEADERS: Record<string, string> = {
-	"Access-Control-Allow-Origin": process.env.ALLOWED_ORIGIN || "*",
+	"Access-Control-Allow-Origin": resolveCorsOrigin(),
 	"Access-Control-Allow-Headers": "Content-Type,Authorization",
 	"Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
 };

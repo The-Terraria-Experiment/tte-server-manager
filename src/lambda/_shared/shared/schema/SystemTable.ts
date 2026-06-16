@@ -25,4 +25,5 @@ export type AutoShutoffStateEntry = {
 	ec2StopRequestedAt?: number | null,
 	lastUpdatedAt?: number | null,
 	serverStartedAt?: number | null,
+	instanceStartedAt?: number | null,
 };

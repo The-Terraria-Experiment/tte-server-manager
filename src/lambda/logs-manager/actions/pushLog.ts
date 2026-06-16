@@ -23,7 +23,7 @@ export const pushLog = async (event: AuthorizedEvent, context: Context) => {
 		timestamp: logTimestamp,
 		eventType: payload.eventType,
 		worldName: payload.server.worldName,
-		playerName: payload.player.name,
+		playerName: payload.player.name || "unknown",
 		accountName: payload.player.accountName,
 		playerGroup: payload.player.groupName,
 		ip: payload.player.ipAddress,

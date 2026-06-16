@@ -4,7 +4,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { Assert } from "../shared/utils/Assert.js";
 import type { CheckResult, CheckStage } from "./types.js";
 import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
-import { broadcastWarning, getTShockTarget, stopServer } from "./tshock.js";
+import { broadcastWarning, checkTShockProcessViaSSM, getTShockTarget, pingTShock, stopServer } from "./tshock.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 const IDLE_MINUTES = parseNumber(process.env.AUTO_SHUTOFF_IDLE_MINUTES, 60);
@@ -61,7 +61,9 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 	}
 
 	const serverStartedAt = typeof state?.serverStartedAt === "number" ? state.serverStartedAt : null;
-	if (serverStartedAt && (Date.now() - serverStartedAt) < IDLE_MINUTES * 60 * 1000) {
+	const instanceStartedAt = typeof state?.instanceStartedAt === "number" ? state.instanceStartedAt : null;
+	const mostRecentStartAt = Math.max(serverStartedAt ?? 0, instanceStartedAt ?? 0) || null;
+	if (mostRecentStartAt && (Date.now() - mostRecentStartAt) < IDLE_MINUTES * 60 * 1000) {
 		await updateAutoShutoffState(serverId, {
 			sequenceStage: `grace-${stage}`,
 			sequenceUpdatedAt: Date.now(),
@@ -71,7 +73,7 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			serverId,
 			stage,
 			action: "skip",
-			reason: "server-recently-started",
+			reason: "recently-started",
 			idleMinutes: idleStatus.idleMinutes,
 		};
 	}
@@ -118,6 +120,34 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			stage,
 			action: "skip",
 			reason: "server-unreachable",
+			idleMinutes: idleStatus.idleMinutes,
+		};
+	}
+
+	const tshockReachable = await pingTShock(target);
+	if (!tshockReachable) {
+		const processRunning = await checkTShockProcessViaSSM(serverId);
+		if (!processRunning) {
+			await updateAutoShutoffState(serverId, {
+				sequenceStage: "tshock-dead-ec2-stop",
+				sequenceUpdatedAt: Date.now(),
+				shutdownRequestedAt: Date.now(),
+				scheduledShutdownAt: null,
+			});
+			await enqueueMessage({ type: "ec2-stop", serverId }, Math.max(0, EC2_DELAY_MINUTES * 60));
+			return {
+				serverId,
+				stage,
+				action: "stop-instance",
+				reason: "tshock-dead-no-process",
+				idleMinutes: idleStatus.idleMinutes,
+			};
+		}
+		return {
+			serverId,
+			stage,
+			action: "skip",
+			reason: "tshock-unreachable-process-running",
 			idleMinutes: idleStatus.idleMinutes,
 		};
 	}

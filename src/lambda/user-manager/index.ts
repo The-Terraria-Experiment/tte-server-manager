@@ -1,5 +1,5 @@
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
-import { errorHandler } from "./shared/middleware/errorHandler.js";
+import { createHandler } from "./shared/middleware/createHandler.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "./shared/constants.js";
 import { Parsers } from "./shared/utils/Parsers.js";
@@ -80,4 +80,4 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 	return result;
 }
 
-export const handler = errorHandler(Parsers.InsertParsedBody(h));
+export const handler = createHandler(Parsers.InsertParsedBody(h));

@@ -2,7 +2,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import type { AutoShutoffMessage, CheckResult } from "./types.js";
-import { getIdleStatus, updateAutoShutoffState } from "./state.js";
+import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 const IDLE_MINUTES = parseNumber(process.env.AUTO_SHUTOFF_IDLE_MINUTES, 60);
@@ -11,6 +11,23 @@ export async function handleEc2Stop(message: AutoShutoffMessage): Promise<CheckR
 	const serverId = message.serverId;
 	if (!serverId) {
 		return { action: "skip", reason: "missing-server-id" };
+	}
+
+	const state = await getAutoShutoffState(serverId);
+	const serverStartedAt = typeof state?.serverStartedAt === "number" ? state.serverStartedAt : null;
+	const instanceStartedAt = typeof state?.instanceStartedAt === "number" ? state.instanceStartedAt : null;
+	const mostRecentStartAt = Math.max(serverStartedAt ?? 0, instanceStartedAt ?? 0) || null;
+	if (mostRecentStartAt && (Date.now() - mostRecentStartAt) < IDLE_MINUTES * 60 * 1000) {
+		await updateAutoShutoffState(serverId, {
+			sequenceStage: "cancelled-ec2-grace",
+			sequenceUpdatedAt: Date.now(),
+		});
+		return {
+			serverId,
+			action: "cancel",
+			reason: "recently-started",
+			idleMinutes: null,
+		};
 	}
 
 	const idleStatus = await getIdleStatus(serverId, IDLE_MINUTES);
