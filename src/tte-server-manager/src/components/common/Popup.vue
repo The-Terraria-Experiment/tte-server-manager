@@ -2,7 +2,7 @@
 	<Teleport to="body">
 		<div 
 			:class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[layer], { 'overlay-open': open, 'overlay-closed': !open }]" 
-			@click="xClicked"
+			@click="closeWhenBgClicked && xClicked"
 		/>
 		
 		<Transition
@@ -93,6 +93,10 @@ export default {
 		getOriginalStateUntil: {
 			type: Boolean,
 			default: false
+		},
+		closeWhenBgClicked: {
+			type: Boolean,
+			default: true,
 		}
 	},
 	data() {
