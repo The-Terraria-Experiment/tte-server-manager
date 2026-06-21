@@ -2,8 +2,8 @@
 	<Teleport to="body">
 		<div 
 			:class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[layer], { 'overlay-open': open, 'overlay-closed': !open }]" 
-			@click="closeWhenBgClicked && xClicked"
-		/>
+			@click="() => closeWhenBgClicked ? xClicked() : null"
+		></div>
 		
 		<Transition
 			enter-active-class="popup-enter"

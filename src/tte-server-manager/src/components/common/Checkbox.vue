@@ -1,16 +1,19 @@
 <template>
-	<div 
+	<div
 		:class="['rounded bg-gray-1 p-0.5', { 'cursor-pointer': !disabled }]"
 		@click="input"
 	>
-		<Icon 
-			v-show="value || modelValue"
-			icon="checkmark" 
-			color="text-teal-4" 
+		<Icon
+			v-if="isChecked"
+			icon="checkmark"
+			color="text-teal-4"
 			class="h-full w-full relative"
 			svgStyle="h-full w-full"
 			:size="null"
 		/>
+		<div v-else-if="isIndeterminate" class="h-full w-full flex items-center justify-center">
+			<div class="w-2/3 h-0.5 rounded bg-teal-4"></div>
+		</div>
 	</div>
 </template>
 
@@ -26,25 +29,40 @@ export default {
 			type: Boolean,
 			default: false
 		},
+		// null represents an indeterminate state
 		value: {
-			type: Boolean,
+			type: null,
 			default: false
 		},
 		modelValue: {
-			type: Boolean,
+			type: null,
 			default: false
 		}
 	},
 	data() {
 		return {
-			
+
+		}
+	},
+	computed: {
+		effectiveValue() {
+			// value/modelValue are dual APIs (manual @input vs v-model); whichever
+			// was actually set to something other than the default "false" wins.
+			return this.value !== false ? this.value : this.modelValue;
+		},
+		isChecked() {
+			return this.effectiveValue === true;
+		},
+		isIndeterminate() {
+			return this.effectiveValue === null;
 		}
 	},
 	methods: {
 		input() {
 			if (this.disabled) return;
-			this.$emit('input', !this.value);
-			this.$emit("update:modelValue", !this.modelValue);
+			const next = !this.effectiveValue;
+			this.$emit('input', next);
+			this.$emit("update:modelValue", next);
 		}
 	}
 }

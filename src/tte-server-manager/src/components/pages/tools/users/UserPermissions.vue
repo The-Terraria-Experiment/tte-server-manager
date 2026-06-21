@@ -21,6 +21,14 @@
 		</template>
 		<template #content>
 			<div class="relative z-0">
+				<PermissionEditorPopup
+					:open="!!editingUser"
+					:user="editingUser"
+					:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
+					@cancel="editingUser = null"
+					@apply="onApplyPermissionEdit"
+				/>
+				
 				<FuzzyMatchSearch
 					class="z-20 relative -mb-20 ml-4"
 					placeholder="Filter users..."
@@ -29,6 +37,7 @@
 					@update="filteredUserData = $event"
 					sortResults
 				/>
+
 				<div class="grid overflow-x-auto pt-40 relative pr-20 text-sm" :style="userPermsCols" @scroll="updateUserTableScroll">
 					<div :class="['sticky left-0 bg-gray-3 px-4 py-2 flex items-center z-10', stickyShadow]">
 						<div class="bg-gray-3 h-60 absolute w-full left-0 bottom-5 z-10 facadeStickyShadow"></div>
@@ -41,7 +50,10 @@
 					</template>
 					<template v-for="(user, idx) of filteredUserData">
 						<div :class="['sticky left-0 p-2 flex items-center z-10 overflow-x-auto', stickyShadow, idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
-							<p class="font-mono font-semibold text-cream text-nowrap">{{ user.displayName || user.username }}</p>
+							<p
+								class="font-mono font-semibold text-cream text-nowrap cursor-pointer hover:underline"
+								@click="openPermissionEditor(user)"
+							>{{ user.displayName || user.username }}</p>
 						</div>
 						<template v-for="permValue in allPerms">
 							<div :class="['px-2 flex items-center w-20 relative justify-center border-r-2 border-gray-2', idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
@@ -85,6 +97,7 @@ import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 import RefreshButton from '../../../common/RefreshButton.vue';
 import FuzzyMatchSearch from '../../../common/FuzzyMatchSearch.vue';
+import PermissionEditorPopup from './PermissionEditorPopup.vue';
 
 
 export default {
@@ -93,6 +106,7 @@ export default {
 		Checkbox,
 		RefreshButton,
 		FuzzyMatchSearch,
+		PermissionEditorPopup,
 	},
 	props: {
 		loading: {
@@ -113,6 +127,7 @@ export default {
 			updatedPermissions: {},
 			dirtyPermissions: false,
 			filteredUserData: [],
+			editingUser: null,
 		}
 	},
 	computed: {
@@ -188,6 +203,26 @@ export default {
 		discardPermChanges() {
 			this.updatedPermissions = {};
 			this.dirtyPermissions = false;
+		},
+		openPermissionEditor(user) {
+			const effectivePermissions = this.updatedPermissions[user.userID] || user.permissions;
+			this.editingUser = { ...user, permissions: new Set(effectivePermissions) };
+		},
+		onApplyPermissionEdit({ userID, permissions }) {
+			this.$validatePermissions(PERMISSIONS.users.permissions.write);
+
+			const newSet = new Set(permissions);
+			const originalSet = this.permissionsData[userID].permissions;
+			const isSameAsOriginal = newSet.size === originalSet.size && [...newSet].every(p => originalSet.has(p));
+
+			if (isSameAsOriginal) {
+				delete this.updatedPermissions[userID];
+			} else {
+				this.updatedPermissions[userID] = newSet;
+			}
+
+			this.dirtyPermissions = Object.keys(this.updatedPermissions).length > 0;
+			this.editingUser = null;
 		},
 		async savePermChanges() {
 			this.loading.save = true;
