@@ -91,6 +91,20 @@ export async function pingTShock(target: TShockTarget): Promise<boolean> {
 	return response !== null;
 }
 
+export async function getOnlinePlayerCount(target: TShockTarget): Promise<number | null> {
+	const response = await callTShock(target, "/v2/server/status", { players: true });
+	if (!response) {
+		return null;
+	}
+	if (typeof response.playercount === "number") {
+		return response.playercount;
+	}
+	if (Array.isArray(response.players)) {
+		return response.players.length;
+	}
+	return null;
+}
+
 export async function checkTShockProcessViaSSM(serverId: string): Promise<boolean> {
 	try {
 		const ssm = new SsmDao();
