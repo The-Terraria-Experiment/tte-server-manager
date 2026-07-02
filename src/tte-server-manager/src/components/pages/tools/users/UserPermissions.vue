@@ -43,24 +43,29 @@
 					<div
 						v-for="(user, idx) of filteredUserData"
 						:key="user.userID"
-						:class="['flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 rounded cursor-pointer hover:bg-gray-5', idx%2 ? 'bg-gray-3' : 'bg-gray-4']"
+						:class="['flex flex-row items-center gap-2 sm:gap-4 p-3 rounded cursor-pointer hover:bg-gray-5', idx%2 ? 'bg-gray-3' : 'bg-gray-4']"
 						@click="openRoleEditor(user)"
 					>
 						<p class="font-mono font-semibold text-cream text-nowrap sm:w-48 shrink-0">{{ user.displayName || user.username }}</p>
-						<div class="flex flex-wrap items-center gap-2">
+						<div class="flex sm:hidden items-center justify-end gap-2 min-w-0 flex-1">
+							<span
+								class="rounded-full px-3 py-1 font-mono font-bold text-xs bg-teal-2 text-cream shrink-0"
+							>{{ matchedRoles(user).length }} role{{ matchedRoles(user).length === 1 ? '' : 's' }} ({{ effectivePermissions(user).size }}/{{ effectiveResourceAccess(user).size }})</span>
+						</div>
+						<div class="hidden sm:flex flex-nowrap items-center gap-2 min-w-0 overflow-x-auto">
 							<span
 								v-for="role in matchedRoles(user)"
 								:key="role.roleId"
-								class="rounded-full px-3 py-1 font-mono font-bold text-xs bg-teal-2 text-cream"
+								class="rounded-full px-3 py-1 font-mono font-bold text-xs text-nowrap bg-teal-2 text-cream shrink-0"
 							>{{ role.name }}</span>
 							<span
 								v-if="uncoveredPermissions(user).length"
-								class="rounded-full px-3 py-1 font-mono text-xs bg-gray-5 text-gray-9"
+								class="rounded-full px-3 py-1 font-mono text-xs text-nowrap bg-gray-5 text-gray-9 shrink-0"
 								:title="uncoveredPermissions(user).join(', ')"
 							>MISC ({{ uncoveredPermissions(user).length }})</span>
 							<span
 								v-if="!matchedRoles(user).length && !uncoveredPermissions(user).length"
-								class="text-gray-7 italic text-xs"
+								class="text-gray-7 italic text-xs text-nowrap shrink-0"
 							>No permissions</span>
 						</div>
 					</div>

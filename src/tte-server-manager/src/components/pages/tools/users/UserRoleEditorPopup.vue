@@ -9,20 +9,43 @@
 		<div class="p-4">
 			<div class="mb-4">
 				<p class="font-bold mb-1">ROLES</p>
-				<div v-if="roles.length" class="flex flex-wrap gap-2">
-					<div
-						v-for="role in roles"
-						:key="role.roleId"
-						:class="[
-							'rounded-full px-3 py-1.5 font-mono font-bold text-sm select-none',
-							hasRole(role) ? 'bg-teal-2 text-cream' : 'bg-gray-4 text-gray-8',
-							disabled ? 'cursor-default' : 'cursor-pointer hover:opacity-80'
-						]"
-						@click="toggleRole(role)"
-					>
-						{{ role.name }}
+				<template v-if="roles.length">
+					<div v-if="assignedRoles.length" class="flex flex-wrap gap-2 mb-4">
+						<div
+							v-for="role in assignedRoles"
+							:key="role.roleId"
+							class="rounded-full pl-3 pr-2 py-1.5 font-mono font-bold text-sm select-none bg-teal-2 text-cream flex items-center gap-1.5"
+						>
+							{{ role.name }}
+							<Icon
+								v-if="!disabled"
+								icon="xmark"
+								size="4"
+								color="text-cream"
+								class="cursor-pointer"
+								hover-text="Remove role"
+								@click="toggleRole(role)"
+							/>
+						</div>
 					</div>
-				</div>
+					<p v-else class="text-gray-7 italic mb-4">No roles assigned</p>
+
+					<div v-if="availableRoles.length" class="flex flex-wrap items-center gap-2">
+						<p class="text-gray-7 text-sm mr-1">Available:</p>
+						<div
+							v-for="role in availableRoles"
+							:key="role.roleId"
+							:class="[
+								'rounded-full pl-2 pr-3 py-1.5 font-mono font-bold text-sm select-none bg-gray-4 text-gray-8 flex items-center gap-1.5',
+								disabled ? 'cursor-default' : 'cursor-pointer hover:opacity-80'
+							]"
+							@click="toggleRole(role)"
+						>
+							<Icon icon="plus" size="4" color="text-gray-8" />
+							{{ role.name }}
+						</div>
+					</div>
+				</template>
 				<p v-else class="text-gray-7 italic">No roles defined yet</p>
 			</div>
 
@@ -147,6 +170,12 @@ export default {
 		},
 		matchedRoles() {
 			return getMatchedRoles(this.draftPermissions, this.draftResourceAccess, this.roles);
+		},
+		assignedRoles() {
+			return this.roles.filter(role => this.hasRole(role));
+		},
+		availableRoles() {
+			return this.roles.filter(role => !this.hasRole(role));
 		},
 		miscPermissions() {
 			return getUncoveredPermissions(this.draftPermissions, this.draftResourceAccess, this.roles);
