@@ -46,8 +46,8 @@
 						:class="['flex flex-row items-center gap-2 sm:gap-4 p-3 rounded cursor-pointer hover:bg-gray-5', idx%2 ? 'bg-gray-3' : 'bg-gray-4']"
 						@click="openRoleEditor(user)"
 					>
-						<p class="font-mono font-semibold text-cream text-nowrap sm:w-48 shrink-0">{{ user.displayName || user.username }}</p>
-						<div class="flex sm:hidden items-center justify-end gap-2 min-w-0 flex-1">
+						<p class="font-mono font-semibold text-cream text-nowrap truncate min-w-0 flex-1 sm:w-1/4 sm:flex-none sm:shrink-0">{{ user.displayName || user.username }}</p>
+						<div class="flex sm:hidden items-center justify-end gap-2 shrink-0">
 							<span
 								class="rounded-full px-3 py-1 font-mono font-bold text-xs bg-teal-2 text-cream shrink-0"
 							>{{ matchedRoles(user).length }} role{{ matchedRoles(user).length === 1 ? '' : 's' }} ({{ effectivePermissions(user).size }}/{{ effectiveResourceAccess(user).size }})</span>
@@ -66,7 +66,7 @@
 								v-if="uncoveredPermissions(user).length"
 								class="rounded-full px-3 py-1 font-mono text-xs text-nowrap bg-gray-5 text-gray-9 shrink-0"
 								:title="uncoveredPermissions(user).join(', ')"
-							>MISC ({{ uncoveredPermissions(user).length }})</span>
+							>+{{ uncoveredPermissions(user).length }} MISC</span>
 							<span
 								v-if="!matchedRoles(user).length && !uncoveredPermissions(user).length"
 								class="text-gray-7 italic text-xs text-nowrap shrink-0"
