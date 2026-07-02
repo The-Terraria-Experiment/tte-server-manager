@@ -39,7 +39,7 @@
 				<div
 					class="flex items-center mt-4 cursor-pointer bg-gray-4 hover:bg-gray-5 rounded w-max p-2"
 					v-if="userStore.hasPermission(PERMISSIONS.users.permissions.write)"
-					@click="editingRole = { roleId: null, name: '', permissions: [] }"
+					@click="editingRole = { roleId: null, name: '', permissions: [], resourceAccess: [] }"
 				>
 					<Icon icon="plus" size="4" color="text-white-0" />
 					<p class="ml-2 font-main font-semibold text-sm text-white-0">ADD ROLE</p>
@@ -78,6 +78,9 @@ export default {
 	methods: {
 		summaryLines(role) {
 			const lines = summarizeRolePermissions(role.permissions || [], PermissionsMeta);
+			if (role.resourceAccess?.length) {
+				lines.push(`+ ${role.resourceAccess.length} resource grant${role.resourceAccess.length === 1 ? '' : 's'}`);
+			}
 			return {
 				shown: lines.slice(0, MAX_SUMMARY_LINES),
 				hiddenCount: Math.max(0, lines.length - MAX_SUMMARY_LINES),
@@ -97,11 +100,11 @@ export default {
 
 			this.loading = false;
 		},
-		async onApplyRole({ roleId, name, permissions }) {
+		async onApplyRole({ roleId, name, permissions, resourceAccess }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
 			try {
-				await post("/system/roles", PERMISSIONS.users.permissions.write, { roleId, name, permissions });
+				await post("/system/roles", PERMISSIONS.users.permissions.write, { roleId, name, permissions, resourceAccess });
 				this.$alert.success("Role saved");
 				this.editingRole = null;
 				await this.fetchRoles();

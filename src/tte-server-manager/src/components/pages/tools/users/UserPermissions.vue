@@ -122,6 +122,7 @@ export default {
 			PERMISSIONS,
 			BTN_VARIANT,
 			updatedPermissions: {},
+			updatedResourceAccess: {},
 			dirtyPermissions: false,
 			filteredUserData: [],
 			editingUser: null,
@@ -138,7 +139,7 @@ export default {
 			if (!this.allPermissionData) return [];
 
 			return	Object.fromEntries((this.allPermissionData.entries || [])
-				.map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }])
+				.map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions), resourceAccess: new Set(udata.resourceAccess) }])
 				.sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '', undefined, { numeric: true })));
 		},
 	},
@@ -146,44 +147,71 @@ export default {
 		effectivePermissions(user) {
 			return this.updatedPermissions[user.userID] || user.permissions;
 		},
+		effectiveResourceAccess(user) {
+			return this.updatedResourceAccess[user.userID] || user.resourceAccess;
+		},
 		matchedRoles(user) {
-			return getMatchedRoles(this.effectivePermissions(user), this.roles);
+			return getMatchedRoles(this.effectivePermissions(user), this.effectiveResourceAccess(user), this.roles);
 		},
 		uncoveredPermissions(user) {
-			return getUncoveredPermissions(this.effectivePermissions(user), this.roles);
+			return getUncoveredPermissions(this.effectivePermissions(user), this.effectiveResourceAccess(user), this.roles);
 		},
 		discardPermChanges() {
 			this.updatedPermissions = {};
+			this.updatedResourceAccess = {};
 			this.dirtyPermissions = false;
 		},
 		openRoleEditor(user) {
-			const effectivePermissions = this.updatedPermissions[user.userID] || user.permissions;
-			this.editingUser = { ...user, permissions: new Set(effectivePermissions) };
+			this.editingUser = {
+				...user,
+				permissions: new Set(this.effectivePermissions(user)),
+				resourceAccess: new Set(this.effectiveResourceAccess(user)),
+			};
 		},
-		onApplyPermissionEdit({ userID, permissions }) {
+		onApplyPermissionEdit({ userID, permissions, resourceAccess }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
-			const newSet = new Set(permissions);
-			const originalSet = this.permissionsData[userID].permissions;
-			const isSameAsOriginal = newSet.size === originalSet.size && [...newSet].every(p => originalSet.has(p));
+			const newPermSet = new Set(permissions);
+			const originalPermSet = this.permissionsData[userID].permissions;
+			const isPermSameAsOriginal = newPermSet.size === originalPermSet.size && [...newPermSet].every(p => originalPermSet.has(p));
 
-			if (isSameAsOriginal) {
+			if (isPermSameAsOriginal) {
 				delete this.updatedPermissions[userID];
 			} else {
-				this.updatedPermissions[userID] = newSet;
+				this.updatedPermissions[userID] = newPermSet;
 			}
 
-			this.dirtyPermissions = Object.keys(this.updatedPermissions).length > 0;
+			const newResourceSet = new Set(resourceAccess);
+			const originalResourceSet = this.permissionsData[userID].resourceAccess;
+			const isResourceSameAsOriginal = newResourceSet.size === originalResourceSet.size && [...newResourceSet].every(r => originalResourceSet.has(r));
+
+			if (isResourceSameAsOriginal) {
+				delete this.updatedResourceAccess[userID];
+			} else {
+				this.updatedResourceAccess[userID] = newResourceSet;
+			}
+
+			this.dirtyPermissions = Object.keys(this.updatedPermissions).length > 0 || Object.keys(this.updatedResourceAccess).length > 0;
 			this.editingUser = null;
 		},
 		async savePermChanges() {
 			this.loading.save = true;
-			for (const [userID, updatedPerms] of Object.entries(this.updatedPermissions)) {
+			const userIDs = new Set([...Object.keys(this.updatedPermissions), ...Object.keys(this.updatedResourceAccess)]);
+
+			for (const userID of userIDs) {
 				try {
-					const response = await post("/users/permissions", PERMISSIONS.users.permissions.write, {
-						userID,
-						permissions: Array.from(updatedPerms)
-					});
+					if (this.updatedPermissions[userID]) {
+						await post("/users/permissions", PERMISSIONS.users.permissions.write, {
+							userID,
+							permissions: Array.from(this.updatedPermissions[userID])
+						});
+					}
+					if (this.updatedResourceAccess[userID]) {
+						await post("/users/resourcepermissions", PERMISSIONS.users.permissions.write, {
+							userID,
+							resourceAccess: Array.from(this.updatedResourceAccess[userID])
+						});
+					}
 					this.$alert.success("Permissions saved");
 					this.$emit("refreshAll");
 				} catch (e) {

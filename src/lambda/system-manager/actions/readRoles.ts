@@ -19,6 +19,7 @@ export const readRoles = async (event: AuthorizedEvent, context: Context) => {
 			roleId: entry.roleId,
 			name: entry.name,
 			permissions: entry.permissions || [],
+			resourceAccess: entry.resourceAccess || [],
 			color: entry.color || "",
 		}));
 

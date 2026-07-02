@@ -39,6 +39,19 @@
 				</div>
 			</div>
 
+			<div class="mb-4" v-if="miscResourceAccess.length">
+				<p class="font-bold mb-1">OTHER RESOURCE ACCESS</p>
+				<div class="flex flex-wrap gap-2">
+					<div
+						v-for="resource in miscResourceAccess"
+						:key="resource"
+						class="rounded-full px-3 py-1.5 font-mono text-sm bg-gray-5 text-gray-9 select-none"
+					>
+						{{ resource }}
+					</div>
+				</div>
+			</div>
+
 			<div class="bg-gray-2 rounded-lg">
 				<div
 					class="flex items-center mt-2 cursor-pointer justify-between w-full p-2"
@@ -51,16 +64,24 @@
 						color="text-teal-4"
 						:class="['transition-transform duration-200', { 'rotate-180': showAdvanced }]"
 					/>
-				
+
 				</div>
 
-				<PermissionEditor
-					v-if="showAdvanced"
-					class="mt-4 mx-4 pb-4"
-					:permissions="draftPermissions"
-					:disabled="disabled"
-					@update:permissions="draftPermissions = $event"
-				/>
+				<template v-if="showAdvanced">
+					<PermissionEditor
+						class="mt-4 mx-4"
+						:permissions="draftPermissions"
+						:disabled="disabled"
+						@update:permissions="draftPermissions = $event"
+					/>
+					<p class="font-bold mt-4 mx-4">RESOURCE ACCESS</p>
+					<ResourcePermissionEditor
+						class="mt-2 mx-4 pb-4"
+						:resourceAccess="draftResourceAccess"
+						:disabled="disabled"
+						@update:resourceAccess="draftResourceAccess = $event"
+					/>
+				</template>
 			</div>
 		</div>
 	</Popup>
@@ -70,8 +91,9 @@
 import Popup from '@/components/common/Popup.vue';
 import Icon from '@/components/common/Icon.vue';
 import PermissionEditor from './PermissionEditor.vue';
+import ResourcePermissionEditor from './ResourcePermissionEditor.vue';
 import { BTN_VARIANT } from '@/util/constants';
-import { getMatchedRoles, getUncoveredPermissions, addRolePermissions, removeRolePermissions } from '@/util/rolePermissions';
+import { getMatchedRoles, getUncoveredPermissions, getUncoveredResourceAccess, addRoleGrants, removeRoleGrants } from '@/util/rolePermissions';
 
 
 export default {
@@ -80,18 +102,19 @@ export default {
 		Popup,
 		Icon,
 		PermissionEditor,
+		ResourcePermissionEditor,
 	},
 	props: {
 		open: {
 			type: Boolean,
 			default: false
 		},
-		// { userID, displayName, username, permissions: Set<string> }
+		// { userID, displayName, username, permissions: Set<string>, resourceAccess: Set<string> }
 		user: {
 			type: [Object, null],
 			default: null
 		},
-		// [{ roleId, name, permissions: string[] }]
+		// [{ roleId, name, permissions: string[], resourceAccess: string[] }]
 		roles: {
 			type: Array,
 			default: () => []
@@ -106,6 +129,7 @@ export default {
 		return {
 			BTN_VARIANT,
 			draftPermissions: [],
+			draftResourceAccess: [],
 			showAdvanced: false,
 		}
 	},
@@ -122,15 +146,19 @@ export default {
 			return buttons;
 		},
 		matchedRoles() {
-			return getMatchedRoles(this.draftPermissions, this.roles);
+			return getMatchedRoles(this.draftPermissions, this.draftResourceAccess, this.roles);
 		},
 		miscPermissions() {
-			return getUncoveredPermissions(this.draftPermissions, this.roles);
+			return getUncoveredPermissions(this.draftPermissions, this.draftResourceAccess, this.roles);
+		},
+		miscResourceAccess() {
+			return getUncoveredResourceAccess(this.draftPermissions, this.draftResourceAccess, this.roles);
 		}
 	},
 	methods: {
 		resetDraft() {
 			this.draftPermissions = Array.from(this.user?.permissions || []);
+			this.draftResourceAccess = Array.from(this.user?.resourceAccess || []);
 			this.showAdvanced = false;
 		},
 		hasRole(role) {
@@ -139,15 +167,17 @@ export default {
 		toggleRole(role) {
 			if (this.disabled) return;
 
-			this.draftPermissions = this.hasRole(role)
-				? removeRolePermissions(this.draftPermissions, role, this.roles)
-				: addRolePermissions(this.draftPermissions, role);
+			const result = this.hasRole(role)
+				? removeRoleGrants(this.draftPermissions, this.draftResourceAccess, role, this.roles)
+				: addRoleGrants(this.draftPermissions, this.draftResourceAccess, role);
+			this.draftPermissions = result.permissions;
+			this.draftResourceAccess = result.resourceAccess;
 		},
 		onCancel() {
 			this.$emit('cancel');
 		},
 		onApply() {
-			this.$emit('apply', { userID: this.user.userID, permissions: this.draftPermissions });
+			this.$emit('apply', { userID: this.user.userID, permissions: this.draftPermissions, resourceAccess: this.draftResourceAccess });
 		}
 	},
 	watch: {

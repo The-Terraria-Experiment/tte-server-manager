@@ -15,6 +15,7 @@ export type RoleEntry = {
 	roleId?: string,
 	name?: string,
 	permissions?: string[],
+	resourceAccess?: string[],
 	color?: string,
 	createdAt?: string,
 	updatedAt?: string,

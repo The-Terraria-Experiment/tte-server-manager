@@ -12,6 +12,7 @@ type WriteRoleBody = {
 	roleId?: string;
 	name?: string;
 	permissions?: string[];
+	resourceAccess?: string[];
 	color?: string;
 };
 
@@ -24,6 +25,7 @@ export const writeRole = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	const deduplicated = Array.from(new Set(body.permissions || []));
+	const deduplicatedResources = Array.from(new Set(body.resourceAccess || []));
 	const roleId = body.roleId || randomUUID();
 	const uid = `${ROLE_KEY_PREFIX}${roleId}`;
 	const color = body.color || "";
@@ -36,6 +38,7 @@ export const writeRole = async (event: AuthorizedEvent, context: Context) => {
 			updates: {
 				name: body.name,
 				permissions: deduplicated,
+				resourceAccess: deduplicatedResources,
 				color,
 				updatedAt: now,
 			},
@@ -46,6 +49,7 @@ export const writeRole = async (event: AuthorizedEvent, context: Context) => {
 			roleId,
 			name: body.name,
 			permissions: deduplicated,
+			resourceAccess: deduplicatedResources,
 			color,
 			createdAt: now,
 			updatedAt: now,
@@ -57,13 +61,14 @@ export const writeRole = async (event: AuthorizedEvent, context: Context) => {
 		userId: Parsers.GetUserSub(event) ?? "unknown",
 		action: "write-role",
 		resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-		details: { roleId, name: body.name, permissions: deduplicated, color },
+		details: { roleId, name: body.name, permissions: deduplicated, resourceAccess: deduplicatedResources, color },
 	});
 
 	return ResponseUtil.Success({
 		roleId,
 		name: (role?.name as string | undefined) ?? body.name,
 		permissions: (role?.permissions as string[] | undefined) ?? deduplicated,
+		resourceAccess: (role?.resourceAccess as string[] | undefined) ?? deduplicatedResources,
 		color: (role?.color as string | undefined) ?? color,
 	});
 };

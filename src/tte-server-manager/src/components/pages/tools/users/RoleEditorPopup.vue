@@ -16,6 +16,14 @@
 				:disabled="disabled"
 				@update:permissions="draftPermissions = $event"
 			/>
+
+			<p class="font-bold mt-4">RESOURCE ACCESS</p>
+			<ResourcePermissionEditor
+				class="mt-2"
+				:resourceAccess="draftResourceAccess"
+				:disabled="disabled"
+				@update:resourceAccess="draftResourceAccess = $event"
+			/>
 		</div>
 	</Popup>
 
@@ -40,6 +48,7 @@
 <script>
 import Popup from '@/components/common/Popup.vue';
 import PermissionEditor from './PermissionEditor.vue';
+import ResourcePermissionEditor from './ResourcePermissionEditor.vue';
 import { BTN_VARIANT } from '@/util/constants';
 
 
@@ -48,13 +57,14 @@ export default {
 	components: {
 		Popup,
 		PermissionEditor,
+		ResourcePermissionEditor,
 	},
 	props: {
 		open: {
 			type: Boolean,
 			default: false
 		},
-		// { roleId, name, permissions: string[] } | null - missing roleId means "new role"
+		// { roleId, name, permissions: string[], resourceAccess: string[] } | null - missing roleId means "new role"
 		role: {
 			type: [Object, null],
 			default: null
@@ -70,6 +80,7 @@ export default {
 			BTN_VARIANT,
 			draftName: "",
 			draftPermissions: [],
+			draftResourceAccess: [],
 			confirmDeleteOpen: false,
 		}
 	},
@@ -93,6 +104,7 @@ export default {
 		resetDraft() {
 			this.draftName = this.role?.name || "";
 			this.draftPermissions = Array.from(this.role?.permissions || []);
+			this.draftResourceAccess = Array.from(this.role?.resourceAccess || []);
 			this.confirmDeleteOpen = false;
 		},
 		onCancel() {
@@ -103,7 +115,7 @@ export default {
 				this.$alert.error("Please enter a role name");
 				return;
 			}
-			this.$emit('apply', { roleId: this.role?.roleId, name: this.draftName.trim(), permissions: this.draftPermissions });
+			this.$emit('apply', { roleId: this.role?.roleId, name: this.draftName.trim(), permissions: this.draftPermissions, resourceAccess: this.draftResourceAccess });
 		},
 		onDelete() {
 			this.confirmDeleteOpen = true;

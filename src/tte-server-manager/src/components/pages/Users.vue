@@ -6,13 +6,6 @@
 			@refreshAll="fetchUserPermissions"
 		/>
 
-		<UserResourceAccess
-			:loading="loading" 
-			:allPermissionData="allPermissionData" 
-			@refresh="fetchUserPermissions"
-			@saving="loading.save = $event"
-		/>
-
 		<RoleEditor />
 	</div>
 </template>
@@ -23,13 +16,11 @@ import { get } from '../../util/api';
 import { PERMISSIONS } from '../../util/permissionValues';
 import { BTN_VARIANT } from '../../util/constants';
 import UserPermissions from './tools/users/UserPermissions.vue';
-import UserResourceAccess from './tools/users/UserResourceAccess.vue';
 import RoleEditor from './tools/users/RoleEditor.vue';
 
 export default {
 	components: {
 		UserPermissions,
-		UserResourceAccess,
 		RoleEditor,
 	},
 	props: {
@@ -40,7 +31,6 @@ export default {
 			userStore: useUserStore(),
 			loading: {
 				permissions: false,
-				instances: false,
 				save: false,
 			},
 			PERMISSIONS,
