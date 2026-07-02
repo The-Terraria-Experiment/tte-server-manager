@@ -1,6 +1,6 @@
 <template>
 	<StatusTile 
-		class="grow sm:mt-2 gradient-tile"
+		class="grow gradient-tile"
 		:collapsible="selectedServerData.state"
 		:floatingExpand="!isMobile"
 		:perm-required="PERMISSIONS.server.status.read"

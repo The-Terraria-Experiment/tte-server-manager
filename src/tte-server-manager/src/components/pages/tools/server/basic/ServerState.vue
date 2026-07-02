@@ -1,7 +1,7 @@
 <template>
 	<div>
 		<StatusTile
-			:class="['grow mt-2 gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
+			:class="['grow gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			:collapsible="selectedServerData.state && showStopButton"
 			:perm-required="PERMISSIONS.server.status.read"
 			:floatingExpand="!isMobile"
