@@ -11,6 +11,10 @@
 				<p class="font-bold mb-1">ROLE NAME</p>
 				<ValueInput placeholder="Role name" v-model="draftName" :disabled="disabled" maxlength="40" />
 			</div>
+			<div class="mb-4">
+				<p class="font-bold mb-1">COLOR</p>
+				<ColorPicker v-model="draftColor" :disabled="disabled" />
+			</div>
 			<PermissionEditor
 				:permissions="draftPermissions"
 				:disabled="disabled"
@@ -47,6 +51,7 @@
 
 <script>
 import Popup from '@/components/common/Popup.vue';
+import ColorPicker from '@/components/common/ColorPicker.vue';
 import PermissionEditor from './PermissionEditor.vue';
 import ResourcePermissionEditor from './ResourcePermissionEditor.vue';
 import { BTN_VARIANT } from '@/util/constants';
@@ -56,6 +61,7 @@ export default {
 	mixins: [],
 	components: {
 		Popup,
+		ColorPicker,
 		PermissionEditor,
 		ResourcePermissionEditor,
 	},
@@ -79,6 +85,7 @@ export default {
 		return {
 			BTN_VARIANT,
 			draftName: "",
+			draftColor: "",
 			draftPermissions: [],
 			draftResourceAccess: [],
 			confirmDeleteOpen: false,
@@ -103,6 +110,7 @@ export default {
 	methods: {
 		resetDraft() {
 			this.draftName = this.role?.name || "";
+			this.draftColor = this.role?.color || "";
 			this.draftPermissions = Array.from(this.role?.permissions || []);
 			this.draftResourceAccess = Array.from(this.role?.resourceAccess || []);
 			this.confirmDeleteOpen = false;
@@ -115,7 +123,7 @@ export default {
 				this.$alert.error("Please enter a role name");
 				return;
 			}
-			this.$emit('apply', { roleId: this.role?.roleId, name: this.draftName.trim(), permissions: this.draftPermissions, resourceAccess: this.draftResourceAccess });
+			this.$emit('apply', { roleId: this.role?.roleId, name: this.draftName.trim(), color: this.draftColor, permissions: this.draftPermissions, resourceAccess: this.draftResourceAccess });
 		},
 		onDelete() {
 			this.confirmDeleteOpen = true;

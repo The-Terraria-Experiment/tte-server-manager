@@ -14,14 +14,18 @@
 						<div
 							v-for="role in assignedRoles"
 							:key="role.roleId"
-							class="rounded-full pl-3 pr-2 py-1.5 font-mono font-bold text-sm select-none bg-teal-2 text-cream flex items-center gap-1.5"
+							:class="[
+								'rounded-full pl-3 pr-2 py-1.5 font-mono font-bold text-sm select-none flex items-center gap-1.5',
+								role.color ? roleChipTextClass(role) : 'bg-teal-2 text-cream'
+							]"
+							:style="roleChipStyle(role)"
 						>
 							{{ role.name }}
 							<Icon
 								v-if="!disabled"
 								icon="xmark"
 								size="4"
-								color="text-cream"
+								:color="roleChipTextClass(role)"
 								class="cursor-pointer"
 								hover-text="Remove role"
 								@click="toggleRole(role)"
@@ -41,6 +45,7 @@
 							]"
 							@click="toggleRole(role)"
 						>
+							<span v-if="role.color" class="h-2.5 w-2.5 rounded-full shrink-0" :style="{ backgroundColor: role.color }"></span>
 							<Icon icon="plus" size="4" color="text-gray-8" />
 							{{ role.name }}
 						</div>
@@ -117,6 +122,7 @@ import PermissionEditor from './PermissionEditor.vue';
 import ResourcePermissionEditor from './ResourcePermissionEditor.vue';
 import { BTN_VARIANT } from '@/util/constants';
 import { getMatchedRoles, getUncoveredPermissions, getUncoveredResourceAccess, addRoleGrants, removeRoleGrants } from '@/util/rolePermissions';
+import { getContrastTextClass } from '@/util/color';
 
 
 export default {
@@ -192,6 +198,12 @@ export default {
 		},
 		hasRole(role) {
 			return this.matchedRoles.some(r => r.roleId === role.roleId);
+		},
+		roleChipStyle(role) {
+			return role.color ? { backgroundColor: role.color } : {};
+		},
+		roleChipTextClass(role) {
+			return role.color ? getContrastTextClass(role.color) : 'text-cream';
 		},
 		toggleRole(role) {
 			if (this.disabled) return;

@@ -26,7 +26,14 @@
 						@click="editingRole = role"
 					>
 						<div class="flex items-start justify-between">
-							<p class="font-bold text-lg text-teal-4 break-all">{{ role.name }}</p>
+							<div class="flex items-center min-w-0">
+								<span
+									v-if="role.color"
+									class="h-3 w-3 rounded-full shrink-0 mr-2"
+									:style="{ backgroundColor: role.color }"
+								></span>
+								<p class="font-bold text-lg text-teal-4 break-all">{{ role.name }}</p>
+							</div>
 							<!-- <Icon icon="edit" color="text-white-1" size="5" class="shrink-0 ml-2" @click.stop="editingRole = role" /> -->
 						</div>
 						<div class="mt-2 font-mono text-sm text-white-0">
@@ -39,7 +46,7 @@
 				<div
 					class="flex items-center mt-4 cursor-pointer bg-gray-4 hover:bg-gray-5 rounded w-max p-2"
 					v-if="userStore.hasPermission(PERMISSIONS.users.permissions.write)"
-					@click="editingRole = { roleId: null, name: '', permissions: [], resourceAccess: [] }"
+					@click="editingRole = { roleId: null, name: '', color: '', permissions: [], resourceAccess: [] }"
 				>
 					<Icon icon="plus" size="4" color="text-white-0" />
 					<p class="ml-2 font-main font-semibold text-sm text-white-0">ADD ROLE</p>
@@ -51,7 +58,8 @@
 
 <script>
 import { useUserStore } from '../../../../stores/userStore';
-import { get, post } from '../../../../util/api';
+import { useRolesStore } from '../../../../stores/rolesStore';
+import { post } from '../../../../util/api';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import { PermissionsMeta } from '../../../../util/permissionsMeta';
 import { summarizeRolePermissions } from '../../../../util/rolePermissions';
@@ -68,13 +76,19 @@ export default {
 	data() {
 		return {
 			userStore: useUserStore(),
+			rolesStore: useRolesStore(),
 			PERMISSIONS,
-			roles: [],
-			loading: false,
 			editingRole: null,
 		}
 	},
-	computed: {},
+	computed: {
+		roles() {
+			return this.rolesStore.roles;
+		},
+		loading() {
+			return this.rolesStore.loading;
+		}
+	},
 	methods: {
 		summaryLines(role) {
 			const lines = summarizeRolePermissions(role.permissions || [], PermissionsMeta);
@@ -86,30 +100,23 @@ export default {
 				hiddenCount: Math.max(0, lines.length - MAX_SUMMARY_LINES),
 			};
 		},
-		async fetchRoles() {
-			if (this.loading) return;
-			this.loading = true;
-
-			try {
-				const response = await get("/system/roles", PERMISSIONS.users.permissions.read);
-				this.roles = response.entries || [];
-			} catch (e) {
-				this.$alert.error("Error fetching roles");
-				console.error(e);
-			}
-
-			this.loading = false;
-		},
-		async onApplyRole({ roleId, name, permissions, resourceAccess }) {
+		async onApplyRole({ roleId, name, color, permissions, resourceAccess }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
 			try {
-				await post("/system/roles", PERMISSIONS.users.permissions.write, { roleId, name, permissions, resourceAccess });
+				await post("/system/roles", PERMISSIONS.users.permissions.write, { roleId, name, color, permissions, resourceAccess });
 				this.$alert.success("Role saved");
 				this.editingRole = null;
-				await this.fetchRoles();
 			} catch (e) {
 				this.$alert.error("Error saving role");
+				console.error(e);
+				return;
+			}
+
+			try {
+				await this.rolesStore.fetchRoles();
+			} catch (e) {
+				this.$alert.error("Error refreshing roles");
 				console.error(e);
 			}
 		},
@@ -120,16 +127,23 @@ export default {
 				await post("/system/roles/delete", PERMISSIONS.users.permissions.write, { roleId });
 				this.$alert.success("Role deleted");
 				this.editingRole = null;
-				await this.fetchRoles();
 			} catch (e) {
 				this.$alert.error("Error deleting role");
+				console.error(e);
+				return;
+			}
+
+			try {
+				await this.rolesStore.fetchRoles();
+			} catch (e) {
+				this.$alert.error("Error refreshing roles");
 				console.error(e);
 			}
 		}
 	},
 	mounted() {
 		if (this.$checkPermissions(PERMISSIONS.users.permissions.read)) {
-			this.fetchRoles();
+			this.rolesStore.fetchRoles();
 		}
 	}
 }

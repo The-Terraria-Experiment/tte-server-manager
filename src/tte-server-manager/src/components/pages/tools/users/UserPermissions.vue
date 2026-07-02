@@ -56,7 +56,11 @@
 							<span
 								v-for="role in matchedRoles(user)"
 								:key="role.roleId"
-								class="rounded-full px-3 py-1 font-mono font-bold text-xs text-nowrap bg-teal-2 text-cream shrink-0"
+								:class="[
+									'rounded-full px-3 py-1 font-mono font-bold text-xs text-nowrap shrink-0',
+									role.color ? roleChipTextClass(role) : 'bg-teal-2 text-cream'
+								]"
+								:style="roleChipStyle(role)"
 							>{{ role.name }}</span>
 							<span
 								v-if="uncoveredPermissions(user).length"
@@ -95,10 +99,12 @@
 
 <script>
 import { useUserStore } from '../../../../stores/userStore';
-import { get, post } from '../../../../util/api';
+import { useRolesStore } from '../../../../stores/rolesStore';
+import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
 import { getMatchedRoles, getUncoveredPermissions } from '../../../../util/rolePermissions';
+import { getContrastTextClass } from '../../../../util/color';
 import RefreshButton from '../../../common/RefreshButton.vue';
 import FuzzyMatchSearch from '../../../common/FuzzyMatchSearch.vue';
 import UserRoleEditorPopup from './UserRoleEditorPopup.vue';
@@ -124,6 +130,7 @@ export default {
 	data() {
 		return {
 			userStore: useUserStore(),
+			rolesStore: useRolesStore(),
 			PERMISSIONS,
 			BTN_VARIANT,
 			updatedPermissions: {},
@@ -131,11 +138,12 @@ export default {
 			dirtyPermissions: false,
 			filteredUserData: [],
 			editingUser: null,
-			roles: [],
-			loadingRoles: false,
 		}
 	},
 	computed: {
+		roles() {
+			return this.rolesStore.roles;
+		},
 		sortedPermissionsData() {
 			return Object.values(this.permissionsData)
 				.sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '', undefined, { numeric: true }));
@@ -160,6 +168,12 @@ export default {
 		},
 		uncoveredPermissions(user) {
 			return getUncoveredPermissions(this.effectivePermissions(user), this.effectiveResourceAccess(user), this.roles);
+		},
+		roleChipStyle(role) {
+			return role.color ? { backgroundColor: role.color } : {};
+		},
+		roleChipTextClass(role) {
+			return role.color ? getContrastTextClass(role.color) : 'text-cream';
 		},
 		discardPermChanges() {
 			this.updatedPermissions = {};
@@ -237,27 +251,13 @@ export default {
 				this.$alert.error("Error dropping permission cache");
 				console.error(e);
 			}
-		},
-		async fetchRoles() {
-			if (this.loadingRoles) return;
-			this.loadingRoles = true;
-
-			try {
-				const response = await get("/system/roles", PERMISSIONS.users.permissions.read);
-				this.roles = response.entries || [];
-			} catch (e) {
-				this.$alert.error("Error fetching roles");
-				console.error(e);
-			}
-
-			this.loadingRoles = false;
 		}
 	},
 	mounted() {
 		this.filteredUserData = this.sortedPermissionsData;
 
 		if (this.$checkPermissions(PERMISSIONS.users.permissions.read)) {
-			this.fetchRoles();
+			this.rolesStore.fetchRoles();
 		}
 	}
 }
