@@ -10,6 +10,16 @@ export type SystemWorldCreateEntry = {
 	jobID?: string
 };
 
+export type RoleEntry = {
+	uid?: string,
+	roleId?: string,
+	name?: string,
+	permissions?: string[],
+	color?: string,
+	createdAt?: string,
+	updatedAt?: string,
+};
+
 export type AutoShutoffStateEntry = {
 	uid?: string,
 	serverId?: string,

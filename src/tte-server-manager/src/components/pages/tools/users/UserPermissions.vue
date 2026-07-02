@@ -21,16 +21,17 @@
 		</template>
 		<template #content>
 			<div class="relative z-0">
-				<PermissionEditorPopup
+				<UserRoleEditorPopup
 					:open="!!editingUser"
 					:user="editingUser"
+					:roles="roles"
 					:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
 					@cancel="editingUser = null"
 					@apply="onApplyPermissionEdit"
 				/>
-				
+
 				<FuzzyMatchSearch
-					class="z-20 relative -mb-20 ml-4"
+					class="mb-4 ml-4"
 					placeholder="Filter users..."
 					:data="sortedPermissionsData"
 					comparisonKey="displayName"
@@ -38,34 +39,32 @@
 					sortResults
 				/>
 
-				<div class="grid overflow-x-auto pt-40 relative pr-20 text-sm" :style="userPermsCols" @scroll="updateUserTableScroll">
-					<div :class="['sticky left-0 bg-gray-3 px-4 py-2 flex items-center z-10', stickyShadow]">
-						<div class="bg-gray-3 h-60 absolute w-full left-0 bottom-5 z-10 facadeStickyShadow"></div>
-						<p class="font-main font-bold text-cream relative z-20">USER</p>
+				<div class="flex flex-col gap-1 px-4 pb-4">
+					<div
+						v-for="(user, idx) of filteredUserData"
+						:key="user.userID"
+						:class="['flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 p-3 rounded cursor-pointer hover:bg-gray-5', idx%2 ? 'bg-gray-3' : 'bg-gray-4']"
+						@click="openRoleEditor(user)"
+					>
+						<p class="font-mono font-semibold text-cream text-nowrap sm:w-48 shrink-0">{{ user.displayName || user.username }}</p>
+						<div class="flex flex-wrap items-center gap-2">
+							<span
+								v-for="role in matchedRoles(user)"
+								:key="role.roleId"
+								class="rounded-full px-3 py-1 font-mono font-bold text-xs bg-teal-2 text-cream"
+							>{{ role.name }}</span>
+							<span
+								v-if="uncoveredPermissions(user).length"
+								class="rounded-full px-3 py-1 font-mono text-xs bg-gray-5 text-gray-9"
+								:title="uncoveredPermissions(user).join(', ')"
+							>MISC ({{ uncoveredPermissions(user).length }})</span>
+							<span
+								v-if="!matchedRoles(user).length && !uncoveredPermissions(user).length"
+								class="text-gray-7 italic text-xs"
+							>No permissions</span>
+						</div>
 					</div>
-					<template v-for="permValue in allPerms">
-						<div class="px-2 flex items-center w-20 relative">
-							<p class="font-mono text-cream origin-left -rotate-45 absolute left-8 bottom-0">{{ permValue }}</p>
-						</div>
-					</template>
-					<template v-for="(user, idx) of filteredUserData">
-						<div :class="['sticky left-0 p-2 flex items-center z-10 overflow-x-auto', stickyShadow, idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
-							<p
-								class="font-mono font-semibold text-cream text-nowrap cursor-pointer hover:underline"
-								@click="openPermissionEditor(user)"
-							>{{ user.displayName || user.username }}</p>
-						</div>
-						<template v-for="permValue in allPerms">
-							<div :class="['px-2 flex items-center w-20 relative justify-center border-r-2 border-gray-2', idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
-								<Checkbox
-									class="h-5 w-5"
-									:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
-									:value="updatedPermissions?.[user.userID] ? updatedPermissions[user.userID].has(permValue) : user.permissions.has(permValue)"
-									@input="setUserPerm(user.userID, permValue, $event)"
-								/>
-							</div>
-						</template>
-					</template>
+					<p v-if="!filteredUserData.length" class="text-gray-7 italic p-3">No users found</p>
 				</div>
 				<div
 					class="w-full flex justify-end p-4"
@@ -91,22 +90,21 @@
 
 <script>
 import { useUserStore } from '../../../../stores/userStore';
-import { post } from '../../../../util/api';
+import { get, post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
-import Checkbox from '../../../common/Checkbox.vue';
+import { getMatchedRoles, getUncoveredPermissions } from '../../../../util/rolePermissions';
 import RefreshButton from '../../../common/RefreshButton.vue';
 import FuzzyMatchSearch from '../../../common/FuzzyMatchSearch.vue';
-import PermissionEditorPopup from './PermissionEditorPopup.vue';
+import UserRoleEditorPopup from './UserRoleEditorPopup.vue';
 
 
 export default {
 	mixins: [],
 	components: {
-		Checkbox,
 		RefreshButton,
 		FuzzyMatchSearch,
-		PermissionEditorPopup,
+		UserRoleEditorPopup,
 	},
 	props: {
 		loading: {
@@ -123,11 +121,12 @@ export default {
 			userStore: useUserStore(),
 			PERMISSIONS,
 			BTN_VARIANT,
-			userTableScroll: 0,
 			updatedPermissions: {},
 			dirtyPermissions: false,
 			filteredUserData: [],
 			editingUser: null,
+			roles: [],
+			loadingRoles: false,
 		}
 	},
 	computed: {
@@ -142,69 +141,22 @@ export default {
 				.map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }])
 				.sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '', undefined, { numeric: true })));
 		},
-		allPerms() {
-			const permList = [];
-
-			const extract = (perms) => {
-				Object.entries(perms).forEach(([key, value]) => {
-					if (typeof value === 'string') {
-						permList.push(value);
-					} else {
-						extract(value);
-					}
-				});
-			}
-
-			extract(PERMISSIONS);
-			return permList;
-		},
-		userPermsCols() {
-			return `grid-template-columns: 25vw repeat(${this.allPerms.length}, auto)`;
-		},
-		stickyShadow() {
-			if (this.userTableScroll >= 2) {
-				return 'tableStickyShadow';
-			}
-		}
 	},
 	methods: {
-		updateUserTableScroll(event) {
-			this.userTableScroll = event.currentTarget.scrollLeft;
+		effectivePermissions(user) {
+			return this.updatedPermissions[user.userID] || user.permissions;
 		},
-		setUserPerm(userID, permission, value) {
-			this.$validatePermissions(PERMISSIONS.users.permissions.write);
-
-			let permAtPath = PERMISSIONS;
-			for (const pathItem of permission.split(".")) {
-				try {
-					permAtPath = permAtPath[pathItem];
-				} catch {
-					console.error(`Permission ${permission} does not exist`);
-					return;
-				}
-			}
-
-			if (!this.updatedPermissions[userID]) {
-				this.updatedPermissions[userID] = new Set(this.permissionsData[userID].permissions);
-			}
-
-			let modified = false;
-			if (value) {
-				if (!this.updatedPermissions[userID].has(permission)) {
-					modified = true;
-				}
-				this.updatedPermissions[userID].add(permission);
-			} else {
-				modified = this.updatedPermissions[userID].delete(permission);
-			}
-
-			this.dirtyPermissions ||= modified;
+		matchedRoles(user) {
+			return getMatchedRoles(this.effectivePermissions(user), this.roles);
+		},
+		uncoveredPermissions(user) {
+			return getUncoveredPermissions(this.effectivePermissions(user), this.roles);
 		},
 		discardPermChanges() {
 			this.updatedPermissions = {};
 			this.dirtyPermissions = false;
 		},
-		openPermissionEditor(user) {
+		openRoleEditor(user) {
 			const effectivePermissions = this.updatedPermissions[user.userID] || user.permissions;
 			this.editingUser = { ...user, permissions: new Set(effectivePermissions) };
 		},
@@ -252,19 +204,32 @@ export default {
 				this.$alert.error("Error dropping permission cache");
 				console.error(e);
 			}
+		},
+		async fetchRoles() {
+			if (this.loadingRoles) return;
+			this.loadingRoles = true;
+
+			try {
+				const response = await get("/system/roles", PERMISSIONS.users.permissions.read);
+				this.roles = response.entries || [];
+			} catch (e) {
+				this.$alert.error("Error fetching roles");
+				console.error(e);
+			}
+
+			this.loadingRoles = false;
 		}
 	},
 	mounted() {
 		this.filteredUserData = this.sortedPermissionsData;
+
+		if (this.$checkPermissions(PERMISSIONS.users.permissions.read)) {
+			this.fetchRoles();
+		}
 	}
 }
 </script>
 
 <style scoped>
-.tableStickyShadow {
-	box-shadow: 2px 15px 8px 2px var(--color-gray-2);
-}
-.facadeStickyShadow {
-	box-shadow: 2px 15px 8px 2px var(--color-gray-3);
-}
+
 </style>

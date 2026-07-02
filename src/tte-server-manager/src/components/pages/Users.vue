@@ -1,17 +1,19 @@
 <template>
 	<div class="flex flex-col gap-4 sm:gap-8">
-		<UserPermissions 
-			:loading="loading" 
-			:allPermissionData="allPermissionData" 
-			@refreshAll="fetchUserPermissions" 
+		<UserPermissions
+			:loading="loading"
+			:allPermissionData="allPermissionData"
+			@refreshAll="fetchUserPermissions"
 		/>
-		
-		<UserResourceAccess 
+
+		<UserResourceAccess
 			:loading="loading" 
 			:allPermissionData="allPermissionData" 
 			@refresh="fetchUserPermissions"
 			@saving="loading.save = $event"
 		/>
+
+		<RoleEditor />
 	</div>
 </template>
 
@@ -22,11 +24,13 @@ import { PERMISSIONS } from '../../util/permissionValues';
 import { BTN_VARIANT } from '../../util/constants';
 import UserPermissions from './tools/users/UserPermissions.vue';
 import UserResourceAccess from './tools/users/UserResourceAccess.vue';
+import RoleEditor from './tools/users/RoleEditor.vue';
 
 export default {
 	components: {
 		UserPermissions,
 		UserResourceAccess,
+		RoleEditor,
 	},
 	props: {
 
