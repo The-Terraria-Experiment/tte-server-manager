@@ -123,6 +123,7 @@ export default {
 			this.router.push('/login');
 		},
 		async handleSignOut() {
+			sessionStorage.clear();
 			this.logoutClicked = true;
 			await this.userStore.signOut();
 			this.router.push('/');

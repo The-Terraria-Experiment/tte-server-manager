@@ -14,6 +14,7 @@ import { writePermissions } from "./actions/writePermissions.js";
 import { writeResourcePermissions } from "./actions/writeResourcePermissions.js";
 import { setUsername } from "./actions/setUsername.js";
 import { dropcache } from "./actions/dropcache.js";
+import { deleteUser } from "./actions/deleteUser.js";
 
 const endpoints: EndpointList = {
 	"GET /users": {
@@ -47,6 +48,10 @@ const endpoints: EndpointList = {
 	"POST /users/dropcache": {
 		action: dropcache,
 		permRequired: PERMISSIONS.system.dropcache
+	},
+	"POST /users/delete": {
+		action: deleteUser,
+		permRequired: PERMISSIONS.users.delete
 	}
 }
 

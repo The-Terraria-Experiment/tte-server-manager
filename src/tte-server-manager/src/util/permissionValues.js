@@ -59,6 +59,7 @@ export const PERMISSIONS = {
 	},
 	users: {
 		list: "users.list",
+		delete: "users.delete",
 		permissions: {
 			read: "users.permissions.read",
 			write: "users.permissions.write",
