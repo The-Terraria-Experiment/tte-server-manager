@@ -135,7 +135,9 @@ export class S3Dao {
 			details: { bucketName, key, expiresIn },
 		});
 
-		return getSignedUrl(this.s3Client, command, { expiresIn });
+		// exactOptionalPropertyTypes makes S3Client's private Client<> generic incompatible with
+		// getSignedUrl's parameter type at the type level only; the SDK client itself is fine at runtime.
+		return getSignedUrl(this.s3Client as unknown as Parameters<typeof getSignedUrl>[0], command, { expiresIn });
 	}
 
 	public async GetSignedDownloadUrl(bucketName: string, key: string, expiresIn = 3600, fileName?: string): Promise<string> {
@@ -152,7 +154,9 @@ export class S3Dao {
 			details: { bucketName, key, expiresIn },
 		});
 
-		return getSignedUrl(this.s3Client, command, { expiresIn });
+		// exactOptionalPropertyTypes makes S3Client's private Client<> generic incompatible with
+		// getSignedUrl's parameter type at the type level only; the SDK client itself is fine at runtime.
+		return getSignedUrl(this.s3Client as unknown as Parameters<typeof getSignedUrl>[0], command, { expiresIn });
 	}
 
 	public async DeleteObject(bucketName: string, key: string): Promise<void> {
