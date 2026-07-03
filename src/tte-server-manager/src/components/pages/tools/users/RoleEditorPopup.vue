@@ -49,6 +49,7 @@
 		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
 			<p class="text-white-0 py-2">Are you sure you want to delete this role?</p>
 			<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm text-white-0">{{ role?.name }}</div>
+			<p class="text-white-0 py-2">This will not remove associated permissions from users with this role.</p>
 		</div>
 	</Popup>
 </template>
@@ -114,7 +115,7 @@ export default {
 				buttons.push({ text: 'DELETE', variant: BTN_VARIANT.DANGER, onClick: this.onDelete, loading: this.loading.delete, disabled: this.anyLoading });
 			}
 			if (!this.disabled) {
-				buttons.push({ text: 'APPLY', variant: BTN_VARIANT.PRIMARY, onClick: this.onApply, loading: this.loading.save, disabled: this.anyLoading });
+				buttons.push({ text: 'SAVE', variant: BTN_VARIANT.PRIMARY, onClick: this.onApply, loading: this.loading.save, disabled: this.anyLoading });
 			}
 			return buttons;
 		}

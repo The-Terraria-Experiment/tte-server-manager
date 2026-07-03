@@ -3,6 +3,8 @@
 		:open="open"
 		:header-text="headerText"
 		:buttons="popupButtons"
+		:x-disabled="loading.save"
+		:close-when-bg-clicked="!loading.save"
 		@x-clicked="onCancel"
 		body-class="w-11/12 sm:w-3/4 xl:w-1/2 h-3/4"
 	>
@@ -151,9 +153,14 @@ export default {
 		disabled: {
 			type: Boolean,
 			default: false
+		},
+		// { save: boolean }
+		loading: {
+			type: Object,
+			default: () => ({ save: false })
 		}
 	},
-	emits: ['cancel', 'apply'],
+	emits: ['cancel', 'save'],
 	data() {
 		return {
 			BTN_VARIANT,
@@ -168,9 +175,9 @@ export default {
 			return `EDIT ROLES (${this.user.displayName || this.user.username})`;
 		},
 		popupButtons() {
-			const buttons = [{ text: 'CANCEL', variant: BTN_VARIANT.DANGER, onClick: this.onCancel }];
+			const buttons = [{ text: 'CANCEL', variant: BTN_VARIANT.DANGER, onClick: this.onCancel, disabled: this.loading.save }];
 			if (!this.disabled) {
-				buttons.push({ text: 'APPLY', variant: BTN_VARIANT.PRIMARY, onClick: this.onApply });
+				buttons.push({ text: 'SAVE', variant: BTN_VARIANT.PRIMARY, onClick: this.onSave, loading: this.loading.save, disabled: this.loading.save });
 			}
 			return buttons;
 		},
@@ -217,8 +224,8 @@ export default {
 		onCancel() {
 			this.$emit('cancel');
 		},
-		onApply() {
-			this.$emit('apply', { userID: this.user.userID, permissions: this.draftPermissions, resourceAccess: this.draftResourceAccess });
+		onSave() {
+			this.$emit('save', { userID: this.user.userID, permissions: this.draftPermissions, resourceAccess: this.draftResourceAccess });
 		}
 	},
 	watch: {

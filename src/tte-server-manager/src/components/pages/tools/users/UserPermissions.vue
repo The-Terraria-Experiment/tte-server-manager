@@ -26,8 +26,9 @@
 					:user="editingUser"
 					:roles="roles"
 					:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
+					:loading="{ save: loading.save }"
 					@cancel="editingUser = null"
-					@apply="onApplyPermissionEdit"
+					@save="onSavePermissionEdit"
 				/>
 
 				<FuzzyMatchSearch
@@ -50,7 +51,7 @@
 						<div class="flex sm:hidden items-center justify-end gap-2 shrink-0">
 							<span
 								class="rounded-full px-3 py-1 font-mono font-bold text-xs bg-teal-2 text-cream shrink-0"
-							>{{ matchedRoles(user).length }} role{{ matchedRoles(user).length === 1 ? '' : 's' }} ({{ effectivePermissions(user).size }}/{{ effectiveResourceAccess(user).size }})</span>
+							>{{ matchedRoles(user).length }} role{{ matchedRoles(user).length === 1 ? '' : 's' }} ({{ user.permissions.size }}/{{ user.resourceAccess.size }})</span>
 						</div>
 						<div class="hidden sm:flex flex-nowrap items-center gap-2 min-w-0 overflow-x-auto">
 							<span
@@ -74,23 +75,6 @@
 						</div>
 					</div>
 					<p v-if="!filteredUserData.length" class="text-gray-7 italic p-3">No users found</p>
-				</div>
-				<div
-					class="w-full flex justify-end p-4"
-					v-show="dirtyPermissions"
-				>
-					<div v-if="!loading.save" class="flex">
-						<FlexButton :variant="BTN_VARIANT.DANGER" class="ml-4" @click="discardPermChanges">
-							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">DISCARD</p>
-						</FlexButton>
-						<FlexButton :variant="BTN_VARIANT.PRIMARY" class="ml-4" @click="savePermChanges">
-							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">SAVE</p>
-						</FlexButton>
-					</div>
-					<div v-else class="flex items-center pr-4">
-						<Spinner class="h-4 w-4 text-teal-3" thickness="4" />
-						<p class="font-main font-bold text-teal-3 ml-2">Saving...</p>
-					</div>
 				</div>
 			</div>
 		</template>
@@ -133,9 +117,6 @@ export default {
 			rolesStore: useRolesStore(),
 			PERMISSIONS,
 			BTN_VARIANT,
-			updatedPermissions: {},
-			updatedResourceAccess: {},
-			dirtyPermissions: false,
 			filteredUserData: [],
 			editingUser: null,
 		}
@@ -157,17 +138,11 @@ export default {
 		},
 	},
 	methods: {
-		effectivePermissions(user) {
-			return this.updatedPermissions[user.userID] || user.permissions;
-		},
-		effectiveResourceAccess(user) {
-			return this.updatedResourceAccess[user.userID] || user.resourceAccess;
-		},
 		matchedRoles(user) {
-			return getMatchedRoles(this.effectivePermissions(user), this.effectiveResourceAccess(user), this.roles);
+			return getMatchedRoles(user.permissions, user.resourceAccess, this.roles);
 		},
 		uncoveredPermissions(user) {
-			return getUncoveredPermissions(this.effectivePermissions(user), this.effectiveResourceAccess(user), this.roles);
+			return getUncoveredPermissions(user.permissions, user.resourceAccess, this.roles);
 		},
 		roleChipStyle(role) {
 			return role.color ? { backgroundColor: role.color } : {};
@@ -175,70 +150,46 @@ export default {
 		roleChipTextClass(role) {
 			return role.color ? getContrastTextClass(role.color) : 'text-cream';
 		},
-		discardPermChanges() {
-			this.updatedPermissions = {};
-			this.updatedResourceAccess = {};
-			this.dirtyPermissions = false;
-		},
 		openRoleEditor(user) {
-			this.editingUser = {
-				...user,
-				permissions: new Set(this.effectivePermissions(user)),
-				resourceAccess: new Set(this.effectiveResourceAccess(user)),
-			};
+			this.editingUser = user;
 		},
-		onApplyPermissionEdit({ userID, permissions, resourceAccess }) {
+		async onSavePermissionEdit({ userID, permissions, resourceAccess }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
+
+			if (this.loading.save) return;
+			this.loading.save = true;
 
 			const newPermSet = new Set(permissions);
 			const originalPermSet = this.permissionsData[userID].permissions;
-			const isPermSameAsOriginal = newPermSet.size === originalPermSet.size && [...newPermSet].every(p => originalPermSet.has(p));
-
-			if (isPermSameAsOriginal) {
-				delete this.updatedPermissions[userID];
-			} else {
-				this.updatedPermissions[userID] = newPermSet;
-			}
+			const permsChanged = newPermSet.size !== originalPermSet.size || [...newPermSet].some(p => !originalPermSet.has(p));
 
 			const newResourceSet = new Set(resourceAccess);
 			const originalResourceSet = this.permissionsData[userID].resourceAccess;
-			const isResourceSameAsOriginal = newResourceSet.size === originalResourceSet.size && [...newResourceSet].every(r => originalResourceSet.has(r));
+			const resourceChanged = newResourceSet.size !== originalResourceSet.size || [...newResourceSet].some(r => !originalResourceSet.has(r));
 
-			if (isResourceSameAsOriginal) {
-				delete this.updatedResourceAccess[userID];
-			} else {
-				this.updatedResourceAccess[userID] = newResourceSet;
-			}
-
-			this.dirtyPermissions = Object.keys(this.updatedPermissions).length > 0 || Object.keys(this.updatedResourceAccess).length > 0;
-			this.editingUser = null;
-		},
-		async savePermChanges() {
-			this.loading.save = true;
-			const userIDs = new Set([...Object.keys(this.updatedPermissions), ...Object.keys(this.updatedResourceAccess)]);
-
-			for (const userID of userIDs) {
-				try {
-					if (this.updatedPermissions[userID]) {
-						await post("/users/permissions", PERMISSIONS.users.permissions.write, {
-							userID,
-							permissions: Array.from(this.updatedPermissions[userID])
-						});
-					}
-					if (this.updatedResourceAccess[userID]) {
-						await post("/users/resourcepermissions", PERMISSIONS.users.permissions.write, {
-							userID,
-							resourceAccess: Array.from(this.updatedResourceAccess[userID])
-						});
-					}
-					this.$alert.success("Permissions saved");
-					this.$emit("refreshAll");
-				} catch (e) {
-					this.$alert.error("Error saving permissions");
-					console.error(e);
+			try {
+				if (permsChanged) {
+					await post("/users/permissions", PERMISSIONS.users.permissions.write, {
+						userID,
+						permissions: Array.from(newPermSet)
+					});
 				}
+				if (resourceChanged) {
+					await post("/users/resourcepermissions", PERMISSIONS.users.permissions.write, {
+						userID,
+						resourceAccess: Array.from(newResourceSet)
+					});
+				}
+				this.$alert.success("Permissions saved");
+				this.editingUser = null;
+			} catch (e) {
+				this.$alert.error("Error saving permissions");
+				console.error(e);
+				this.loading.save = false;
+				return;
 			}
-			this.discardPermChanges();
+
+			this.$emit("refreshAll");
 			this.loading.save = false;
 		},
 		async dropUserPermCache() {
