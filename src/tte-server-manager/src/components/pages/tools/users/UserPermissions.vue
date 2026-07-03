@@ -21,56 +21,60 @@
 		</template>
 		<template #content>
 			<div class="relative z-0">
+				<UserRoleEditorPopup
+					:open="!!editingUser"
+					:user="editingUser"
+					:roles="roles"
+					:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
+					:loading="{ save: loading.save }"
+					@cancel="editingUser = null"
+					@save="onSavePermissionEdit"
+				/>
+
 				<FuzzyMatchSearch
-					class="z-20 relative -mb-20 ml-4"
+					class="mb-4 ml-4"
 					placeholder="Filter users..."
 					:data="sortedPermissionsData"
 					comparisonKey="displayName"
 					@update="filteredUserData = $event"
 					sortResults
 				/>
-				<div class="grid overflow-x-auto pt-40 relative pr-20 text-sm" :style="userPermsCols" @scroll="updateUserTableScroll">
-					<div :class="['sticky left-0 bg-gray-3 px-4 py-2 flex items-center z-10', stickyShadow]">
-						<div class="bg-gray-3 h-60 absolute w-full left-0 bottom-5 z-10 facadeStickyShadow"></div>
-						<p class="font-main font-bold text-cream relative z-20">USER</p>
-					</div>
-					<template v-for="permValue in allPerms">
-						<div class="px-2 flex items-center w-20 relative">
-							<p class="font-mono text-cream origin-left -rotate-45 absolute left-8 bottom-0">{{ permValue }}</p>
+
+				<div class="flex flex-col gap-1 px-4 pb-4">
+					<div
+						v-for="(user, idx) of filteredUserData"
+						:key="user.userID"
+						:class="['flex flex-row items-center gap-2 sm:gap-4 p-3 rounded cursor-pointer hover:bg-gray-5', idx%2 ? 'bg-gray-3' : 'bg-gray-4']"
+						@click="openRoleEditor(user)"
+					>
+						<p class="font-mono font-semibold text-cream text-nowrap truncate min-w-0 flex-1 sm:w-1/4 sm:flex-none sm:shrink-0">{{ user.displayName || user.username }}</p>
+						<div class="flex sm:hidden items-center justify-end gap-2 shrink-0">
+							<span
+								class="rounded-full px-3 py-1 font-mono font-bold text-xs bg-teal-2 text-cream shrink-0"
+							>{{ matchedRoles(user).length }} role{{ matchedRoles(user).length === 1 ? '' : 's' }} ({{ user.permissions.size }}/{{ user.resourceAccess.size }})</span>
 						</div>
-					</template>
-					<template v-for="(user, idx) of filteredUserData">
-						<div :class="['sticky left-0 p-2 flex items-center z-10 overflow-x-auto', stickyShadow, idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
-							<p class="font-mono font-semibold text-cream text-nowrap">{{ user.displayName || user.username }}</p>
+						<div class="hidden sm:flex flex-nowrap items-center gap-2 min-w-0 overflow-x-auto">
+							<span
+								v-for="role in matchedRoles(user)"
+								:key="role.roleId"
+								:class="[
+									'rounded-full px-3 py-1 font-mono font-bold text-xs text-nowrap shrink-0',
+									role.color ? roleChipTextClass(role) : 'bg-teal-2 text-cream'
+								]"
+								:style="roleChipStyle(role)"
+							>{{ role.name }}</span>
+							<span
+								v-if="uncoveredPermissions(user).length"
+								class="rounded-full px-3 py-1 font-mono text-xs text-nowrap bg-gray-5 text-gray-9 shrink-0"
+								:title="uncoveredPermissions(user).join(', ')"
+							>+{{ uncoveredPermissions(user).length }} MISC</span>
+							<span
+								v-if="!matchedRoles(user).length && !uncoveredPermissions(user).length"
+								class="text-gray-7 italic text-xs text-nowrap shrink-0"
+							>No permissions</span>
 						</div>
-						<template v-for="permValue in allPerms">
-							<div :class="['px-2 flex items-center w-20 relative justify-center border-r-2 border-gray-2', idx%2 ? 'bg-gray-3' : 'bg-gray-4']">
-								<Checkbox
-									class="h-5 w-5"
-									:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
-									:value="updatedPermissions?.[user.userID] ? updatedPermissions[user.userID].has(permValue) : user.permissions.has(permValue)"
-									@input="setUserPerm(user.userID, permValue, $event)"
-								/>
-							</div>
-						</template>
-					</template>
-				</div>
-				<div
-					class="w-full flex justify-end p-4"
-					v-show="dirtyPermissions"
-				>
-					<div v-if="!loading.save" class="flex">
-						<FlexButton :variant="BTN_VARIANT.DANGER" class="ml-4" @click="discardPermChanges">
-							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">DISCARD</p>
-						</FlexButton>
-						<FlexButton :variant="BTN_VARIANT.PRIMARY" class="ml-4" @click="savePermChanges">
-							<p class="font-main font-bold py-2 px-8 md:px-12 text-sm">SAVE</p>
-						</FlexButton>
 					</div>
-					<div v-else class="flex items-center pr-4">
-						<Spinner class="h-4 w-4 text-teal-3" thickness="4" />
-						<p class="font-main font-bold text-teal-3 ml-2">Saving...</p>
-					</div>
+					<p v-if="!filteredUserData.length" class="text-gray-7 italic p-3">No users found</p>
 				</div>
 			</div>
 		</template>
@@ -79,20 +83,23 @@
 
 <script>
 import { useUserStore } from '../../../../stores/userStore';
+import { useRolesStore } from '../../../../stores/rolesStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
-import Checkbox from '../../../common/Checkbox.vue';
+import { getMatchedRoles, getUncoveredPermissions } from '../../../../util/rolePermissions';
+import { getContrastTextClass } from '../../../../util/color';
 import RefreshButton from '../../../common/RefreshButton.vue';
 import FuzzyMatchSearch from '../../../common/FuzzyMatchSearch.vue';
+import UserRoleEditorPopup from './UserRoleEditorPopup.vue';
 
 
 export default {
 	mixins: [],
 	components: {
-		Checkbox,
 		RefreshButton,
 		FuzzyMatchSearch,
+		UserRoleEditorPopup,
 	},
 	props: {
 		loading: {
@@ -107,15 +114,17 @@ export default {
 	data() {
 		return {
 			userStore: useUserStore(),
+			rolesStore: useRolesStore(),
 			PERMISSIONS,
 			BTN_VARIANT,
-			userTableScroll: 0,
-			updatedPermissions: {},
-			dirtyPermissions: false,
 			filteredUserData: [],
+			editingUser: null,
 		}
 	},
 	computed: {
+		roles() {
+			return this.rolesStore.roles;
+		},
 		sortedPermissionsData() {
 			return Object.values(this.permissionsData)
 				.sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '', undefined, { numeric: true }));
@@ -124,87 +133,63 @@ export default {
 			if (!this.allPermissionData) return [];
 
 			return	Object.fromEntries((this.allPermissionData.entries || [])
-				.map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions) }])
+				.map(udata => [udata.userID, { ...udata, permissions: new Set(udata.permissions), resourceAccess: new Set(udata.resourceAccess) }])
 				.sort((a, b) => (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '', undefined, { numeric: true })));
 		},
-		allPerms() {
-			const permList = [];
-
-			const extract = (perms) => {
-				Object.entries(perms).forEach(([key, value]) => {
-					if (typeof value === 'string') {
-						permList.push(value);
-					} else {
-						extract(value);
-					}
-				});
-			}
-
-			extract(PERMISSIONS);
-			return permList;
-		},
-		userPermsCols() {
-			return `grid-template-columns: 25vw repeat(${this.allPerms.length}, auto)`;
-		},
-		stickyShadow() {
-			if (this.userTableScroll >= 2) {
-				return 'tableStickyShadow';
-			}
-		}
 	},
 	methods: {
-		updateUserTableScroll(event) {
-			this.userTableScroll = event.currentTarget.scrollLeft;
+		matchedRoles(user) {
+			return getMatchedRoles(user.permissions, user.resourceAccess, this.roles);
 		},
-		setUserPerm(userID, permission, value) {
+		uncoveredPermissions(user) {
+			return getUncoveredPermissions(user.permissions, user.resourceAccess, this.roles);
+		},
+		roleChipStyle(role) {
+			return role.color ? { backgroundColor: role.color } : {};
+		},
+		roleChipTextClass(role) {
+			return role.color ? getContrastTextClass(role.color) : 'text-cream';
+		},
+		openRoleEditor(user) {
+			this.editingUser = user;
+		},
+		async onSavePermissionEdit({ userID, permissions, resourceAccess }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
-			let permAtPath = PERMISSIONS;
-			for (const pathItem of permission.split(".")) {
-				try {
-					permAtPath = permAtPath[pathItem];
-				} catch {
-					console.error(`Permission ${permission} does not exist`);
-					return;
-				}
-			}
-
-			if (!this.updatedPermissions[userID]) {
-				this.updatedPermissions[userID] = new Set(this.permissionsData[userID].permissions);
-			}
-
-			let modified = false;
-			if (value) {
-				if (!this.updatedPermissions[userID].has(permission)) {
-					modified = true;
-				}
-				this.updatedPermissions[userID].add(permission);
-			} else {
-				modified = this.updatedPermissions[userID].delete(permission);
-			}
-
-			this.dirtyPermissions ||= modified;
-		},
-		discardPermChanges() {
-			this.updatedPermissions = {};
-			this.dirtyPermissions = false;
-		},
-		async savePermChanges() {
+			if (this.loading.save) return;
 			this.loading.save = true;
-			for (const [userID, updatedPerms] of Object.entries(this.updatedPermissions)) {
-				try {
-					const response = await post("/users/permissions", PERMISSIONS.users.permissions.write, {
+
+			const newPermSet = new Set(permissions);
+			const originalPermSet = this.permissionsData[userID].permissions;
+			const permsChanged = newPermSet.size !== originalPermSet.size || [...newPermSet].some(p => !originalPermSet.has(p));
+
+			const newResourceSet = new Set(resourceAccess);
+			const originalResourceSet = this.permissionsData[userID].resourceAccess;
+			const resourceChanged = newResourceSet.size !== originalResourceSet.size || [...newResourceSet].some(r => !originalResourceSet.has(r));
+
+			try {
+				if (permsChanged) {
+					await post("/users/permissions", PERMISSIONS.users.permissions.write, {
 						userID,
-						permissions: Array.from(updatedPerms)
+						permissions: Array.from(newPermSet)
 					});
-					this.$alert.success("Permissions saved");
-					this.$emit("refreshAll");
-				} catch (e) {
-					this.$alert.error("Error saving permissions");
-					console.error(e);
 				}
+				if (resourceChanged) {
+					await post("/users/resourcepermissions", PERMISSIONS.users.permissions.write, {
+						userID,
+						resourceAccess: Array.from(newResourceSet)
+					});
+				}
+				this.$alert.success("Permissions saved");
+				this.editingUser = null;
+			} catch (e) {
+				this.$alert.error("Error saving permissions");
+				console.error(e);
+				this.loading.save = false;
+				return;
 			}
-			this.discardPermChanges();
+
+			this.$emit("refreshAll");
 			this.loading.save = false;
 		},
 		async dropUserPermCache() {
@@ -221,15 +206,14 @@ export default {
 	},
 	mounted() {
 		this.filteredUserData = this.sortedPermissionsData;
+
+		if (this.$checkPermissions(PERMISSIONS.users.permissions.read)) {
+			this.rolesStore.fetchRoles();
+		}
 	}
 }
 </script>
 
 <style scoped>
-.tableStickyShadow {
-	box-shadow: 2px 15px 8px 2px var(--color-gray-2);
-}
-.facadeStickyShadow {
-	box-shadow: 2px 15px 8px 2px var(--color-gray-3);
-}
+
 </style>

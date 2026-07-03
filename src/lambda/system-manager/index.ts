@@ -13,6 +13,9 @@ import { notice } from "./actions/notice.js";
 import { readNotice } from "./actions/readNotice.js";
 import { pauseAutoshutoff } from "./actions/pauseAutoshutoff.js";
 import { cancelAutoShutoff } from "./actions/cancelAutoShutoff.js";
+import { readRoles } from "./actions/readRoles.js";
+import { writeRole } from "./actions/writeRole.js";
+import { deleteRole } from "./actions/deleteRole.js";
 
 const endpoints: EndpointList = {
 	"POST /system/postnotice": {
@@ -34,6 +37,18 @@ const endpoints: EndpointList = {
 	"POST /system/autoshutoff/cancel": {
 		action: cancelAutoShutoff,
 		permRequired: PERMISSIONS.server.status.start,
+	},
+	"GET /system/roles": {
+		action: readRoles,
+		permRequired: PERMISSIONS.users.permissions.read,
+	},
+	"POST /system/roles": {
+		action: writeRole,
+		permRequired: PERMISSIONS.users.permissions.write,
+	},
+	"POST /system/roles/delete": {
+		action: deleteRole,
+		permRequired: PERMISSIONS.users.permissions.write,
 	},
 };
 

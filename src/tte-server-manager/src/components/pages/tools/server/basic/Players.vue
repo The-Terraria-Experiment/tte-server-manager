@@ -1,9 +1,9 @@
 <template>
 	<StatusTile 
-		class="grow sm:mt-2 gradient-tile"
+		class="grow gradient-tile"
 		:collapsible="!!selectedServerData.playercount"
 		:perm-required="PERMISSIONS.server.status.read"
-		floatingExpand
+		:floatingExpand="!isMobile"
 	>
 		<template #header>
 			<Icon icon="people-group" color="text-gray-6" size="4" />

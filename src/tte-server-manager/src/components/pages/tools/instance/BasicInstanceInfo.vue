@@ -1,7 +1,7 @@
 <template>
-	<div class="flex flex-col sm:grid sm:grid-cols-4 mt-2 sm:mt-6">
+	<div class="flex flex-col sm:grid sm:grid-cols-2 2xl:grid-cols-4 mt-6 gap-2">
 		<StatusTile 
-			:class="['grow mt-2 sm:mr-1', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
+			:class="['grow', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
 			:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
 			:perm-required="PERMISSIONS.instance.status.read"
 			:floatingExpand="!isMobile"
@@ -53,7 +53,7 @@
 		</StatusTile>
 
 		<StatusTile 
-			class="grow mt-2 sm:mx-1 gradient-tile"
+			class="grow gradient-tile"
 			:perm-required="PERMISSIONS.instance.status.read"
 		>
 			<template #header>
@@ -71,7 +71,7 @@
 		</StatusTile>
 
 		<StatusTile 
-			class="grow mt-2 sm:mx-1 gradient-tile"
+			class="grow gradient-tile"
 			:perm-required="PERMISSIONS.instance.status.read"
 		>
 			<template #header>
@@ -85,7 +85,7 @@
 		</StatusTile>
 
 		<StatusTile 
-			class="grow mt-2 sm:ml-1 gradient-tile"
+			class="grow gradient-tile"
 			:perm-required="PERMISSIONS.instance.status.read"
 		>
 			<template #header>

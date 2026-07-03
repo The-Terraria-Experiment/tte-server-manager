@@ -1,7 +1,7 @@
 <template>
 	<div>
 		<StatusTile
-			class="grow sm:mt-2 gradient-tile"
+			class="grow gradient-tile"
 			collapsible
 			:floatingExpand="!isMobile"
 			:perm-required="PERMISSIONS.server.status.read"

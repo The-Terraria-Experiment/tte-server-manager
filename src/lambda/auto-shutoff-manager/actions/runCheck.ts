@@ -4,7 +4,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { Assert } from "../shared/utils/Assert.js";
 import type { CheckResult, CheckStage } from "./types.js";
 import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
-import { broadcastWarning, checkTShockProcessViaSSM, getTShockTarget, pingTShock, stopServer } from "./tshock.js";
+import { broadcastWarning, checkTShockProcessViaSSM, getOnlinePlayerCount, getTShockTarget, pingTShock, stopServer } from "./tshock.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 const IDLE_MINUTES = parseNumber(process.env.AUTO_SHUTOFF_IDLE_MINUTES, 60);
@@ -148,6 +148,22 @@ export async function runCheck(serverId: string, stage: CheckStage): Promise<Che
 			stage,
 			action: "skip",
 			reason: "tshock-unreachable-process-running",
+			idleMinutes: idleStatus.idleMinutes,
+		};
+	}
+
+	const onlinePlayers = await getOnlinePlayerCount(target);
+	if (onlinePlayers !== null && onlinePlayers > 0) {
+		await updateAutoShutoffState(serverId, {
+			sequenceStage: `cancelled-${stage}`,
+			sequenceUpdatedAt: Date.now(),
+			scheduledShutdownAt: null,
+		});
+		return {
+			serverId,
+			stage,
+			action: "cancel",
+			reason: "players-online",
 			idleMinutes: idleStatus.idleMinutes,
 		};
 	}

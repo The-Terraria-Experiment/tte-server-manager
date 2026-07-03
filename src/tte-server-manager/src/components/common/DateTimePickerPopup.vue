@@ -6,6 +6,7 @@
 		:layer="layer"
 		:buttons="popupButtons"
 		@x-clicked="onCancel"
+		:closeWhenBgClicked="false"
 	>
 		<div class="p-4">
 			<slot></slot>
@@ -13,9 +14,6 @@
 				v-model="pendingValue"
 				:start-year="startYear"
 				:end-year="endYear"
-				:input-class="inputClass"
-				:option-class="optionClass"
-				:icon-color="iconColor"
 			/>
 			<p class="italic text-gray-6 font-main font-bold mt-4 text-center">Dates and times are displayed in your timezone.</p>
 		</div>
@@ -62,18 +60,6 @@ export default {
 			type: Number,
 			default: null,
 		},
-		inputClass: {
-			type: String,
-			default: 'bg-teal-2 text-white-1',
-		},
-		optionClass: {
-			type: String,
-			default: '',
-		},
-		iconColor: {
-			type: String,
-			default: 'text-white-1',
-		}
 	},
 	data() {
 		return {
@@ -97,7 +83,11 @@ export default {
 	},
 	methods: {
 		onConfirm() {
-			this.$emit('update:modelValue', this.asTimestamp ? Date.parse(this.pendingValue) : this.pendingValue);
+			if (!this.pendingValue) {
+				this.onCancel();
+				return;
+			}
+			this.$emit('update:modelValue', this.pendingValue);
 			this.$emit('close');
 		},
 		onCancel() {

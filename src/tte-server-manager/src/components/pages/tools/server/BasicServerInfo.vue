@@ -1,5 +1,5 @@
 <template>
-	<div class="flex flex-col sm:grid sm:grid-cols-4 mt-2 sm:mt-6 gap-2">
+	<div class="flex flex-col sm:grid sm:grid-cols-2 2xl:grid-cols-4 mt-6 gap-2">
 		<ServerState />
 		<Players />
 		<CommonServerInfo />
