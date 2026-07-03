@@ -36,10 +36,16 @@
 						<FlexButton
 							v-if="button"
 							:variant="button.variant"
+							:disabled="button.loading || button.disabled"
 							@input="doClick(button)"
 							class="ml-4 text-sm sm:text-md"
 						>
-							<p class="font-main font-bold py-2 px-4 md:px-10">{{ button.text }}</p>
+							<div v-if="button.loading" class="flex items-center justify-center">
+								<Spinner class="h-4 w-4 mr-2 ml-6" />
+								<p class="font-main font-bold py-2 pr-4 md:pr-10">{{ button.text }}</p>
+							</div>
+
+							<p v-else class="font-main font-bold py-2 px-4 md:px-10">{{ button.text }}</p>
 						</FlexButton>
 					</template>
 				</div>
@@ -51,11 +57,13 @@
 <script>
 import FlexButton from './FlexButton.vue';
 import Icon from './Icon.vue';
+import Spinner from './Spinner.vue';
 
 export default {
 	components: {
 		Icon,
 		FlexButton,
+		Spinner,
 	},
 	props: {
 		layer: {

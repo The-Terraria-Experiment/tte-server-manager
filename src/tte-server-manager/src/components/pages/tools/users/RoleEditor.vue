@@ -13,6 +13,7 @@
 					:open="!!editingRole"
 					:role="editingRole"
 					:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
+					:loading="roleActionLoading"
 					@cancel="editingRole = null"
 					@apply="onApplyRole"
 					@delete="onDeleteRole"
@@ -79,6 +80,10 @@ export default {
 			rolesStore: useRolesStore(),
 			PERMISSIONS,
 			editingRole: null,
+			roleActionLoading: {
+				save: false,
+				delete: false,
+			},
 		}
 	},
 	computed: {
@@ -103,6 +108,9 @@ export default {
 		async onApplyRole({ roleId, name, color, permissions, resourceAccess }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
+			if (this.roleActionLoading.save) return;
+			this.roleActionLoading.save = true;
+
 			try {
 				await post("/system/roles", PERMISSIONS.users.permissions.write, { roleId, name, color, permissions, resourceAccess });
 				this.$alert.success("Role saved");
@@ -110,6 +118,7 @@ export default {
 			} catch (e) {
 				this.$alert.error("Error saving role");
 				console.error(e);
+				this.roleActionLoading.save = false;
 				return;
 			}
 
@@ -118,10 +127,15 @@ export default {
 			} catch (e) {
 				this.$alert.error("Error refreshing roles");
 				console.error(e);
+			} finally {
+				this.roleActionLoading.save = false;
 			}
 		},
 		async onDeleteRole({ roleId }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
+
+			if (this.roleActionLoading.delete) return;
+			this.roleActionLoading.delete = true;
 
 			try {
 				await post("/system/roles/delete", PERMISSIONS.users.permissions.write, { roleId });
@@ -130,6 +144,7 @@ export default {
 			} catch (e) {
 				this.$alert.error("Error deleting role");
 				console.error(e);
+				this.roleActionLoading.delete = false;
 				return;
 			}
 
@@ -138,6 +153,8 @@ export default {
 			} catch (e) {
 				this.$alert.error("Error refreshing roles");
 				console.error(e);
+			} finally {
+				this.roleActionLoading.delete = false;
 			}
 		}
 	},

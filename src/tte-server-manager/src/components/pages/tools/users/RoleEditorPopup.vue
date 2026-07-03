@@ -3,6 +3,8 @@
 		:open="open"
 		:header-text="headerText"
 		:buttons="popupButtons"
+		:x-disabled="anyLoading"
+		:close-when-bg-clicked="!anyLoading"
 		@x-clicked="onCancel"
 		body-class="w-11/12 sm:w-3/4 xl:w-1/2 h-3/4"
 	>
@@ -36,10 +38,12 @@
 		header-text="CONFIRM"
 		layer="2"
 		:open="confirmDeleteOpen"
+		:x-disabled="loading.delete"
+		:close-when-bg-clicked="!loading.delete"
 		@x-clicked="confirmDeleteOpen = false"
 		:buttons="[
-			{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmDeleteOpen = false } },
-			{ variant: BTN_VARIANT.DANGER, text: 'DELETE', onClick: confirmDelete },
+			{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmDeleteOpen = false }, disabled: loading.delete },
+			{ variant: BTN_VARIANT.DANGER, text: 'DELETE', onClick: confirmDelete, loading: loading.delete },
 		]"
 	>
 		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
@@ -78,6 +82,11 @@ export default {
 		disabled: {
 			type: Boolean,
 			default: false
+		},
+		// { save: boolean, delete: boolean }
+		loading: {
+			type: Object,
+			default: () => ({ save: false, delete: false })
 		}
 	},
 	emits: ['cancel', 'apply', 'delete'],
@@ -96,13 +105,16 @@ export default {
 			if (this.role?.roleId) return `EDIT ROLE (${this.role.name})`;
 			return 'NEW ROLE';
 		},
+		anyLoading() {
+			return this.loading.save || this.loading.delete;
+		},
 		popupButtons() {
-			const buttons = [{ text: 'CANCEL', variant: BTN_VARIANT.DANGER, onClick: this.onCancel }];
+			const buttons = [{ text: 'CANCEL', variant: BTN_VARIANT.DANGER, onClick: this.onCancel, disabled: this.anyLoading }];
 			if (!this.disabled && this.role?.roleId) {
-				buttons.push({ text: 'DELETE', variant: BTN_VARIANT.DANGER, onClick: this.onDelete });
+				buttons.push({ text: 'DELETE', variant: BTN_VARIANT.DANGER, onClick: this.onDelete, loading: this.loading.delete, disabled: this.anyLoading });
 			}
 			if (!this.disabled) {
-				buttons.push({ text: 'APPLY', variant: BTN_VARIANT.PRIMARY, onClick: this.onApply });
+				buttons.push({ text: 'APPLY', variant: BTN_VARIANT.PRIMARY, onClick: this.onApply, loading: this.loading.save, disabled: this.anyLoading });
 			}
 			return buttons;
 		}
