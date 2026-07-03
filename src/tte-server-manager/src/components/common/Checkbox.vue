@@ -1,12 +1,12 @@
 <template>
 	<div
-		:class="['rounded bg-gray-1 p-0.5', { 'cursor-pointer': !disabled }]"
+		:class="['rounded border-gray-5', effectiveValue ? 'bg-teal-5 border p-0.5' : 'bg-gray-1 border-2 hover:border', { 'cursor-pointer': !disabled },]"
 		@click="input"
 	>
 		<Icon
 			v-if="isChecked"
 			icon="checkmark"
-			color="text-teal-4"
+			color="text-gray-2"
 			class="h-full w-full relative"
 			svgStyle="h-full w-full"
 			:size="null"
