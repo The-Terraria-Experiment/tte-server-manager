@@ -38,6 +38,7 @@
 			title="Custom color"
 		>
 			<Icon v-if="!isCustomActive" icon="plus" size="3" color="text-gray-8" />
+			<Icon v-else icon="edit" size="4" :color="customSwatchContrast" />
 			<input
 				type="color"
 				class="absolute inset-0 h-full w-full opacity-0"
@@ -51,6 +52,7 @@
 </template>
 
 <script>
+import { getContrastTextClass } from '@/util/color.js';
 import Icon from './Icon.vue';
 
 const HEX_PATTERN = /^#[0-9a-f]{6}$/i;
@@ -101,6 +103,9 @@ export default {
 		},
 		customInputValue() {
 			return HEX_PATTERN.test(this.modelValue) ? this.modelValue : '#ffffff';
+		},
+		customSwatchContrast() {
+			return getContrastTextClass(this.modelValue, { light: "text-white-0" });
 		}
 	},
 	methods: {
