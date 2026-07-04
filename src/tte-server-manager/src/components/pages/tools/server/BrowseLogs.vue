@@ -30,7 +30,7 @@
 									@click="timeFilterStartPopupOpen = true"
 									class="bg-blue-0 hover:bg-blue-1 transition-colors duration-100 rounded px-2 py-1 ml-2 text-white-1 cursor-pointer flex items-center"
 								>
-									<p class="mr-2">{{ timeFilterStart || 'forever ago' }}</p>
+									<p class="mr-2">{{ timeFilterStart ? new Date(timeFilterStart).toLocaleString() : 'forever ago' }}</p>
 									<Icon icon="edit" color="text-white-1" size="5" />
 								</div>
 							</div>
@@ -40,7 +40,7 @@
 									@click="timeFilterEndPopupOpen = true"
 									class="bg-blue-0 hover:bg-blue-1 transition-colors duration-100 rounded px-2 py-1 ml-2 text-white-1 cursor-pointer flex items-center"
 								>
-									<p class="mr-2">{{ timeFilterEnd || 'now' }}</p>
+									<p class="mr-2">{{ timeFilterEnd ? new Date(timeFilterEnd).toLocaleString() : 'now' }}</p>
 									<Icon icon="edit" color="text-white-1" size="5" />
 								</div>
 							</div>

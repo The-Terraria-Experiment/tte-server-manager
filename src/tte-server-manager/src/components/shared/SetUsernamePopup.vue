@@ -82,6 +82,7 @@ export default {
 					username: this.updatedUsername
 				});
 				this.setUsernamePopupOpen = false;
+				sessionStorage.clear();
 				this.$alert.success("Display name saved");
 				await this.userStore.loadUser(true);
 				this.updatedUsername = this.userStore.user.displayName;

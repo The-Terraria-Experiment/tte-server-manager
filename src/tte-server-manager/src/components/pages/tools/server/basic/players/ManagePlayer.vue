@@ -14,7 +14,7 @@
 					@click="banStartPickerOpen = true"
 					class="bg-blue-0 hover:bg-blue-1 transition-colors duration-100 rounded px-2 py-1 ml-2 text-white-1 cursor-pointer flex items-center"
 				>
-					<p class="mr-2">{{ manageOptions.banStart || 'now' }}</p> 
+					<p class="mr-2">{{ manageOptions.banStart ? new Date(manageOptions.banStart).toLocaleString() : 'now' }}</p>
 					<Icon icon="edit" color="text-white-1" size="5" />
 				</div>
 			</div>
@@ -23,7 +23,7 @@
 					@click="banEndPickerOpen = true"
 					class="bg-blue-0 hover:bg-blue-1 transition-colors duration-100 rounded px-2 py-1 ml-2 text-white-1 cursor-pointer flex items-center"
 				>
-					<p class="mr-2">{{ manageOptions.banEnd || 'never' }}</p> 
+					<p class="mr-2">{{ manageOptions.banEnd ? new Date(manageOptions.banEnd).toLocaleString() : 'never' }}</p>
 					<Icon icon="edit" color="text-white-1" size="5" />
 				</div>
 			</div>

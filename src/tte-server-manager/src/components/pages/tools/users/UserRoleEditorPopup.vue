@@ -3,8 +3,8 @@
 		:open="open"
 		:header-text="headerText"
 		:buttons="popupButtons"
-		:x-disabled="loading.save"
-		:close-when-bg-clicked="!loading.save"
+		:x-disabled="anyLoading"
+		:close-when-bg-clicked="!anyLoading"
 		@x-clicked="onCancel"
 		body-class="w-11/12 sm:w-3/4 xl:w-1/2 h-3/4"
 	>
@@ -113,6 +113,39 @@
 					/>
 				</template>
 			</div>
+
+			<p class="text-gray-7 text-sm mt-8">Last online: {{ lastOnlineText }}</p>
+			<FlexButton
+				v-if="canDelete"
+				class="mt-2"
+				:variant="BTN_VARIANT.DANGER"
+				leftIcon="trash-can"
+				:loading="loading.delete"
+				:disabled="anyLoading"
+				@input="onDelete"
+			>
+				<p class="py-2 px-8">DELETE USER</p>
+			</FlexButton>
+		</div>
+	</Popup>
+
+	<Popup
+		body-class="h-1/3 w-11/12 sm:w-1/2 lg:w-1/4"
+		header-text="CONFIRM"
+		layer="2"
+		:open="confirmDeleteOpen"
+		:x-disabled="loading.delete"
+		:close-when-bg-clicked="!loading.delete"
+		@x-clicked="confirmDeleteOpen = false"
+		:buttons="[
+			{ variant: BTN_VARIANT.PRIMARY, text: 'CANCEL', onClick: () => { confirmDeleteOpen = false }, disabled: loading.delete },
+			{ variant: BTN_VARIANT.DANGER, text: 'DELETE', onClick: confirmDelete, loading: loading.delete },
+		]"
+	>
+		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
+			<p class="text-white-0 py-2">Are you sure you want to delete this user?</p>
+			<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm text-white-0">{{ user?.displayName || user?.username }}</div>
+			<p class="text-white-0 py-2">This will permanently remove their Cognito account, email, and permissions. This cannot be undone.</p>
 		</div>
 	</Popup>
 </template>
@@ -120,6 +153,7 @@
 <script>
 import Popup from '@/components/common/Popup.vue';
 import Icon from '@/components/common/Icon.vue';
+import FlexButton from '@/components/common/FlexButton.vue';
 import PermissionEditor from './PermissionEditor.vue';
 import ResourcePermissionEditor from './ResourcePermissionEditor.vue';
 import { BTN_VARIANT } from '@/util/constants';
@@ -132,6 +166,7 @@ export default {
 	components: {
 		Popup,
 		Icon,
+		FlexButton,
 		PermissionEditor,
 		ResourcePermissionEditor,
 	},
@@ -154,19 +189,24 @@ export default {
 			type: Boolean,
 			default: false
 		},
-		// { save: boolean }
+		canDelete: {
+			type: Boolean,
+			default: false
+		},
+		// { save: boolean, delete: boolean }
 		loading: {
 			type: Object,
-			default: () => ({ save: false })
+			default: () => ({ save: false, delete: false })
 		}
 	},
-	emits: ['cancel', 'save'],
+	emits: ['cancel', 'save', 'delete'],
 	data() {
 		return {
 			BTN_VARIANT,
 			draftPermissions: [],
 			draftResourceAccess: [],
 			showAdvanced: false,
+			confirmDeleteOpen: false,
 		}
 	},
 	computed: {
@@ -174,12 +214,19 @@ export default {
 			if (!this.user) return '';
 			return `EDIT ROLES (${this.user.displayName || this.user.username})`;
 		},
+		anyLoading() {
+			return this.loading.save || this.loading.delete;
+		},
 		popupButtons() {
-			const buttons = [{ text: 'CANCEL', variant: BTN_VARIANT.DANGER, onClick: this.onCancel, disabled: this.loading.save }];
+			const buttons = [{ text: 'CANCEL', variant: BTN_VARIANT.DANGER, onClick: this.onCancel, disabled: this.anyLoading }];
 			if (!this.disabled) {
-				buttons.push({ text: 'SAVE', variant: BTN_VARIANT.PRIMARY, onClick: this.onSave, loading: this.loading.save, disabled: this.loading.save });
+				buttons.push({ text: 'SAVE', variant: BTN_VARIANT.PRIMARY, onClick: this.onSave, loading: this.loading.save, disabled: this.anyLoading });
 			}
 			return buttons;
+		},
+		lastOnlineText() {
+			if (!this.user?.lastLogin) return 'Never';
+			return new Date(this.user.lastLogin).toLocaleString();
 		},
 		matchedRoles() {
 			return getMatchedRoles(this.draftPermissions, this.draftResourceAccess, this.roles);
@@ -202,6 +249,7 @@ export default {
 			this.draftPermissions = Array.from(this.user?.permissions || []);
 			this.draftResourceAccess = Array.from(this.user?.resourceAccess || []);
 			this.showAdvanced = false;
+			this.confirmDeleteOpen = false;
 		},
 		hasRole(role) {
 			return this.matchedRoles.some(r => r.roleId === role.roleId);
@@ -226,6 +274,13 @@ export default {
 		},
 		onSave() {
 			this.$emit('save', { userID: this.user.userID, permissions: this.draftPermissions, resourceAccess: this.draftResourceAccess });
+		},
+		onDelete() {
+			this.confirmDeleteOpen = true;
+		},
+		confirmDelete() {
+			this.confirmDeleteOpen = false;
+			this.$emit('delete', { userID: this.user.userID });
 		}
 	},
 	watch: {

@@ -33,7 +33,7 @@
 			:open="profilePopupOpen"
 			@xClicked="profilePopupOpen = false"
 			headerText="Profile"
-			bodyClass="w-11/12 md:w-1/4 h-1/2 sm:h-1/3 min-h-60 min-w-80"
+			bodyClass="w-11/12 md:w-1/4 h-1/2 sm:h-1/3 min-h-60 min-w-90"
 		>
 			<div class="w-full h-full flex flex-col justify-between items-center p-4">
 				<div>
@@ -45,31 +45,34 @@
 						{{ userStore.user?.displayName || '<No username>' }}
 					</div>
 				</div>
-				<FlexButton 
-					class="my-4" 
-					:variant="BTN_VARIANT.DANGER"
-					@input="handleSignOut"
-					:disabled="logoutClicked"
-				>
-					<p v-if="!logoutClicked" class="font-main font-bold py-2 px-4 md:px-8">LOG OUT</p>
-					<div v-else class="flex items-center">
-						<Spinner class="h-6 w-6 m-2 text-cream" thickness="4" />
-						<p class="font-main font-bold text-cream">Please wait...</p>
-					</div>
-				</FlexButton>
 
-				<FlexButton 
-					class="my-4" 
-					:variant="BTN_VARIANT.SECONDARY"
-					@input="handleClearCache"
-					:disabled="loadingClearCache"
-				>
-					<p v-if="!loadingClearCache" class="font-main font-bold py-2 px-4 md:px-8">CLEAR CACHE</p>
-					<div v-else class="flex items-center">
-						<Spinner class="h-6 w-6 m-2" thickness="4" />
-						<p class="font-main font-bold">Working...</p>
-					</div>
-				</FlexButton>
+				<div class="flex flex-col-reverse sm:flex-row items-center gap-4 mb-4">
+					<FlexButton
+						class=""
+						:variant="BTN_VARIANT.SECONDARY"
+						@input="handleClearCache"
+						:disabled="loadingClearCache"
+					>
+						<p v-if="!loadingClearCache" class="">CLEAR CACHE</p>
+						<div v-else class="flex items-center">
+							<Spinner class="h-5 w-5 mr-2" thickness="4" />
+							<p class="font-main font-bold">Working...</p>
+						</div>
+					</FlexButton>
+					<FlexButton
+						class=""
+						:variant="BTN_VARIANT.DANGER"
+						@input="handleSignOut"
+						:disabled="logoutClicked"
+					>
+						<p v-if="!logoutClicked" class="font-main font-bold py-2 px-6 md:px-8">LOG OUT</p>
+						<div v-else class="flex items-center px-6 py-2">
+							<Spinner class="h-5 w-5 mr-2 text-cream" thickness="4" />
+							<p class="font-main font-bold text-cream">Please wait...</p>
+						</div>
+					</FlexButton>
+					
+				</div>
 			</div>
 		</Popup>
 
@@ -123,6 +126,7 @@ export default {
 			this.router.push('/login');
 		},
 		async handleSignOut() {
+			sessionStorage.clear();
 			this.logoutClicked = true;
 			await this.userStore.signOut();
 			this.router.push('/');

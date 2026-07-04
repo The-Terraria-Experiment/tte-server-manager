@@ -13,6 +13,7 @@ interface PermissionEntry {
 	uid?: string;
 	username?: string;
 	displayName?: string;
+	lastLogin?: string;
 }
 
 export const readPermissions = async (event: AuthorizedEvent, context: Context) => {
@@ -26,6 +27,7 @@ export const readPermissions = async (event: AuthorizedEvent, context: Context) 
 		userID: entry.uid,
 		username: entry.username,
 		displayName: entry.displayName,
+		lastLogin: entry.lastLogin,
 	}));
 
 	await CWLogger.Action(FUNC_NAMES.USER_MGR, {

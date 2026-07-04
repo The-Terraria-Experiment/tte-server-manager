@@ -16,14 +16,18 @@ export const auth = defineAuth({
 			callbackUrls: [
 				'http://localhost:5173/',
 				'https://server.terrariaexperiment.click/',
+				'https://server.theterrariaexperiment.com/',
 				'https://stg-server.terrariaexperiment.click/',
+				'https://stg-server.theterrariaexperiment.com/',
 				'https://stg-server.terrariaexperiment.click/oauth2/idpresponse',
 				'https://sm.auth.terrariaexperiment.click/oauth2/idpresponse'
 			],
 			logoutUrls: [
 				'http://localhost:5173/',
 				'https://server.terrariaexperiment.click/',
-				'https://stg-server.terrariaexperiment.click/'
+				'https://server.theterrariaexperiment.com/',
+				'https://stg-server.terrariaexperiment.click/',
+				'https://stg-server.theterrariaexperiment.com/'
 			],
 		},
 	},

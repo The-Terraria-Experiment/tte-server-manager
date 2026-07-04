@@ -26,9 +26,11 @@
 					:user="editingUser"
 					:roles="roles"
 					:disabled="!userStore.hasPermission(PERMISSIONS.users.permissions.write)"
-					:loading="{ save: loading.save }"
+					:canDelete="canDeleteUser(editingUser)"
+					:loading="{ save: loading.save, delete: loading.delete }"
 					@cancel="editingUser = null"
 					@save="onSavePermissionEdit"
+					@delete="onDeleteUser"
 				/>
 
 				<FuzzyMatchSearch
@@ -40,11 +42,11 @@
 					sortResults
 				/>
 
-				<div class="flex flex-col gap-1 px-4 pb-4">
+				<div class="flex flex-col px-4 pb-4">
 					<div
 						v-for="(user, idx) of filteredUserData"
 						:key="user.userID"
-						:class="['flex flex-row items-center gap-2 sm:gap-4 p-3 rounded cursor-pointer hover:bg-gray-5', idx%2 ? 'bg-gray-3' : 'bg-gray-4']"
+						:class="['flex flex-row items-center gap-2 sm:gap-4 p-2 rounded cursor-pointer hover:bg-gray-5', idx%2 ? 'bg-gray-3' : 'bg-gray-4']"
 						@click="openRoleEditor(user)"
 					>
 						<p class="font-mono font-semibold text-cream text-nowrap truncate min-w-0 flex-1 sm:w-1/4 sm:flex-none sm:shrink-0">{{ user.displayName || user.username }}</p>
@@ -153,6 +155,13 @@ export default {
 		openRoleEditor(user) {
 			this.editingUser = user;
 		},
+		canDeleteUser(user) {
+			if (!user) return false;
+			if (!this.userStore.hasPermission(PERMISSIONS.users.delete)) return false;
+
+			const ownUid = this.userStore.user?.userId ? `user#${this.userStore.user.userId}` : null;
+			return user.userID !== ownUid;
+		},
 		async onSavePermissionEdit({ userID, permissions, resourceAccess }) {
 			this.$validatePermissions(PERMISSIONS.users.permissions.write);
 
@@ -191,6 +200,26 @@ export default {
 
 			this.$emit("refreshAll");
 			this.loading.save = false;
+		},
+		async onDeleteUser({ userID }) {
+			this.$validatePermissions(PERMISSIONS.users.delete);
+
+			if (this.loading.delete) return;
+			this.loading.delete = true;
+
+			try {
+				await post("/users/delete", PERMISSIONS.users.delete, { userID });
+				this.$alert.success("User deleted");
+				this.editingUser = null;
+			} catch (e) {
+				this.$alert.error("Error deleting user");
+				console.error(e);
+				this.loading.delete = false;
+				return;
+			}
+
+			this.$emit("refreshAll");
+			this.loading.delete = false;
 		},
 		async dropUserPermCache() {
 			this.$validatePermissions(PERMISSIONS.system.dropcache);

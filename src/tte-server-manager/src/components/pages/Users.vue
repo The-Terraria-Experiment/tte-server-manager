@@ -32,6 +32,7 @@ export default {
 			loading: {
 				permissions: false,
 				save: false,
+				delete: false,
 			},
 			PERMISSIONS,
 			BTN_VARIANT,

@@ -60,6 +60,7 @@ export const PermissionsMeta = {
 	},
 	users: {
 		list: {value: "users.list", description: "", used: false},
+		delete: {value: "users.delete", description: pfx + "delete other user accounts"},
 		permissions: {
 			read: {value: "users.permissions.read", description: pfx + "view the permissions granted to each site user"},
 			write: {value: "users.permissions.write", description: pfx + "edit permissions for site users"},
