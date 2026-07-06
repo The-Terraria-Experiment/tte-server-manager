@@ -54,11 +54,10 @@ export const auth = defineAuth({
 		email: {
 			required: true,
 		},
-		"custom:patreon_tiers": {
-			dataType: "String",
-			mutable: true,
-			maxLen: 256,
-		},
+		// custom:patreon_tiers already exists on the deployed User Pool (added in an earlier
+		// deploy attempt). Cognito does not support modifying an existing schema attribute via
+		// CloudFormation, so it's intentionally left undeclared here to avoid re-triggering that
+		// failure; the OIDC attributeMapping below still references it by name.
 	},
 	accountRecovery: "EMAIL_ONLY",
 });
