@@ -129,7 +129,7 @@ export const callback = async (event: APIGatewayProxyEvent, context: Context): P
 		if (relayPayload.mode === "federation") {
 			const failureUrl = new URL(relayPayload.cognitoRedirectUri);
 			failureUrl.searchParams.set("error", "access_denied");
-			failureUrl.searchParams.set("error_description", emailUnverified ? "patreon_email_unverified" : "link_failed");
+			failureUrl.searchParams.set("error_description", emailUnverified ? "patreon_email_unverified" : "sign_in_failed");
 			failureUrl.searchParams.set("state", relayPayload.cognitoState);
 			return redirectTo(failureUrl.toString());
 		}
