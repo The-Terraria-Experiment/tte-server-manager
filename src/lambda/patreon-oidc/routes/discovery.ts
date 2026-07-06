@@ -18,6 +18,7 @@ export const discovery = async (event: APIGatewayProxyEvent, context: Context): 
 		jwks_uri: `${issuer}/jwks`,
 		userinfo_endpoint: `${issuer}/userinfo`,
 		response_types_supported: ["code"],
+		token_endpoint_auth_methods_supported: ["client_secret_post", "client_secret_basic"],
 		subject_types_supported: ["public"],
 		id_token_signing_alg_values_supported: ["RS256"],
 		scopes_supported: ["openid", "email"],

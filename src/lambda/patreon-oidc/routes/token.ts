@@ -23,18 +23,29 @@ function safeEqual(a: string, b: string): boolean {
 	return timingSafeEqual(bufA, bufB);
 }
 
-function parseClientCredentials(event: APIGatewayProxyEvent): ClientCredentials | null {
+/**
+ * Cognito authenticates to this endpoint with either client_secret_basic (Authorization header)
+ * or client_secret_post (client_id/client_secret as body params) depending on its own defaults -
+ * observed in practice to use the body form here - so both must be accepted.
+ */
+function parseClientCredentials(event: APIGatewayProxyEvent, body: URLSearchParams): ClientCredentials | null {
 	const authHeader = event.headers?.authorization || event.headers?.Authorization;
-	if (!authHeader?.startsWith("Basic ")) return null;
+	if (authHeader?.startsWith("Basic ")) {
+		const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf8");
+		const separatorIndex = decoded.indexOf(":");
+		if (separatorIndex === -1) return null;
 
-	const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf8");
-	const separatorIndex = decoded.indexOf(":");
-	if (separatorIndex === -1) return null;
+		return {
+			clientId: decoded.slice(0, separatorIndex),
+			clientSecret: decoded.slice(separatorIndex + 1),
+		};
+	}
 
-	return {
-		clientId: decoded.slice(0, separatorIndex),
-		clientSecret: decoded.slice(separatorIndex + 1),
-	};
+	const clientId = body.get("client_id");
+	const clientSecret = body.get("client_secret");
+	if (!clientId || !clientSecret) return null;
+
+	return { clientId, clientSecret };
 }
 
 async function verifyClientCredentials(creds: ClientCredentials): Promise<boolean> {
@@ -51,12 +62,12 @@ async function verifyClientCredentials(creds: ClientCredentials): Promise<boolea
 export const token = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	void context;
 
-	const creds = parseClientCredentials(event);
+	const body = new URLSearchParams(event.body || "");
+	const creds = parseClientCredentials(event, body);
 	if (!creds || !(await verifyClientCredentials(creds))) {
 		return ResponseUtil.Error("Invalid client credentials", 401, "INVALID_CLIENT");
 	}
 
-	const body = new URLSearchParams(event.body || "");
 	const grantType = body.get("grant_type");
 	const code = body.get("code");
 
