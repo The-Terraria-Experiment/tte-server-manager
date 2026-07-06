@@ -42,9 +42,14 @@ export async function consumeCode(code: string): Promise<EphemeralIdentity | nul
 		return null;
 	}
 
+	// "consumed" is a reserved word in DynamoDB expression syntax, so the condition must
+	// reference it through a placeholder rather than as a raw attribute name - otherwise every
+	// call throws ValidationException, which UpdateItem swallows and reports as "already used".
 	const consumed = await DB.UpdateItem(PATREON_CODE_TABLE, key, {
-		updates: { consumed: true },
-		ConditionExpression: "attribute_not_exists(consumed)",
+		UpdateExpression: "SET #consumed = :consumed",
+		ExpressionAttributeNames: { "#consumed": "consumed" },
+		ExpressionAttributeValues: { ":consumed": true },
+		ConditionExpression: "attribute_not_exists(#consumed)",
 	});
 
 	if (!consumed) {
