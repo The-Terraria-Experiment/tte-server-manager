@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full flex flex-col gap-4 sm:gap-8">
+	<div class="w-full flex flex-col gap-2">
 		<StatusTile 
 			:perm-required="PERMISSIONS.system.notice.create"
 			:loading="noticeSaving"
