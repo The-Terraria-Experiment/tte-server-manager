@@ -16,6 +16,18 @@ function redirectTo(location: string): APIGatewayProxyResult {
 	return { statusCode: 302, headers: { Location: location }, body: "" };
 }
 
+/**
+ * Per Patreon's integration requirements, a patron with an unverified Patreon email must never
+ * be allowed to sign up, log in, or link via Patreon - thrown before any Cognito call is made,
+ * for both the federation and manual-link modes.
+ */
+class PatreonEmailUnverifiedError extends Error {
+	constructor() {
+		super("Patreon email is not verified");
+		this.name = "PatreonEmailUnverifiedError";
+	}
+}
+
 export const callback = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	void context;
 
@@ -64,6 +76,10 @@ export const callback = async (event: APIGatewayProxyEvent, context: Context): P
 		);
 		const identity = await fetchPatreonIdentity(accessToken);
 
+		if (!identity.email || !identity.emailVerified) {
+			throw new PatreonEmailUnverifiedError();
+		}
+
 		if (relayPayload.mode === "federation") {
 			const opaqueCode = await createCode({
 				patreonUserId: identity.patreonUserId,
@@ -108,13 +124,17 @@ export const callback = async (event: APIGatewayProxyEvent, context: Context): P
 			stack: error instanceof Error ? error.stack : undefined,
 		});
 
+		const emailUnverified = error instanceof PatreonEmailUnverifiedError;
+
 		if (relayPayload.mode === "federation") {
 			const failureUrl = new URL(relayPayload.cognitoRedirectUri);
 			failureUrl.searchParams.set("error", "access_denied");
+			failureUrl.searchParams.set("error_description", emailUnverified ? "patreon_email_unverified" : "link_failed");
 			failureUrl.searchParams.set("state", relayPayload.cognitoState);
 			return redirectTo(failureUrl.toString());
 		}
 
-		return redirectTo(`${PATREON_LINK_APP_ORIGIN || ""}/overview?patreonLinked=false`);
+		const reason = emailUnverified ? "&reason=patreon_email_unverified" : "";
+		return redirectTo(`${PATREON_LINK_APP_ORIGIN || ""}/overview?patreonLinked=false${reason}`);
 	}
 };

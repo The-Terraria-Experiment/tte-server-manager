@@ -60,7 +60,7 @@ interface PatreonIdentityResponse {
 export async function fetchPatreonIdentity(accessToken: string): Promise<PatreonIdentity> {
 	const url = new URL("https://www.patreon.com/api/oauth2/v2/identity");
 	url.searchParams.set("include", "memberships.currently_entitled_tiers");
-	url.searchParams.set("fields[user]", "email");
+	url.searchParams.set("fields[user]", "email,is_email_verified");
 
 	const response = await fetch(url, {
 		headers: { Authorization: `Bearer ${accessToken}` },
@@ -81,10 +81,9 @@ export async function fetchPatreonIdentity(accessToken: string): Promise<Patreon
 	return {
 		patreonUserId: data.data.id,
 		email,
-		// Patreon's identity endpoint doesn't expose a separate "verified" flag - it only
-		// returns the user's own account email at all when the app is approved for the
-		// identity[email] scope, so presence here is treated as verified.
-		emailVerified: Boolean(email),
+		// Per Patreon's own integration guidance, `is_email_verified` must be checked explicitly -
+		// merely having an email present does not mean the patron has confirmed it at Patreon.
+		emailVerified: Boolean(data.data.attributes?.is_email_verified),
 		tierIds,
 	};
 }

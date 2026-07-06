@@ -168,11 +168,13 @@ export default {
 			this.$alert.success("Patreon account linked");
 			sessionStorage.clear();
 			await this.userStore.loadUser(true);
+		} else if (this.$route.query.reason === "patreon_email_unverified") {
+			this.$alert.error("Your Patreon email must be verified at Patreon before you can sign in or link with it");
 		} else {
 			this.$alert.error("Failed to link Patreon account");
 		}
 
-		const { patreonLinked: _omit, ...rest } = this.$route.query;
+		const { patreonLinked: _omit, reason: _omit2, ...rest } = this.$route.query;
 		this.$router.replace({ query: rest });
 	}
 }

@@ -18,6 +18,20 @@ import type { PatreonTierMapEntry, RoleEntry } from "./shared/schema/SystemTable
 
 type CognitoTriggerEvent = PreSignUpTriggerEvent | PostConfirmationTriggerEvent;
 
+/**
+ * Thrown (not swallowed) when a federated signup collides with an existing account whose own
+ * email isn't verified. Auto-linking here would let anyone who merely controls a Patreon/Google
+ * account claiming this email hijack the existing, unverified account - Cognito's PreSignUp
+ * contract treats a thrown error as a rejected signup, which forces the user to log into the
+ * existing account first and use the manual "Link" action instead.
+ */
+class SignUpBlockedError extends Error {
+	constructor(email: string) {
+		super(`An account already exists for ${email}. Log in to that account and use "Link Patreon account" instead.`);
+		this.name = "SignUpBlockedError";
+	}
+}
+
 function getErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
 		return error.message;
@@ -131,9 +145,13 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 		}
 
 		const existingUser = await new CognitoDao().FindUserByEmail(event.userPoolId, email);
-		if (!existingUser || !existingUser.emailVerified) {
-			// No safe, unambiguous match with a verified email on both sides - proceed as a normal signup.
+		if (!existingUser) {
+			// No matching account - safe to proceed as a normal new signup.
 			return event;
+		}
+
+		if (!existingUser.emailVerified) {
+			throw new SignUpBlockedError(email);
 		}
 
 		const linked = await new CognitoDao().AdminLinkProviderForUser(
@@ -157,8 +175,12 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 
 		return event;
 	} catch (error) {
+		if (error instanceof SignUpBlockedError) {
+			throw error;
+		}
+
 		console.error("Error in PreSignUp handler:", getErrorMessage(error));
-		// Never block signup on a linking failure - fall through to normal account creation.
+		// Never block signup on an unexpected linking failure - fall through to normal account creation.
 		return event;
 	}
 }
