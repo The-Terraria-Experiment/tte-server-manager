@@ -1,13 +1,14 @@
 {
-  "name": "user-manager",
+  "name": "patreon-oidc",
   "version": "1.0.0",
-  "description": "User and permissions management Lambda",
+  "description": "OIDC shim exposing Patreon OAuth2 as a Cognito-compatible external identity provider",
   "type": "module",
   "main": "index.js",
   "dependencies": {
     "@aws-sdk/client-cognito-identity-provider": "^3.0.0",
     "@aws-sdk/client-dynamodb": "^3.0.0",
     "@aws-sdk/client-secrets-manager": "^3.0.0",
-    "@aws-sdk/lib-dynamodb": "^3.0.0"
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "jose": "^5.9.6"
   }
 }

@@ -58,6 +58,8 @@
 			<p class="font-main font-semibold text-white-0 mt-4">Thank you!</p>
 		</div>
 
+		<LinkPatreonCard />
+
 		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
 			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">Usage Guide</h1>
 
@@ -89,6 +91,7 @@ import Icon from '../common/Icon.vue';
 import LargeTextInput from '../common/LargeTextInput.vue';
 import Spinner from '../common/Spinner.vue';
 import ValueInput from '../common/ValueInput.vue';
+import LinkPatreonCard from '../shared/LinkPatreonCard.vue';
 
 
 export default {
@@ -100,6 +103,7 @@ export default {
 		ValueInput,
 		LargeTextInput,
 		Checkbox,
+		LinkPatreonCard,
 	},
 	props: {
 
@@ -157,6 +161,19 @@ export default {
 		"baseStore.globalNotice": function (value) {
 			this.announcement = value;
 		}
+	},
+	mounted() {
+		const patreonLinked = this.$route.query.patreonLinked;
+		if (patreonLinked === undefined) return;
+
+		if (patreonLinked === "true") {
+			this.$alert.success("Patreon account linked");
+		} else {
+			this.$alert.error("Failed to link Patreon account");
+		}
+
+		const { patreonLinked: _omit, ...rest } = this.$route.query;
+		this.$router.replace({ query: rest });
 	}
 }
 </script>

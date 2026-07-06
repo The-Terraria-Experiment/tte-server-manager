@@ -1,14 +1,22 @@
 /**
  * Cognito-Dynamo link Lambda
- * Adds users to Dynamo once they have registered
- * Triggered by Cognito PostConfirmation hook
+ * - PreSignUp (external providers only): merges a new federated sign-in (e.g. Patreon)
+ *   into an existing account when both the incoming and existing email are verified,
+ *   instead of letting Cognito create a duplicate user.
+ * - PostConfirmation: adds users to Dynamo once they have registered, seeding
+ *   permissions from a matched Patreon tier->role mapping when present.
  */
 
-import type { Context, PostConfirmationTriggerEvent } from "aws-lambda";
+import type { Context, PostConfirmationTriggerEvent, PreSignUpTriggerEvent } from "aws-lambda";
 import { DynamoDao } from "./shared/aws/DynamoDB.js";
+import { CognitoDao } from "./shared/aws/Cognito.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "./shared/constants.js";
+import { PATREON_TIERMAP_KEY_PREFIX, ROLE_KEY_PREFIX, SYSTEM_TABLE } from "./shared/vars.js";
+import type { PatreonTierMapEntry, RoleEntry } from "./shared/schema/SystemTable.js";
+
+type CognitoTriggerEvent = PreSignUpTriggerEvent | PostConfirmationTriggerEvent;
 
 function getErrorMessage(error: unknown): string {
 	if (error instanceof Error) {
@@ -18,7 +26,7 @@ function getErrorMessage(error: unknown): string {
 	return String(error);
 }
 
-function getUserSub(event: PostConfirmationTriggerEvent): string | null {
+function getUserSub(event: CognitoTriggerEvent): string | null {
 	return event.request.userAttributes?.sub || null;
 }
 
@@ -44,13 +52,100 @@ function resolvePermTableFromUserPool(userPoolId?: string | null): string | null
 	return null;
 }
 
-export const handler = async (
-	event: PostConfirmationTriggerEvent,
-	context: Context,
-): Promise<PostConfirmationTriggerEvent> => {
-	void context;
+/**
+ * Resolves the union of permissions/resourceAccess for a set of Patreon tier IDs,
+ * by following each tier's mapped role. Missing/unmapped tiers are silently skipped -
+ * this only ever adds bonus grants on top of the default signup permissions.
+ */
+async function resolveGrantsFromTierIds(
+	tierIds: string[],
+): Promise<{ permissions: string[]; resourceAccess: string[] }> {
+	const DB = new DynamoDao();
+	const permissions = new Set<string>();
+	const resourceAccess = new Set<string>();
 
-	console.log("Cognito User Link - PostConfirmation:", JSON.stringify(event, null, 2));
+	for (const tierId of tierIds) {
+		const tierEntry = (await DB.GetItem(
+			SYSTEM_TABLE,
+			`${PATREON_TIERMAP_KEY_PREFIX}${tierId}`,
+		)) as PatreonTierMapEntry | null;
+
+		if (!tierEntry?.roleId) continue;
+
+		const roleEntry = (await DB.GetItem(SYSTEM_TABLE, `${ROLE_KEY_PREFIX}${tierEntry.roleId}`)) as RoleEntry | null;
+		if (!roleEntry) continue;
+
+		(roleEntry.permissions || []).forEach((p) => permissions.add(p));
+		(roleEntry.resourceAccess || []).forEach((r) => resourceAccess.add(r));
+	}
+
+	return { permissions: [...permissions], resourceAccess: [...resourceAccess] };
+}
+
+/**
+ * Splits a Cognito federated username (format `<ProviderName>_<ProviderUserId>`)
+ * into its parts. Returns null if the username doesn't look federated (e.g. a
+ * native email/password user), since those can't be a link source.
+ */
+function splitFederatedUsername(username: string): { providerName: string; providerUserId: string } | null {
+	const separatorIndex = username.indexOf("_");
+	if (separatorIndex <= 0 || separatorIndex === username.length - 1) {
+		return null;
+	}
+
+	return {
+		providerName: username.slice(0, separatorIndex),
+		providerUserId: username.slice(separatorIndex + 1),
+	};
+}
+
+async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpTriggerEvent> {
+	try {
+		const { email, email_verified: incomingEmailVerified } = event.request.userAttributes;
+
+		if (!email || incomingEmailVerified !== "true") {
+			return event;
+		}
+
+		const sourceIdentity = splitFederatedUsername(event.userName);
+		if (!sourceIdentity) {
+			return event;
+		}
+
+		const existingUser = await new CognitoDao().FindUserByEmail(event.userPoolId, email);
+		if (!existingUser || !existingUser.emailVerified) {
+			// No safe, unambiguous match with a verified email on both sides - proceed as a normal signup.
+			return event;
+		}
+
+		const linked = await new CognitoDao().AdminLinkProviderForUser(
+			event.userPoolId,
+			existingUser.username,
+			sourceIdentity.providerName,
+			sourceIdentity.providerUserId,
+		);
+
+		if (linked) {
+			event.response.autoConfirmUser = true;
+			event.response.autoVerifyEmail = true;
+
+			await CWLogger.Action(FUNC_NAMES.COG_LINK, {
+				userId: existingUser.sub,
+				action: "account-link",
+				resource: event.userPoolId,
+				details: { provider: sourceIdentity.providerName },
+			});
+		}
+
+		return event;
+	} catch (error) {
+		console.error("Error in PreSignUp handler:", getErrorMessage(error));
+		// Never block signup on a linking failure - fall through to normal account creation.
+		return event;
+	}
+}
+
+async function handlePostConfirmation(event: PostConfirmationTriggerEvent): Promise<PostConfirmationTriggerEvent> {
 	const resolvedPermTable = resolvePermTableFromUserPool(event?.userPoolId);
 
 	if (!resolvedPermTable) {
@@ -84,6 +179,17 @@ export const handler = async (
 		const { sub, email } = event.request.userAttributes;
 		const username = event.userName;
 
+		const permissions = new Set<string>([PERMISSIONS.access]);
+		const resourceAccess = new Set<string>();
+
+		const tierIdsRaw = event.request.userAttributes["custom:patreon_tiers"];
+		if (tierIdsRaw) {
+			const tierIds = tierIdsRaw.split(",").map((t) => t.trim()).filter(Boolean);
+			const grants = await resolveGrantsFromTierIds(tierIds);
+			grants.permissions.forEach((p) => permissions.add(p));
+			grants.resourceAccess.forEach((r) => resourceAccess.add(r));
+		}
+
 		// Create user record for DynamoDB
 		const userRecord = {
 			uid: `user#${sub}`,
@@ -91,8 +197,8 @@ export const handler = async (
 			username,
 			displayName: "", // user_xxxx: `User_${Math.floor(Math.random() * 9999).toString().padStart(4, "0")}`
 			email,
-			permissions: [PERMISSIONS.access], // Default role; admins can grant additional roles later,
-			resourceAccess: [],
+			permissions: [...permissions], // Default role; admins can grant additional roles later,
+			resourceAccess: [...resourceAccess],
 			createdAt: new Date().toISOString(),
 			lastLogin: new Date().toISOString(),
 		};
@@ -131,4 +237,24 @@ export const handler = async (
 		// Admin can manually add user to Dynamo if needed
 		return event;
 	}
+}
+
+export const handler = async (
+	event: CognitoTriggerEvent,
+	context: Context,
+): Promise<CognitoTriggerEvent> => {
+	void context;
+
+	console.log(`Cognito User Link - ${event.triggerSource}:`, JSON.stringify(event, null, 2));
+
+	if (event.triggerSource === "PreSignUp_ExternalProvider") {
+		return handlePreSignUp(event as PreSignUpTriggerEvent);
+	}
+
+	if (event.triggerSource.startsWith("PostConfirmation")) {
+		return handlePostConfirmation(event as PostConfirmationTriggerEvent);
+	}
+
+	// Any other PreSignUp trigger source (native signup, admin create, etc.) - no linking to do.
+	return event;
 };

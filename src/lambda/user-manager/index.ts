@@ -15,6 +15,7 @@ import { writeResourcePermissions } from "./actions/writeResourcePermissions.js"
 import { setUsername } from "./actions/setUsername.js";
 import { dropcache } from "./actions/dropcache.js";
 import { deleteUser } from "./actions/deleteUser.js";
+import { patreonLinkStart } from "./actions/patreonLinkStart.js";
 
 const endpoints: EndpointList = {
 	"GET /users": {
@@ -52,6 +53,10 @@ const endpoints: EndpointList = {
 	"POST /users/delete": {
 		action: deleteUser,
 		permRequired: PERMISSIONS.users.delete
+	},
+	"POST /users/patreon/link-start": {
+		action: patreonLinkStart,
+		permRequired: PERMISSIONS.access
 	}
 }
 
