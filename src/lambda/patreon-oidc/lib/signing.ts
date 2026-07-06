@@ -22,7 +22,15 @@ async function loadSigningKey(): Promise<SigningKeySecret> {
 		throw new Error("Signing key secret not found");
 	}
 
-	cachedKey = JSON.parse(raw) as SigningKeySecret;
+	const parsed = JSON.parse(raw) as SigningKeySecret;
+	// The secret is entered by hand in the AWS console, where literal "\n" escape
+	// sequences are easy to paste instead of real line breaks - normalize either form
+	// so the PEM body decodes correctly regardless of how it was typed in.
+	cachedKey = {
+		...parsed,
+		privateKey: parsed.privateKey.replace(/\\n/g, "\n"),
+		publicKey: parsed.publicKey.replace(/\\n/g, "\n"),
+	};
 	return cachedKey;
 }
 
