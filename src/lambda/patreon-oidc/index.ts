@@ -30,7 +30,10 @@ const routes: Record<string, RouteHandler> = {
 
 const h = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	const { httpMethod, resource } = event;
-	const routeKey = `${httpMethod} ${resource}`;
+	// API Gateway mounts this shim's routes under /auth/patreon/* within the shared REST API
+	// rather than at its own root, so the matched resource template carries that prefix.
+	const routePath = resource.replace(/^\/auth\/patreon/, "") || "/";
+	const routeKey = `${httpMethod} ${routePath}`;
 
 	await CWLogger.Action(FUNC_NAMES.PATREON_OIDC, {
 		action: "invoke",
