@@ -12,6 +12,13 @@ export const auth = defineAuth({
 				clientId: secret("GOOGLE_CLIENT_ID"),
 				clientSecret: secret("GOOGLE_CLIENT_SECRET"),
 				scopes: ['openid', 'email', 'profile'],
+				// Without this, Cognito never pulls Google's real email_verified claim and every
+				// Google-federated user ends up with email_verified: false, which blocks the
+				// automatic Patreon<->Google account merge in cognito-user-link/index.ts.
+				attributeMapping: {
+					email: "email",
+					emailVerified: "email_verified",
+				},
 			},
 			oidc: [
 				{
