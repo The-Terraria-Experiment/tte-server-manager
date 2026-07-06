@@ -1,4 +1,4 @@
-import { SignJWT, exportJWK, importPKCS8, importSPKI } from "jose";
+import { SignJWT, exportJWK, importPKCS8, importSPKI, jwtVerify } from "jose";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 
 interface SigningKeySecret {
@@ -52,6 +52,63 @@ export async function signIdToken(claims: IdTokenClaims): Promise<string> {
 		.setIssuedAt(now)
 		.setExpirationTime(now + 3600)
 		.sign(privateKey);
+}
+
+export interface AccessTokenClaims {
+	sub: string;
+	email: string | null;
+	emailVerified: boolean;
+	tierIds: string[];
+	issuer: string;
+}
+
+/**
+ * Cognito calls the userinfo endpoint with this token as a Bearer credential, so unlike the
+ * id_token it needs no audience - it's presented back to us, not to Cognito's own JWT verifier.
+ */
+export async function signAccessToken(claims: AccessTokenClaims): Promise<string> {
+	const key = await loadSigningKey();
+	const privateKey = await importPKCS8(key.privateKey, "RS256");
+	const now = Math.floor(Date.now() / 1000);
+
+	return new SignJWT({
+		email: claims.email,
+		email_verified: claims.emailVerified,
+		patreon_tier_ids: claims.tierIds.join(","),
+	})
+		.setProtectedHeader({ alg: "RS256", kid: key.kid, typ: "at+jwt" })
+		.setSubject(claims.sub)
+		.setIssuer(claims.issuer)
+		.setIssuedAt(now)
+		.setExpirationTime(now + 3600)
+		.sign(privateKey);
+}
+
+export interface VerifiedAccessTokenClaims {
+	sub: string;
+	email: string | null;
+	emailVerified: boolean;
+	tierIds: string[];
+}
+
+export async function verifyAccessToken(token: string): Promise<VerifiedAccessTokenClaims | null> {
+	const key = await loadSigningKey();
+	const publicKey = await importSPKI(key.publicKey, "RS256");
+
+	try {
+		const { payload } = await jwtVerify(token, publicKey);
+		if (!payload.sub) return null;
+
+		const tierIdsClaim = payload.patreon_tier_ids;
+		return {
+			sub: payload.sub,
+			email: (payload.email as string | null | undefined) ?? null,
+			emailVerified: Boolean(payload.email_verified),
+			tierIds: typeof tierIdsClaim === "string" && tierIdsClaim.length > 0 ? tierIdsClaim.split(",") : [],
+		};
+	} catch {
+		return null;
+	}
 }
 
 export async function getPublicJwk(): Promise<Record<string, unknown>> {

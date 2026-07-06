@@ -17,6 +17,7 @@ import { callback } from "./routes/callback.js";
 import { token } from "./routes/token.js";
 import { jwks } from "./routes/jwks.js";
 import { discovery } from "./routes/discovery.js";
+import { userinfo } from "./routes/userinfo.js";
 
 type RouteHandler = (event: APIGatewayProxyEvent, context: Context) => Promise<APIGatewayProxyResult>;
 
@@ -25,6 +26,7 @@ const routes: Record<string, RouteHandler> = {
 	"GET /callback": callback,
 	"POST /token": token,
 	"GET /jwks": jwks,
+	"GET /userinfo": userinfo,
 	"GET /.well-known/openid-configuration": discovery,
 };
 

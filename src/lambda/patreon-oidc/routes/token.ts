@@ -1,10 +1,10 @@
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 import { PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { consumeCode } from "../lib/ephemeralCode.js";
-import { signIdToken } from "../lib/signing.js";
+import { signAccessToken, signIdToken } from "../lib/signing.js";
 
 interface ShimTokenClientCreds {
 	clientId: string;
@@ -74,8 +74,10 @@ export const token = async (event: APIGatewayProxyEvent, context: Context): Prom
 		return ResponseUtil.Error("Patreon OIDC shim is not configured", 500, "CONFIGURATION_ERROR");
 	}
 
+	const sub = `patreon_${identity.patreonUserId}`;
+
 	const idToken = await signIdToken({
-		sub: `patreon_${identity.patreonUserId}`,
+		sub,
 		email: identity.email,
 		emailVerified: identity.emailVerified,
 		tierIds: identity.tierIds,
@@ -83,8 +85,16 @@ export const token = async (event: APIGatewayProxyEvent, context: Context): Prom
 		issuer,
 	});
 
+	const accessToken = await signAccessToken({
+		sub,
+		email: identity.email,
+		emailVerified: identity.emailVerified,
+		tierIds: identity.tierIds,
+		issuer,
+	});
+
 	return ResponseUtil.Success({
-		access_token: randomUUID(),
+		access_token: accessToken,
 		id_token: idToken,
 		token_type: "Bearer",
 		expires_in: 3600,
