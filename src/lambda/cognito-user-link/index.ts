@@ -83,7 +83,7 @@ async function resolveGrantsFromTierIds(
 }
 
 /**
- * Splits a Cognito federated username (format `<ProviderName>_<ProviderUserId>`)
+ * Splits a Cognito federated username (format `<providerName>_<ProviderUserId>`)
  * into its parts. Returns null if the username doesn't look federated (e.g. a
  * native email/password user), since those can't be a link source.
  */
@@ -99,6 +99,19 @@ function splitFederatedUsername(username: string): { providerName: string; provi
 	};
 }
 
+/**
+ * Cognito always lowercases the provider-name portion of the auto-generated federated
+ * username (e.g. "google_123", "patreon_patreon_456"), regardless of the exact case the
+ * identity provider is registered under in the User Pool (seen as "Google"/"Patreon" in
+ * the `identities` attribute). AdminLinkProviderForUser requires an exact, case-sensitive
+ * match against the registered provider name, so the lowercase prefix must be mapped back
+ * to its canonical form or every automatic link attempt silently no-ops.
+ */
+const PROVIDER_NAME_CANONICAL: Record<string, string> = {
+	google: "Google",
+	patreon: "Patreon",
+};
+
 async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpTriggerEvent> {
 	try {
 		const { email, email_verified: incomingEmailVerified } = event.request.userAttributes;
@@ -112,6 +125,11 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 			return event;
 		}
 
+		const canonicalProviderName = PROVIDER_NAME_CANONICAL[sourceIdentity.providerName.toLowerCase()];
+		if (!canonicalProviderName) {
+			return event;
+		}
+
 		const existingUser = await new CognitoDao().FindUserByEmail(event.userPoolId, email);
 		if (!existingUser || !existingUser.emailVerified) {
 			// No safe, unambiguous match with a verified email on both sides - proceed as a normal signup.
@@ -121,7 +139,7 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 		const linked = await new CognitoDao().AdminLinkProviderForUser(
 			event.userPoolId,
 			existingUser.username,
-			sourceIdentity.providerName,
+			canonicalProviderName,
 			sourceIdentity.providerUserId,
 		);
 
@@ -133,7 +151,7 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 				userId: existingUser.sub,
 				action: "account-link",
 				resource: event.userPoolId,
-				details: { provider: sourceIdentity.providerName },
+				details: { provider: canonicalProviderName },
 			});
 		}
 
