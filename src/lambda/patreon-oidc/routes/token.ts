@@ -4,6 +4,7 @@ import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 import { PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { consumeCode } from "../lib/ephemeralCode.js";
+import { toPatreonSub } from "../lib/patreonClient.js";
 import { signAccessToken, signIdToken } from "../lib/signing.js";
 
 interface ShimTokenClientCreds {
@@ -85,7 +86,7 @@ export const token = async (event: APIGatewayProxyEvent, context: Context): Prom
 		return ResponseUtil.Error("Patreon OIDC shim is not configured", 500, "CONFIGURATION_ERROR");
 	}
 
-	const sub = `patreon_${identity.patreonUserId}`;
+	const sub = toPatreonSub(identity.patreonUserId);
 
 	const idToken = await signIdToken({
 		sub,

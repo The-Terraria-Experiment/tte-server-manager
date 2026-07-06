@@ -6,7 +6,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { COGNITO_USER_POOL_ID, PATREON_LINK_APP_ORIGIN, PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { exchangePatreonCode, fetchPatreonIdentity } from "../lib/patreonClient.js";
+import { exchangePatreonCode, fetchPatreonIdentity, toPatreonSub } from "../lib/patreonClient.js";
 import { createCode } from "../lib/ephemeralCode.js";
 import { loadPatreonCreds } from "../lib/patreonCreds.js";
 import type { FederationRelayState, LinkRelayState } from "./relayStateTypes.js";
@@ -86,7 +86,7 @@ export const callback = async (event: APIGatewayProxyEvent, context: Context): P
 			COGNITO_USER_POOL_ID,
 			relayPayload.username,
 			"Patreon",
-			identity.patreonUserId,
+			toPatreonSub(identity.patreonUserId),
 		);
 
 		const appOrigin = PATREON_LINK_APP_ORIGIN;

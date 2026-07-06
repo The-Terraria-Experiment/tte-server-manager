@@ -5,6 +5,17 @@ export interface PatreonIdentity {
 	tierIds: string[];
 }
 
+/**
+ * The `sub` claim token.ts mints for real Patreon federation logins - this is what Cognito
+ * stores as the federated identity's unique subject. The manual-link path (callback.ts) must
+ * use this exact same value as the SourceUser.ProviderAttributeValue in AdminLinkProviderForUser,
+ * or a subsequent real Patreon login won't match the linked identity and Cognito creates a
+ * duplicate user instead.
+ */
+export function toPatreonSub(patreonUserId: string): string {
+	return `patreon_${patreonUserId}`;
+}
+
 interface PatreonTokenResponse {
 	access_token: string;
 }
