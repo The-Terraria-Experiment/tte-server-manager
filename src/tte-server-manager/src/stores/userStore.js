@@ -17,6 +17,8 @@ export const useUserStore = defineStore("userstore", {
 	getters: {
 		isAuthenticated: (state) => !!state.user,
 		username: (state) => state.user?.username || null,
+		isPatreonLinked: (state) =>
+			Boolean(state.accountData?.patreonLinked) || Boolean(state.accountData?.username?.startsWith("Patreon_")),
 		hasPermission: (state) => (permission) => {
 			return state.permissions.includes(permission);
 		},

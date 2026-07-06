@@ -58,8 +58,6 @@
 			<p class="font-main font-semibold text-white-0 mt-4">Thank you!</p>
 		</div>
 
-		<LinkPatreonCard />
-
 		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
 			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">Usage Guide</h1>
 
@@ -82,6 +80,7 @@
 <script>
 import screen from '../../mixins/screen';
 import { useBaseStore } from '../../stores/baseStore';
+import { useUserStore } from '../../stores/userStore';
 import { post } from '../../util/api';
 import { BTN_VARIANT } from '../../util/constants';
 import { PERMISSIONS } from '../../util/permissionValues';
@@ -91,7 +90,6 @@ import Icon from '../common/Icon.vue';
 import LargeTextInput from '../common/LargeTextInput.vue';
 import Spinner from '../common/Spinner.vue';
 import ValueInput from '../common/ValueInput.vue';
-import LinkPatreonCard from '../shared/LinkPatreonCard.vue';
 
 
 export default {
@@ -103,7 +101,6 @@ export default {
 		ValueInput,
 		LargeTextInput,
 		Checkbox,
-		LinkPatreonCard,
 	},
 	props: {
 
@@ -113,6 +110,7 @@ export default {
 			BTN_VARIANT,
 			PERMISSIONS,
 			baseStore: useBaseStore(),
+			userStore: useUserStore(),
 			announcement: "",
 			disableSite: false,
 			noticeSaving: false
@@ -162,12 +160,14 @@ export default {
 			this.announcement = value;
 		}
 	},
-	mounted() {
+	async mounted() {
 		const patreonLinked = this.$route.query.patreonLinked;
 		if (patreonLinked === undefined) return;
 
 		if (patreonLinked === "true") {
 			this.$alert.success("Patreon account linked");
+			sessionStorage.clear();
+			await this.userStore.loadUser(true);
 		} else {
 			this.$alert.error("Failed to link Patreon account");
 		}

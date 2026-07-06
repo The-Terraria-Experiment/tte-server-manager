@@ -3,8 +3,9 @@ import { HmacToken } from "../shared/utils/HmacToken.js";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 import { CognitoDao } from "../shared/aws/Cognito.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
+import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { COGNITO_USER_POOL_ID, PATREON_LINK_APP_ORIGIN, PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
+import { COGNITO_USER_POOL_ID, PATREON_LINK_APP_ORIGIN, PATREON_OIDC_ISSUER_URL, PERM_TABLE } from "../shared/vars.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { exchangePatreonCode, fetchPatreonIdentity, toPatreonSub } from "../lib/patreonClient.js";
 import { createCode } from "../lib/ephemeralCode.js";
@@ -88,6 +89,12 @@ export const callback = async (event: APIGatewayProxyEvent, context: Context): P
 			"Patreon",
 			toPatreonSub(identity.patreonUserId),
 		);
+
+		if (linked) {
+			await new DynamoDao().UpdateItem(PERM_TABLE, `user#${relayPayload.sub}`, {
+				updates: { patreonLinked: true },
+			});
+		}
 
 		const appOrigin = PATREON_LINK_APP_ORIGIN;
 		if (!appOrigin) {
