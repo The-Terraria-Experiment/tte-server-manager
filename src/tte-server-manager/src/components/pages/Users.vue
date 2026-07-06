@@ -1,5 +1,5 @@
 <template>
-	<div class="flex flex-col gap-4 sm:gap-8">
+	<div class="flex flex-col gap-2">
 		<UserPermissions
 			:loading="loading"
 			:allPermissionData="allPermissionData"

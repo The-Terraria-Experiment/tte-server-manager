@@ -6,23 +6,25 @@
 		:x-disabled="anyLoading"
 		:close-when-bg-clicked="!anyLoading"
 		@x-clicked="onCancel"
-		body-class="w-11/12 sm:w-3/4 xl:w-1/2 h-1/2"
+		body-class="w-11/12 sm:w-1/2 xl:w-1/3 h-1/2"
 	>
 		<div class="p-4">
 			<div class="mb-4">
-				<p class="font-bold mb-1">PATREON TIER ID</p>
+				<p class="font-bold mb-1">Patreon Tier ID</p>
 				<ValueInput placeholder="Patreon tier ID" v-model="draftTierId" :disabled="disabled || isEditing" maxlength="40" />
 			</div>
 			<div class="mb-4">
-				<p class="font-bold mb-1">TIER NAME (for reference only)</p>
+				<p class="font-bold mb-1">Tier Name (for reference only)</p>
 				<ValueInput placeholder="e.g. Gold Tier" v-model="draftTierName" :disabled="disabled" maxlength="60" />
 			</div>
 			<div class="mb-4">
-				<p class="font-bold mb-1">GRANTS ROLE</p>
+				<p class="font-bold mb-1">Sign-up Grants Role</p>
 				<Dropdown
 					v-model="draftRoleId"
 					:options="roleOptions"
 					placeholder="Select a role"
+					inputClass="bg-teal-3 text-white-1"
+					iconColor="text-white-1"
 					:disabled="disabled"
 				/>
 			</div>

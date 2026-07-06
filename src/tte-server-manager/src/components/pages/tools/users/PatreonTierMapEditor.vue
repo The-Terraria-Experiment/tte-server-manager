@@ -4,7 +4,7 @@
 		:loading="loading"
 	>
 		<template #header>
-			<Icon icon="file-lines" color="text-gray-6" size="4" />
+			<Icon icon="patreon" color="text-gray-6" size="4" />
 			<p class="text-gray-6 ml-2 text-lg">Patreon Tiers</p>
 		</template>
 		<template #content>
