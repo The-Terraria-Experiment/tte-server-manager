@@ -78,6 +78,11 @@ export default {
 		if (!this.userStore.user.displayName) {
 			this.$refs.namepopup.openPopup();
 		}
+	},
+	mounted() {
+		if (window.location.host.includes("click")) {
+			this.$alert.warning("You are currently using the old site URL, which will be shut down soon. Please go to server.theterrariaexperiment.com instead.", { duration: 0 });
+		}
 	}
 }
 </script>
