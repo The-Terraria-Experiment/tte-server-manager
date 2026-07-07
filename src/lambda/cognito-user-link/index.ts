@@ -165,6 +165,15 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 			event.response.autoConfirmUser = true;
 			event.response.autoVerifyEmail = true;
 
+			if (canonicalProviderName === "Patreon") {
+				const resolvedPermTable = resolvePermTableFromUserPool(event.userPoolId);
+				if (resolvedPermTable) {
+					await new DynamoDao().UpdateItem(resolvedPermTable, `user#${existingUser.sub}`, {
+						updates: { patreonLinked: true },
+					});
+				}
+			}
+
 			await CWLogger.Action(FUNC_NAMES.COG_LINK, {
 				userId: existingUser.sub,
 				action: "account-link",
