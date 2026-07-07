@@ -2,36 +2,41 @@
 	<Popup
 		:open="profilePopupOpen"
 		@xClicked="profilePopupOpen = false"
-		headerText="Profile"
-		bodyClass="w-11/12 md:w-1/4 h-3/5 sm:h-2/5 min-h-72 min-w-90"
+		headerText="Account"
+		bodyClass="w-11/12 md:w-1/3 h-3/5 sm:h-2/5 min-h-72 sm:min-w-100"
 	>
-		<div class="w-full h-full flex flex-col justify-between items-center p-4">
-			<div>
-				<p class="text-gray-6 font-main font-bold text-center mb-2">Display Name</p>
-				<div
-					class="rounded-lg bg-gray-4 py-2 px-4 font-main font-bold text-cream min-w-50 cursor-pointer"
-					@click="$refs.namepopup.openPopup"
-				>
-					{{ userStore.user?.displayName || '<No username>' }}
-				</div>
-			</div>
-
-			<div class="flex flex-col items-center gap-2">
-				<p v-if="userStore.isPatreonLinked" class="font-main font-bold text-sm text-gray-6">
-					Patreon account linked
-				</p>
-				<FlexButton
-					v-else
-					:variant="BTN_VARIANT.SECONDARY"
-					@input="startPatreonLink"
-					:disabled="linkingPatreon"
-				>
-					<p v-if="!linkingPatreon" class="">LINK PATREON ACCOUNT</p>
-					<div v-else class="flex items-center">
-						<Spinner class="h-4 w-4 mr-2" thickness="4" />
-						<p class="font-main font-bold">Working...</p>
+		<div class="w-full h-full flex flex-col justify-between items-center">
+			<div class="flex flex-col w-full gap-2 mt-2">
+				<div class="flex items-center justify-between flex-wrap bg-gray-2 py-2 pl-4 pr-2 mx-2 rounded-lg">
+					<p class="text-white-0 font-main font-bold text-center mr-12">Display Name</p>
+					<div
+						class="rounded-lg bg-gray-4 py-2 px-4 font-main font-bold text-cream min-w-50 cursor-pointer my-2 mr-2 sm:my-0 sm:mr-0"
+						@click="$refs.namepopup.openPopup"
+					>
+						{{ userStore.user?.displayName || '<No username>' }}
 					</div>
-				</FlexButton>
+				</div>
+				<div :class="['flex items-center justify-between flex-wrap bg-gray-2 mx-2 rounded-lg', userStore.isPatreonLinked ? 'p-4' : 'py-2 pl-4 pr-2']">
+					<p class="text-white-0 font-main font-bold text-center">Linked Accounts</p>
+					<div v-if="userStore.isPatreonLinked" class="flex items-center">
+						<Icon icon="patreon" size="5" color="text-[#f96854]" title="Patreon" />
+						<Icon icon="checkmark" size="5" color="text-teal-4" class="ml-2" />
+					</div>
+					<FlexButton
+						v-else
+						class="my-2 mr-2 sm:my-0 sm:mr-0"
+						:variant="BTN_VARIANT.SECONDARY"
+						@input="startPatreonLink"
+						:disabled="linkingPatreon || userStore.isPatreonLinked"
+					>
+						<p v-if="!linkingPatreon" class="">LINK PATREON ACCOUNT</p>
+						<div v-else class="flex items-center">
+							<Spinner class="h-4 w-4 mr-2" thickness="4" />
+							<p class="font-main font-bold">Working...</p>
+						</div>
+					</FlexButton>
+					
+				</div>
 			</div>
 
 			<div class="flex flex-col-reverse sm:flex-row items-center gap-4 mb-4">
