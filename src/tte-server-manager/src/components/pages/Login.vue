@@ -19,19 +19,13 @@
 
 <script setup>
 import { Authenticator } from "@aws-amplify/ui-vue";
-import { Hub } from "aws-amplify/utils";
 import { I18n } from "aws-amplify/utils";
 import "@aws-amplify/ui-vue/styles.css";
-import { onMounted, onUnmounted } from "vue";
+import { onMounted } from "vue";
 import { useUserStore } from "../../stores/userStore";
 import { useRouter } from "vue-router";
-import { useAlerts } from "../../util/alerts";
 import PatreonSignInButton from "../shared/PatreonSignInButton.vue";
 import GoogleSignInButton from "../shared/GoogleSignInButton.vue";
-
-const FEDERATED_SIGN_IN_ERROR_MESSAGES = {
-	patreon_email_unverified: "Your Patreon email must be verified at Patreon before you can sign in with it",
-};
 
 I18n.putVocabulariesForLanguage('en', {
 	'Sign In': "EMAIL LOGIN",
@@ -63,29 +57,15 @@ const formFields = {
 	},
 };
 
-const alerts = useAlerts();
-let unsubscribeHub;
-
 onMounted(async () => {
 	const userStore = useUserStore();
 	const router = useRouter();
-
-	unsubscribeHub = Hub.listen("auth", ({ payload }) => {
-		if (payload.event !== "signInWithRedirect_failure") return;
-
-		const message = payload.data?.error?.message;
-		alerts.error(FEDERATED_SIGN_IN_ERROR_MESSAGES[message] || "Sign in failed. Please try again.");
-	});
 
 	await userStore.loadUser();
 
 	if (userStore.isAuthenticated) {
 		router.push("/");
 	}
-});
-
-onUnmounted(() => {
-	unsubscribeHub?.();
 });
 </script>
 

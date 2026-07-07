@@ -35,7 +35,16 @@ export const callback = async (event: APIGatewayProxyEvent, context: Context): P
 	const relaySecretName = process.env.RELAY_STATE_SECRET_NAME;
 
 	if (!query.state || !relaySecretName) {
-		return ResponseUtil.ValidationError("Missing state");
+		// No state at all means Patreon bounced the user here directly, without ever completing
+		// its own redirect - observed when Patreon's own "verify your email" interstitial gates
+		// authorization before the OAuth dance even starts. There's no relay payload to recover a
+		// Cognito/link target from, but PATREON_LINK_APP_ORIGIN is a fixed, trusted env var (never
+		// derived from this request), so redirecting there is safe even though state is missing.
+		if (!PATREON_LINK_APP_ORIGIN) {
+			return ResponseUtil.ValidationError("Missing state");
+		}
+
+		return redirectTo(`${PATREON_LINK_APP_ORIGIN}/?patreonError=missing_state`);
 	}
 
 	const relaySecret = await new SecretsManagerDao().GetSecret(relaySecretName);
