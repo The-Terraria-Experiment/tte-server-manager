@@ -1,5 +1,5 @@
 <template>
-	<div class="w-full flex flex-col gap-4 sm:gap-8">
+	<div class="w-full flex flex-col gap-2">
 		<StatusTile 
 			:perm-required="PERMISSIONS.system.notice.create"
 			:loading="noticeSaving"
@@ -78,8 +78,10 @@
 </template>
 
 <script>
+import { Hub } from 'aws-amplify/utils';
 import screen from '../../mixins/screen';
 import { useBaseStore } from '../../stores/baseStore';
+import { useUserStore } from '../../stores/userStore';
 import { post } from '../../util/api';
 import { BTN_VARIANT } from '../../util/constants';
 import { PERMISSIONS } from '../../util/permissionValues';
@@ -89,6 +91,13 @@ import Icon from '../common/Icon.vue';
 import LargeTextInput from '../common/LargeTextInput.vue';
 import Spinner from '../common/Spinner.vue';
 import ValueInput from '../common/ValueInput.vue';
+
+// Cognito bounces the browser back to the app's root ("/", which routes here) on completion
+// of every federated sign-in attempt (see amplify/auth/resource.ts callbackUrls) - this is the
+// only place a signInWithRedirect_failure Hub event can actually be caught.
+const FEDERATED_SIGN_IN_ERROR_MESSAGES = {
+	patreon_email_unverified: "Your Patreon email must be verified at Patreon before you can sign in with it",
+};
 
 
 export default {
@@ -109,6 +118,7 @@ export default {
 			BTN_VARIANT,
 			PERMISSIONS,
 			baseStore: useBaseStore(),
+			userStore: useUserStore(),
 			announcement: "",
 			disableSite: false,
 			noticeSaving: false
@@ -157,6 +167,40 @@ export default {
 		"baseStore.globalNotice": function (value) {
 			this.announcement = value;
 		}
+	},
+	async mounted() {
+		this._unsubscribeAuthHub = Hub.listen("auth", ({ payload }) => {
+			if (payload.event !== "signInWithRedirect_failure") return;
+
+			const message = payload.data?.error?.message;
+			this.$alert.error(FEDERATED_SIGN_IN_ERROR_MESSAGES[message] || "Sign in failed. Please try again.");
+		});
+
+		if (this.$route.query.patreonError) {
+			this.$alert.error("Sign in with Patreon failed. Make sure your Patreon email is verified and try again.");
+			const { patreonError, ...rest } = this.$route.query;
+			this.$router.replace({ query: rest });
+			return;
+		}
+
+		const patreonLinked = this.$route.query.patreonLinked;
+		if (patreonLinked === undefined) return;
+
+		if (patreonLinked === "true") {
+			this.$alert.success("Patreon account linked");
+			sessionStorage.clear();
+			await this.userStore.loadUser(true);
+		} else if (this.$route.query.reason === "patreon_email_unverified") {
+			this.$alert.error("Your Patreon email must be verified at Patreon before you can sign in or link with it");
+		} else {
+			this.$alert.error("Failed to link Patreon account");
+		}
+
+		const { patreonLinked: _omit, reason: _omit2, ...rest } = this.$route.query;
+		this.$router.replace({ query: rest });
+	},
+	beforeUnmount() {
+		this._unsubscribeAuthHub?.();
 	}
 }
 </script>

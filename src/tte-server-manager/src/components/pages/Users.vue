@@ -1,5 +1,5 @@
 <template>
-	<div class="flex flex-col gap-4 sm:gap-8">
+	<div class="flex flex-col gap-2">
 		<UserPermissions
 			:loading="loading"
 			:allPermissionData="allPermissionData"
@@ -7,6 +7,8 @@
 		/>
 
 		<RoleEditor />
+
+		<PatreonTierMapEditor />
 	</div>
 </template>
 
@@ -17,11 +19,13 @@ import { PERMISSIONS } from '../../util/permissionValues';
 import { BTN_VARIANT } from '../../util/constants';
 import UserPermissions from './tools/users/UserPermissions.vue';
 import RoleEditor from './tools/users/RoleEditor.vue';
+import PatreonTierMapEditor from './tools/users/PatreonTierMapEditor.vue';
 
 export default {
 	components: {
 		UserPermissions,
 		RoleEditor,
+		PatreonTierMapEditor,
 	},
 	props: {
 

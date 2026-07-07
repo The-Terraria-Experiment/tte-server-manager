@@ -16,6 +16,9 @@ import { cancelAutoShutoff } from "./actions/cancelAutoShutoff.js";
 import { readRoles } from "./actions/readRoles.js";
 import { writeRole } from "./actions/writeRole.js";
 import { deleteRole } from "./actions/deleteRole.js";
+import { readPatreonTierMap } from "./actions/readPatreonTierMap.js";
+import { writePatreonTierMap } from "./actions/writePatreonTierMap.js";
+import { deletePatreonTierMap } from "./actions/deletePatreonTierMap.js";
 
 const endpoints: EndpointList = {
 	"POST /system/postnotice": {
@@ -48,6 +51,18 @@ const endpoints: EndpointList = {
 	},
 	"POST /system/roles/delete": {
 		action: deleteRole,
+		permRequired: PERMISSIONS.users.permissions.write,
+	},
+	"GET /system/patreon/tiermap": {
+		action: readPatreonTierMap,
+		permRequired: PERMISSIONS.users.permissions.read,
+	},
+	"POST /system/patreon/tiermap": {
+		action: writePatreonTierMap,
+		permRequired: PERMISSIONS.users.permissions.write,
+	},
+	"POST /system/patreon/tiermap/delete": {
+		action: deletePatreonTierMap,
 		permRequired: PERMISSIONS.users.permissions.write,
 	},
 };

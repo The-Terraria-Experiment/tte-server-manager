@@ -1,5 +1,6 @@
 import {
 	CloudWatchLogsClient,
+	CreateLogGroupCommand,
 	CreateLogStreamCommand,
 	PutLogEventsCommand,
 	type PutLogEventsCommandOutput,
@@ -30,6 +31,8 @@ export class CWLogger {
 	private static readonly cloudwatchClient = new CloudWatchLogsClient({
 		region: process.env.AWS_REGION || "us-east-2",
 	});
+
+	private static readonly existingGroups = new Set<string>();
 
 	private static readonly existingStreams = new Set<string>();
 
@@ -93,6 +96,18 @@ export class CWLogger {
 		const streamKey = `${logGroupName}/${logStreamName}`;
 
 		try {
+			if (!CWLogger.existingGroups.has(logGroupName)) {
+				try {
+					await CWLogger.sendWithRetry(new CreateLogGroupCommand({ logGroupName }));
+				} catch (error) {
+					const err = error as Error;
+					if (!err.message.includes("ResourceAlreadyExistsException")) {
+						console.error(`Failed to create log group: ${err.message}`);
+					}
+				}
+				CWLogger.existingGroups.add(logGroupName);
+			}
+
 			if (!CWLogger.existingStreams.has(streamKey)) {
 				try {
 					await CWLogger.sendWithRetry(

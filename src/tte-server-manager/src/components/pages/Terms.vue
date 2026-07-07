@@ -17,6 +17,12 @@
 			<li>Your email address</li>
 			<li>Your public Google ID</li>
 		</ul>
+		<p>If you sign in with Patreon, we collect:</p>
+		<ul>
+			<li>Your email address</li>
+			<li>Your Patreon user ID</li>
+			<li>Your Patreon pledge tier</li>
+		</ul>
 		<p>If you sign in with your email and a password, we collect:</p>
 		<ul>
 			<li>Your email address</li>
@@ -39,7 +45,8 @@
 		
 
 		<h2>How we use your personal information</h2>
-		<p>We use your email to log you in. We use the display name to identify you in logs and for assigning permissions.</p>
+		<p>We use your email and provider ID(s) to log you in. We use the display name to identify you in logs and for assigning permissions.
+			We use your Patreon pledge tier to automatically assign access permissions.</p>
 		<p>All logs are kept for a max of 1 month in general, unless we need to hold onto them for security/analysis reasons.</p>
 		<p>We will not sell your personal information.</p>
 

@@ -32,6 +32,7 @@
     "@aws-sdk/s3-request-presigner": "^3.1034.0",
     "bowser": "^2.14.1",
     "fast-xml-parser": "^5.3.6",
+    "jose": "^5.10.0",
     "strnum": "^2.1.2",
     "tslib": "^2.8.1"
   },

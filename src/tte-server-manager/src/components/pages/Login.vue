@@ -1,6 +1,13 @@
 <template>
 	<div class="flex items-center justify-center min-h-screen bg-gray-2">
 		<div class="overflow-hidden w-max rounded-2xl" id="authWrapper">
+			<div class="federated-buttons p-4 pb-0 bg-gray-3">
+				<h2 class="text-center mb-2 text-cream font-main font-bold">SIGN IN WITH PROVIDER</h2>
+				<GoogleSignInButton />
+				<PatreonSignInButton />
+				<div class="m-6"></div>
+				<hr class="amplify-divider amplify-divider--horizontal amplify-divider--small" aria-orientation="horizontal" data-label="or" />
+			</div>
 			<Authenticator :formFields="formFields">
 				<template v-slot="{user}">
 					<!-- This won't be shown because we redirect on auth change -->
@@ -17,9 +24,11 @@ import "@aws-amplify/ui-vue/styles.css";
 import { onMounted } from "vue";
 import { useUserStore } from "../../stores/userStore";
 import { useRouter } from "vue-router";
+import PatreonSignInButton from "../shared/PatreonSignInButton.vue";
+import GoogleSignInButton from "../shared/GoogleSignInButton.vue";
 
 I18n.putVocabulariesForLanguage('en', {
-	'Sign In': "LOGIN",
+	'Sign In': "EMAIL LOGIN",
 	'Create Account': 'REGISTER',
 	'Sign in': 'SIGN IN'
 });
@@ -76,6 +85,9 @@ onMounted(async () => {
 	--amplify-components-tabs-item-active-border-color: transparent;
 	--amplify-components-tabs-item-border-color: transparent;
 	--amplify-components-tabs-border-color: transparent;
+	--amplify-components-tabs-panel-padding-block: var(--amplify-space-xs);
+
+	--amplify-components-authenticator-form-padding: var(--amplify-space-medium);
 
 	--amplify-components-divider-label-background-color: var(--color-gray-3);
 	--amplify-components-divider-label-color: var(--color-gray-7);
@@ -106,6 +118,25 @@ onMounted(async () => {
 
 :deep(.amplify-authenticator__federated-button) {
 	@apply bg-white-1 mb-4;
+}
+
+/* Amplify renders its own (Google-only) federated button + divider inside the
+   sign-in/sign-up forms with no slot to insert Patreon between them and the
+   divider - render our own pair above the form instead and hide Amplify's. */
+:deep(.amplify-authenticator__federated-buttons) {
+	display: none;
+}
+
+.federated-buttons :deep(.amplify-authenticator__federated-button) {
+	width: 100%;
+}
+
+/* Our own divider sits outside [data-amplify-authenticator], so it doesn't pick up
+   the theme overrides set above - restate them here to match. */
+.federated-buttons .amplify-divider {
+	--amplify-components-divider-label-background-color: var(--color-gray-3);
+	--amplify-components-divider-label-color: var(--color-gray-7);
+	--amplify-components-divider-border-color: var(--color-gray-5);
 }
 
 :deep(.amplify-input) {

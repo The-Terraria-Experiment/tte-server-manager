@@ -21,6 +21,15 @@ export type RoleEntry = {
 	updatedAt?: string,
 };
 
+export type PatreonTierMapEntry = {
+	uid?: string,
+	tierId?: string,
+	tierName?: string,
+	roleId?: string,
+	createdAt?: string,
+	updatedAt?: string,
+};
+
 export type AutoShutoffStateEntry = {
 	uid?: string,
 	serverId?: string,
