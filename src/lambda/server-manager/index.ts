@@ -25,6 +25,7 @@ import { readConfig } from "./actions/readConfig.js";
 import { writeConfig } from "./actions/writeConfig.js";
 import { reloadConfig } from "./actions/reloadConfig.js";
 import { dropCache } from "./actions/dropCache.js";
+import { runCommand } from "./actions/runCommand.js";
 
 const endpoints: EndpointList = {
 	// "GET /servers": {
@@ -59,10 +60,10 @@ const endpoints: EndpointList = {
 	// 	action: null,
 	// 	permRequired: PERMISSIONS.server.config.write,
 	// },
-	// "POST /server/{id}/tshock": {
-	// 	action: null,
-	// 	permRequired: PERMISSIONS.server.tshock.execute,
-	// },
+	"POST /server/{id}/tshock/command": {
+		action: runCommand,
+		permRequired: PERMISSIONS.server.tshock.execute,
+	},
 	// "GET /server/{id}/world/list": {
 	// 	action: null,
 	// 	permRequired: PERMISSIONS.server.world.list,
