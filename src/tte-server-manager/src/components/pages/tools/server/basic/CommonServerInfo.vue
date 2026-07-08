@@ -17,7 +17,7 @@
 				<p class="font-main font-bold text-gray-7 px-5">SERVER INFO</p>
 				<div class="grid info-grid font-mono m-4 bg-gray-4 rounded-lg text-white-0">
 					<div class="px-2 py-1">Active World</div>
-					<div class="px-2 py-1">{{ selectedServerData.world ?? "Unknown" }}</div>
+					<div class="px-2 py-1 text-right">{{ selectedServerData.world ?? "Unknown" }}</div>
 					<div class="bg-gray-5 px-2 py-1">Terraria Version</div>
 					<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.serverversion ?? "Unknown" }}</div>
 					<div class="px-2 py-1">TShock Version</div>
