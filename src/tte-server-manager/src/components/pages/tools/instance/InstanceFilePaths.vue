@@ -1,6 +1,5 @@
 <template>
 	<StatusTile 
-		v-if="selectedInstanceData.state === 'ONLINE'"
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.paths.read, PERMISSIONS.instance.files.paths.write]"
 		collapsible
 		class="mt-2"
@@ -30,26 +29,50 @@
 					</div>
 					<template v-for="(entry, i) in updatedPaths">
 						<div class="">
-							<ValueInput placeholder="Path nickname" v-model="entry[0]" />
+							<ValueInput 
+								placeholder="Path nickname" 
+								v-model="entry[0]" 
+								:disabled="!instanceOnline"
+							/>
 						</div>
 						<div class="">
-							<ValueInput placeholder="Path value" v-model="entry[1]" class="w-100"/>
+							<ValueInput 
+								placeholder="Path value" 
+								v-model="entry[1]" 
+								class="w-100"
+								:disabled="!instanceOnline"
+							/>
 						</div>
 						<div class="flex justify-center items-center">
-							<Checkbox class="h-5 w-5" :value="updatedWorldPaths.has(entry[0])" @input="toggleWorldPath(entry[0])" />
+							<Checkbox 
+								class="h-5 w-5" 
+								:value="updatedWorldPaths.has(entry[0])" 
+								@input="toggleWorldPath(entry[0])" 
+								:disabled="!instanceOnline"
+							/>
 						</div>
-						<div class="flex justify-center items-center cursor-pointer">
-							<Icon icon="xmark" size="5" color="text-red-4" :title="`Delete path '${entry[0]}'`" @click="deletePath(i)" />
+						<div :class="['flex justify-center items-center', { 'cursor-pointer': instanceOnline } ]">
+							<Icon 
+								icon="xmark" 
+								size="5" 
+								:color="instanceOnline ? 'text-red-4' : 'text-gray-6'" 
+								:title="`Delete path '${entry[0]}'`" 
+								@click="instanceOnline && deletePath(i)" 
+							/>
 						</div>
 					</template>
 				</div>
 
-				<div class="flex items-center5 mt-4 cursor-pointer bg-gray-5 hover:bg-gray-4 rounded w-max p-2" @click="addNewPath">
+				<div
+					v-if="instanceOnline" 
+					class="flex items-center5 mt-4 cursor-pointer bg-gray-5 hover:bg-gray-4 rounded w-max p-2" 
+					@click="addNewPath"
+				>
 					<Icon icon="plus" size="4" color="text-white-0" />
 					<p class="ml-2 font-main font-semibold text-sm text-white-0">ADD</p>
 				</div>
 
-				<div class="flex justify-end w-full mt-4">
+				<div v-if="instanceOnline" class="flex justify-end w-full mt-4">
 					<FlexButton
 						:variant="BTN_VARIANT.DANGER"
 						@input="initDataHolders"
@@ -106,6 +129,9 @@ export default {
 		},
 		instancePaths() {
 			return this.serverStore.instanceFileRoots[this.selectedInstanceData.id];
+		},
+		instanceOnline() {
+			return this.selectedInstanceData.state === 'ONLINE';
 		}
 	},
 	methods: {

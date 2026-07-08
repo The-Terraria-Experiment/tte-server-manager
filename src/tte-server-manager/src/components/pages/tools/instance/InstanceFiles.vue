@@ -1,6 +1,5 @@
 <template>
 	<StatusTile 
-		v-if="selectedInstanceData.state === 'ONLINE'"
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
 		collapsible
 		class="mt-2"
@@ -14,6 +13,7 @@
 		</template>
 		<template #content>
 			<FlexButton 
+				v-if="selectedInstanceData.state === 'ONLINE'"
 				class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 mt-4 ml-4" 
 				@input="syncInstanceFiles(selectedInstanceData.id)"
 				:disabled="loading.fileUpload"
@@ -24,6 +24,7 @@
 					<p class="text-teal-3 ml-2 font-main font-bold">RESYNC FILES</p>
 				</div>
 			</FlexButton>
+			<p v-else class="italic text-gray-6 mx-4">Launch the instance to edit, sync, and download files</p>
 
 			<div class="m-4 gap-4 filetile-parent flex flex-col lg:block lg:columns-2 2xl:columns-3">
 				<template v-for="(path, nickname) in filePathLocations">
@@ -33,6 +34,8 @@
 						</div>
 
 						<FileHierarchy
+							:editable="selectedInstanceData.state === 'ONLINE'"
+							:selectable="selectedInstanceData.state === 'ONLINE'"
 							class="mt-4 -ml-4"
 							:files="instanceFiles[path]"
 							@picked="($e) => handlePicked($e, path)"
