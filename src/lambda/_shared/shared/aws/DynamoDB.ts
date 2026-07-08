@@ -47,7 +47,13 @@ export class DynamoDao {
 		}
 
 		const client = new DynamoDBClient({ region: region || "us-east-2" });
-		this.docClient = DynamoDBDocumentClient.from(client);
+		this.docClient = DynamoDBDocumentClient.from(client, {
+			marshallOptions: {
+				// Drop undefined attribute values rather than throwing during marshalling.
+				// Without this, any item containing an undefined field fails the write.
+				removeUndefinedValues: true,
+			},
+		});
 		DynamoDao.instance = this;
 	}
 
