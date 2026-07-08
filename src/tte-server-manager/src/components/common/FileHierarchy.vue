@@ -18,6 +18,7 @@
 				
 				<FileHierarchy
 					:editable="editable"
+					:selectable="selectable"
 					:__isRoot="false"
 					:files="[]"
 					:__path="__path.concat(key)"
@@ -30,7 +31,12 @@
 		<template v-for="file in levelFiles">
 			<div class="ml-6 flex items-center mt-1 reveal-delete-icon">
 				<Icon icon="file-solid" size="4" color="text-white-0" />
-				<p :class="['font-mono ml-2 text-white-0 cursor-pointer hover:text-white-1']" @click="emitPicked({ path: __path.concat(file), isFolder: false })">{{ file }}</p>
+				<p 
+					:class="['font-mono ml-2 text-white-0', { 'hover:text-white-1 cursor-pointer': selectable}]" 
+					@click="emitPicked({ path: __path.concat(file), isFolder: false })"
+				>
+					{{ file }}
+				</p>
 				<Icon
 					v-if="editable"
 					icon="ellipsis-vertical"
@@ -65,6 +71,10 @@ export default {
 			required: true
 		},
 		editable: {
+			type: Boolean,
+			default: true
+		},
+		selectable: {
 			type: Boolean,
 			default: true
 		},
@@ -132,6 +142,7 @@ export default {
 			this.$emit('addClicked', path);
 		},
 		emitPicked(data) {
+			if (!this.selectable) return;
 			this.$emit("picked", data);
 		}
 	},

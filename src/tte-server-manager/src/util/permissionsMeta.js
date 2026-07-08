@@ -10,7 +10,7 @@ export const PermissionsMeta = {
 			delete: {value: "server.world.delete", description: "", used: false},
 		},
 		tshock: {
-			execute: {value: "server.tshock.execute", description: "", used: false},
+			execute: {value: "server.tshock.execute", description: pfx + "execute TShock commands"},
 		},
 		config: {
 			read: {value: "server.config.read", description: pfx + "read TShock config files (both the main one and plugin configs)"},

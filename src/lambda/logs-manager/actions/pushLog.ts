@@ -15,25 +15,37 @@ export const pushLog = async (event: AuthorizedEvent, context: Context) => {
 		return ResponseUtil.ValidationError("Server ID is required");
 	}
 
-	const payload = event.parsedBody as PayloadSchemaV1;
+	const payload = event.parsedBody as PayloadSchemaV1 | undefined;
+
+	if (!payload || !payload.eventType) {
+		return ResponseUtil.ValidationError("A valid log payload is required");
+	}
+
+	// player/server objects (and their fields) can be partial or absent on some
+	// events — notably player.leave, where the client has already disconnected —
+	// so read them defensively to avoid throwing a 500 on a malformed payload.
+	const player = payload.player ?? ({} as Partial<PayloadSchemaV1["player"]>);
+	const server = payload.server ?? ({} as Partial<PayloadSchemaV1["server"]>);
+
 	const parsedTimestamp = Date.parse(payload.occurredAtUtc);
 	const logTimestamp = Number.isFinite(parsedTimestamp) ? parsedTimestamp : Date.now();
 	const entry: LogDataEntry = {
 		serverID: `server#${serverID}`,
 		timestamp: logTimestamp,
 		eventType: payload.eventType,
-		worldName: payload.server.worldName,
-		playerName: payload.player.name || "unknown",
-		accountName: payload.player.accountName,
-		playerGroup: payload.player.groupName,
-		ip: payload.player.ipAddress,
-		isLoggedIn: payload.player.isLoggedIn,
-		playersActive: payload.server.activePlayers,
+		worldName: server.worldName,
+		playerName: player.name || "unknown",
+		accountName: player.accountName,
+		playerGroup: player.groupName,
+		ip: player.ipAddress,
+		isLoggedIn: player.isLoggedIn,
+		playersActive: server.activePlayers,
 		logID: payload.correlationId,
+		...(payload.playerDataSource ? { playerDataSource: payload.playerDataSource } : {}),
 		versions: {
 			schema: payload.schemaVersion,
 			plugin: payload.pluginVersion,
-			server: payload.server.version
+			server: server.version
 		},
 		expireAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60 // 1 month
 	};
@@ -47,7 +59,7 @@ export const pushLog = async (event: AuthorizedEvent, context: Context) => {
 			updates: {
 				serverId: serverID,
 				lastPlayerLogAt: logTimestamp,
-				lastPlayersActive: payload.server.activePlayers,
+				lastPlayersActive: server.activePlayers,
 				lastPlayerEventType: payload.eventType,
 				lastUpdatedAt: Date.now(),
 			} satisfies AutoShutoffStateEntry,

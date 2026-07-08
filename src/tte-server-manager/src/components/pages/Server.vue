@@ -78,6 +78,10 @@
 	<ServerConfig 
 		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
+
+	<RunTshockCommand
+		v-if="serverIsOnline"
+	/>
 </template>
 
 <script>
@@ -97,6 +101,7 @@ import ServerConfig from './tools/server/ServerConfig.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
 import BrowseLogs from './tools/server/BrowseLogs.vue';
+import RunTshockCommand from './tools/server/RunTshockCommand.vue';
 
 
 export default {
@@ -111,6 +116,7 @@ export default {
 		ManageBans,
 		ServerConfig,
 		BrowseLogs,
+		RunTshockCommand,
 	},
 	props: {
 		
@@ -146,6 +152,9 @@ export default {
 		},
 		createWorldAllowed() {
 			return this.selectedInstance && !this.selectedServerData.state;
+		},
+		serverIsOnline() {
+			return this.selectedInstance && this.selectedServerData.state && this.selectedInstanceData?.online;
 		}
 	},
 	methods: {

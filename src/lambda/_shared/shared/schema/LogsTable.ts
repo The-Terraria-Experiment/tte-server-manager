@@ -19,6 +19,7 @@ export type LogDataEntry = {
 	isLoggedIn?: boolean,
 	playersActive?: number,
 	logID?: string,
+	playerDataSource?: PlayerDataSource,
 	versions?: {
 		schema: string,
 		plugin: string,
@@ -26,6 +27,16 @@ export type LogDataEntry = {
 	},
 	expireAt: number,
 };
+
+/**
+ * Provenance of the player.* fields on an entry:
+ * - "live":    read from a live player object at event time (fully trustworthy).
+ * - "cached":  the live player was already gone; fields come from the plugin's
+ *              last-known snapshot for that connection and may be a moment stale.
+ * - "unknown": no player data was ever observed (e.g. pre-join disconnect);
+ *              playerName falls back to "unknown".
+ */
+export type PlayerDataSource = "live" | "cached" | "unknown";
 
 export enum PlayerEvent {
 	JOIN = "player.join",
@@ -46,6 +57,7 @@ export type PayloadSchemaV1 = {
 	occurredAtUtc: string,
 	correlationId: string,
 	pluginVersion: string,
+	playerDataSource?: PlayerDataSource,
 	server: {
 		name: string,
 		worldName: string,

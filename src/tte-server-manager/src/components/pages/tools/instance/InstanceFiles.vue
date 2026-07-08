@@ -1,6 +1,5 @@
 <template>
 	<StatusTile 
-		v-if="selectedInstanceData.state === 'ONLINE'"
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
 		collapsible
 		class="mt-2"
@@ -10,10 +9,11 @@
 			<p class="text-gray-6 ml-2 text-lg">Files</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folder{{ plural(fileLocationCount) }}</p>
+			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folder{{ plural(fileLocationCount) }}, {{ filesCount }} file{{ plural(filesCount) }}</p>
 		</template>
 		<template #content>
 			<FlexButton 
+				v-if="selectedInstanceData.state === 'ONLINE'"
 				class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 mt-4 ml-4" 
 				@input="syncInstanceFiles(selectedInstanceData.id)"
 				:disabled="loading.fileUpload"
@@ -24,15 +24,18 @@
 					<p class="text-teal-3 ml-2 font-main font-bold">RESYNC FILES</p>
 				</div>
 			</FlexButton>
+			<p v-else class="italic text-gray-6 mx-4">Launch the instance to edit, sync, and download files</p>
 
-			<div class="flex flex-col sm:grid grid-cols-2 m-4 gap-4">
+			<div class="m-4 gap-4 filetile-parent flex flex-col lg:block lg:columns-2 2xl:columns-3">
 				<template v-for="(path, nickname) in filePathLocations">
-					<div class="bg-gray-5 rounded-xl p-4 h-max">
+					<div class="bg-gray-5 rounded-xl p-4 h-max lg:mb-4">
 						<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
 							<p class="text-sm">{{ readPathsAuth ? path : nickname }}/</p>
 						</div>
 
 						<FileHierarchy
+							:editable="selectedInstanceData.state === 'ONLINE'"
+							:selectable="selectedInstanceData.state === 'ONLINE'"
 							class="mt-4 -ml-4"
 							:files="instanceFiles[path]"
 							@picked="($e) => handlePicked($e, path)"
@@ -229,6 +232,9 @@ export default {
 		},
 		fileLocationCount() {
 			return Object.keys(this.filePathLocations || {})?.length || 0;
+		},
+		filesCount() {
+			return Object.values(this.instanceFiles).reduce((count, pathSet) => count + Object.values(pathSet).length, 0);
 		},
 		instancePaths() {
 			return this.serverStore.instanceFileRoots[this.selectedInstanceData.id];
@@ -476,5 +482,13 @@ export default {
 </script>
 
 <style scoped>
+/* .filetile-parent {
+	columns: 3;
+	column-gap: 1rem;
+} */
 
+.filetile-parent > * {
+	break-inside: avoid;
+	/* margin-bottom: 1rem; */
+}
 </style>
