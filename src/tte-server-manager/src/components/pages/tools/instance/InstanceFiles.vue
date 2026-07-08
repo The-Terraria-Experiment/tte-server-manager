@@ -10,7 +10,7 @@
 			<p class="text-gray-6 ml-2 text-lg">Files</p>
 		</template>
 		<template #summary>
-			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folder{{ plural(fileLocationCount) }}</p>
+			<p class="text-2xl text-teal-4">{{ fileLocationCount }} folder{{ plural(fileLocationCount) }}, {{ filesCount }} file{{ plural(filesCount) }}</p>
 		</template>
 		<template #content>
 			<FlexButton 
@@ -229,6 +229,9 @@ export default {
 		},
 		fileLocationCount() {
 			return Object.keys(this.filePathLocations || {})?.length || 0;
+		},
+		filesCount() {
+			return Object.values(this.instanceFiles).reduce((count, pathSet) => count + Object.values(pathSet).length, 0);
 		},
 		instancePaths() {
 			return this.serverStore.instanceFileRoots[this.selectedInstanceData.id];
