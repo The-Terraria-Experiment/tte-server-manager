@@ -25,9 +25,9 @@
 				</div>
 			</FlexButton>
 
-			<div class="flex flex-col sm:grid grid-cols-2 m-4 gap-4">
+			<div class="m-4 gap-4 filetile-parent flex flex-col lg:block lg:columns-2 2xl:columns-3">
 				<template v-for="(path, nickname) in filePathLocations">
-					<div class="bg-gray-5 rounded-xl p-4 h-max">
+					<div class="bg-gray-5 rounded-xl p-4 h-max lg:mb-4">
 						<div class="rounded-full flex items-center font-mono text-teal-4 bg-gray-1 px-4 py-1 grow">
 							<p class="text-sm">{{ readPathsAuth ? path : nickname }}/</p>
 						</div>
@@ -479,5 +479,13 @@ export default {
 </script>
 
 <style scoped>
+/* .filetile-parent {
+	columns: 3;
+	column-gap: 1rem;
+} */
 
+.filetile-parent > * {
+	break-inside: avoid;
+	/* margin-bottom: 1rem; */
+}
 </style>
