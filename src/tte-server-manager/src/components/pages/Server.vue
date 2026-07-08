@@ -79,7 +79,9 @@
 		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
 
-	<RunTshockCommand />
+	<RunTshockCommand
+		v-if="serverIsOnline"
+	/>
 </template>
 
 <script>
@@ -150,6 +152,9 @@ export default {
 		},
 		createWorldAllowed() {
 			return this.selectedInstance && !this.selectedServerData.state;
+		},
+		serverIsOnline() {
+			return this.selectedInstance && this.selectedServerData.state && this.selectedInstanceData?.online;
 		}
 	},
 	methods: {

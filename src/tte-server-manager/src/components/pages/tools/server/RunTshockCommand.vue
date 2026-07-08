@@ -3,14 +3,12 @@
 		:class="['mt-2']"
 		:perm-required="PERMISSIONS.server.tshock.execute"
 		:loading="loadingResult"
+		collapsible
 	>
 		<template #header>
 			<Icon icon="terminal" color="text-gray-6" size="4" />
 			<p class="text-gray-6 ml-2 text-lg">Execute Commands</p>
 		</template>
-		<!-- <template #summary>
-			<p class="text-2xl text-teal-4">{{ summaryText }}</p>
-		</template> -->
 		<template #content>
 			<div class="px-4 pb-4">
 				<div class="relative flex items-center">
@@ -18,7 +16,7 @@
 					<input 
 						type="text" 
 						v-model="command"
-						class="bg-gray-1! outline-0 font-mono! w-full pl-6!" 
+						class="bg-gray-1! outline-0 font-mono! w-full pl-8!" 
 						@keyup.enter="sendCommand"
 						@keyup.up="historyPrevious"
 						@keyup.down="historyNext"
@@ -26,7 +24,7 @@
 				</div>
 
 				<div class="w-full bg-gray-1 rounded mt-4 py-2 px-3 font-mono text-gray-9">
-					<span v-if="lastCommandOutput">{{ lastCommandOutput }}</span>
+					<span v-if="lastCommandOutput" v-html="lastCommandOutput"></span>
 					<span v-else class="italic text-gray-6">No output</span>
 				</div>
 			</div>
@@ -77,8 +75,8 @@ export default {
 
 			try {
 				const result = await post(`/server/${this.selectedInstance}/tshock/command`, PERMISSIONS.server.tshock.execute, { command: this.command });
-				this.lastCommandOutput = result.result;
-				this.commandHistory.push({ input: this.command, output: result.result });
+				this.lastCommandOutput = result.response.join("<br/>");
+				this.commandHistory.push({ input: this.command, output: this.lastCommandOutput });
 				this.command = "";
 				this.viewingHistory = -1;
 			} catch (e) {
