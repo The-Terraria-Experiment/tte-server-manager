@@ -33,7 +33,7 @@
 									class="h-3 w-3 rounded-full shrink-0 mr-2"
 									:style="{ backgroundColor: role.color }"
 								></span>
-								<p class="font-bold text-lg text-teal-4 break-all">{{ role.name }}</p>
+								<p class="font-bold text-lg text-teal-4 leading-5">{{ role.name }}</p>
 							</div>
 							<!-- <Icon icon="edit" color="text-white-1" size="5" class="shrink-0 ml-2" @click.stop="editingRole = role" /> -->
 						</div>
