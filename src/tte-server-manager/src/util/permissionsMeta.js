@@ -87,10 +87,16 @@ function metaToNode(key, meta, idPrefix, checkedSet, readonly) {
 	const id = idPrefix ? `${idPrefix}.${key}` : key;
 
 	if (typeof meta.value === 'string') {
+		const checked = checkedSet.has(meta.value);
+		const unused = meta.used === false;
 		return {
 			id,
-			value: checkedSet.has(meta.value),
-			disabled: readonly || meta.used === false,
+			value: checked,
+			// Unused permissions stay read-only so new ones can't be granted, but
+			// an already-granted "ghost" permission remains editable so it can be
+			// removed. The `unused` flag drives the "Show unused permissions" filter.
+			disabled: readonly || (unused && !checked),
+			unused,
 			payload: { ...meta, label: key }
 		};
 	}

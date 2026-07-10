@@ -17,6 +17,13 @@ export interface S3ObjectSummary {
 	lastModified: Date | undefined;
 }
 
+/**
+ * Emitted by the instance-side sync script when a requested local file does not exist.
+ * The skip is intentionally non-fatal for batch syncs; single-file callers can detect it
+ * in the SSM command stdout to distinguish "nothing uploaded" from a real upload.
+ */
+export const MISSING_LOCAL_FILE_MARKER = "Missing local file, skipping";
+
 export class S3Dao {
 	private static instance: S3Dao | null = null;
 	private readonly s3Client!: S3Client;
@@ -271,7 +278,7 @@ export class S3Dao {
 			);
 			commands.push(`  echo \"Uploaded: ${escapedKey}\"`);
 			commands.push("else");
-			commands.push(`  echo \"Missing local file, skipping: ${escapedLocalPath}\"`);
+			commands.push(`  echo \"${MISSING_LOCAL_FILE_MARKER}: ${escapedLocalPath}\"`);
 			commands.push("fi");
 			commands.push("");
 		}
