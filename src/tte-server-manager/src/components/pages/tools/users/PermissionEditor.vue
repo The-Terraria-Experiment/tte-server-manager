@@ -99,7 +99,7 @@ export default {
 
 			return Object.fromEntries(
 				Object.entries(this.permGroups)
-					.map(([groupName, nodes]) => [groupName, filterLeaves(nodes, node => !node.disabled)])
+					.map(([groupName, nodes]) => [groupName, filterLeaves(nodes, node => !node.unused)])
 					.filter(([, nodes]) => nodes.length)
 			);
 		},
