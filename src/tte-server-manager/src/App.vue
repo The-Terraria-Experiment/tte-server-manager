@@ -44,6 +44,7 @@ import SetUsernamePopup from './components/shared/SetUsernamePopup.vue';
 import { useUserStore } from './stores/userStore';
 import MajorLoader from './components/shared/MajorLoader.vue';
 import GlobalNoticePopup from './components/shared/GlobalNoticePopup.vue';
+import { PERMISSIONS } from "@/util/permissionValues";
 
 export default {
 	mixins: [ screen ],
@@ -75,7 +76,10 @@ export default {
 
 		await this.userStore.ensureUserFetched();
 		this.userDataIsLoading = false;
-		if (!this.userStore.user.displayName) {
+		if (!this.$checkPermissions(PERMISSIONS.access) && this.userStore.isAuthenticated) {
+			this.$alert.warning(`You have not been granted site access. 
+			If you believe this is in error, please contact Experiment or Havoc in Discord.`, {duration: 0});;
+		} else if (!this.userStore.user.displayName) {
 			this.$refs.namepopup.openPopup();
 		}
 	},
