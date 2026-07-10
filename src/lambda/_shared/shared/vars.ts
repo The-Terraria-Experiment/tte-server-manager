@@ -4,6 +4,9 @@ export const PERM_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-user-perms"
 export const SYSTEM_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-system" : "ttesm-system-stage";
 export const LOGS_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-player-logs" : "ttesm-player-logs-stage";
 export const USER_ARCHIVE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-user-archive" : "ttesm-user-archive-stage";
+// When "true", incoming logs whose player data provenance is "unknown" (no player
+// data was ever observed, e.g. a pre-join disconnect) are dropped rather than stored.
+export const IGNORE_UNKNOWN_SOURCE_LOGS = process.env.IGNORE_UNKNOWN_SOURCE_LOGS === "true";
 export const WORLD_CREATE_KEY = "worldgen";
 export const ROLE_KEY_PREFIX = "role#";
 export const PATREON_TIERMAP_KEY_PREFIX = "patreontier#";
