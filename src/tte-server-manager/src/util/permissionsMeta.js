@@ -36,6 +36,9 @@ export const PermissionsMeta = {
 			ips: {
 				read: {value: "server.logs.ips.read", description: pfx + "view the IP address data of player logs"},
 			},
+			tshock: {
+				read: {value: "server.logs.tshock.read", description: pfx + "view and search TShock logs"},
+			}
 		},
 	},
 	instance: {

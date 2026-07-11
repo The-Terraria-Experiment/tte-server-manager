@@ -3,6 +3,7 @@ import { Ec2Dao } from "../shared/aws/EC2.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import type { AutoShutoffMessage, CheckResult } from "./types.js";
 import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
+import { syncAndPruneTShockLogs } from "../shared/utils/TShockConsoleLogs.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 const IDLE_MINUTES = parseNumber(process.env.AUTO_SHUTOFF_IDLE_MINUTES, 60);
@@ -45,6 +46,8 @@ export async function handleEc2Stop(message: AutoShutoffMessage): Promise<CheckR
 	}
 
 	try {
+		await syncAndPruneTShockLogs(serverId);
+
 		const ec2 = new Ec2Dao();
 		await ec2.StopInstance(serverId);
 		await updateAutoShutoffState(serverId, {
