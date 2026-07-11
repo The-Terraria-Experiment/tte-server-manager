@@ -15,7 +15,7 @@ import { getTShockLogTranscript } from "./actions/getTShockLogTranscript.js";
 import { listTShockLogs } from "./actions/listTShockLogs.js";
 
 const automatedEndpoints: KeyedEndpointList = {
-	"POST /logging/{id}/push": {
+	"POST /logging/{id}/players/push": {
 		action: pushLog,
 	},
 };
