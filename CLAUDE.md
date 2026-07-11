@@ -13,14 +13,14 @@ These instructions guide AI assistants working on this repository. Keep changes 
 The application runs in three environments with distinct deployment strategies and shared infrastructure:
 
 ### Production (Prod)
-- **URL:** `server.terrariaexperiment.click`
+- **URL:** `server.theterrariaexperiment.com`
 - **Git Branch:** `main`
 - **Frontend:** Amplify Hosting (auto-deploy on push to main)
 - **Backend:** API Gateway → Lambda functions (prod alias)
 - **Auth:** Cognito User Pool (prod)
 
 ### Staging (Stage)
-- **URL:** `stg-server.terrariaexperiment.click`
+- **URL:** `stg-server.theterrariaexperiment.com`
 - **Git Branch:** `stage`
 - **Frontend:** Amplify Hosting (auto-deploy on push to stage)
 - **Backend:** API Gateway → Lambda functions (stage alias)
@@ -63,8 +63,8 @@ The application runs in three environments with distinct deployment strategies a
 
 ### Development Workflow
 1. **Local development:** Work on `dev/*` branches; run frontend locally; calls stage backend.
-2. **Staging:** Merge to `stage` branch; Amplify auto-deploys to `stg-server.terrariaexperiment.click`.
-3. **Production:** Merge `stage` → `main`; Amplify auto-deploys to `server.terrariaexperiment.click`.
+2. **Staging:** Merge to `stage` branch; Amplify auto-deploys to `stg-server.theterrariaexperiment.com`.
+3. **Production:** Merge `stage` → `main`; Amplify auto-deploys to `server.theterrariaexperiment.com`.
 
 ### Environment Variable Patterns
 - Lambda env vars include `ACTIVE_ENV` (prod/stage) to determine which DynamoDB tables/S3 buckets to access.
@@ -141,6 +141,11 @@ The application runs in three environments with distinct deployment strategies a
   npm run build
   npm run preview
   ```
+- **TypeScript typecheck (Lambda code, incl. `src/lambda/_shared`):** run from the **repo root** (not inside `src/lambda/*` or `src/tte-server-manager`) — only the root `tsconfig.json`/`package.json` are wired for this:
+  ```bash
+  npm run compile
+  ```
+  This runs `tsc --noEmit` against the root `tsconfig.json`, which includes every `.ts`/`.js` file in the repo. There is no ESLint config anywhere in this repo — this typecheck is the verification/"linting" step for backend/shared TS changes.
 - **Frontend patterns:**
   - Add new page: create component in `src/components/pages/`, register route in `src/router/index.js`, protect with `meta.requiresAuth` if needed.
   - Use Pinia stores for shared state; avoid global singletons outside stores.
