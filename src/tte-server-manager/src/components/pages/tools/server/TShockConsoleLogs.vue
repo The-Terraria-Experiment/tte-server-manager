@@ -31,25 +31,25 @@
 
 						<div v-if="logFiles.length > 0" class="max-h-64 overflow-auto rounded-md">
 							<div class="min-w-max">
-								<div class="flex font-main font-bold text-gray-8 text-sm sticky top-0 bg-gray-4">
-									<div class="px-3 py-2 w-32 shrink-0">Date</div>
-									<div class="px-3 py-2 w-24 shrink-0">Content</div>
-									<div class="px-3 py-2 w-20 shrink-0">Size</div>
-									<div class="px-3 py-2 grow"></div>
+								<div class="grid logs-grid font-main font-bold text-gray-8 text-sm sticky top-0 bg-gray-4">
+									<div class="px-3 py-2">Date</div>
+									<div class="px-3 py-2">Content</div>
+									<div class="px-3 py-2">Size</div>
+									<div class="px-3 py-2"></div>
 								</div>
 								<div
 									v-for="(file, i) in logFiles"
 									:key="`${file.date}-${file.stream}`"
-									class="flex items-center cursor-pointer font-mono text-sm text-white-0 hover:bg-gray-5"
+									class="grid logs-grid items-center cursor-pointer font-mono text-sm text-white-0 hover:bg-gray-5"
 									:class="i % 2 ? 'bg-gray-4' : 'bg-gray-3'"
 									@click="viewTranscript(file)"
 								>
-									<div class="px-3 py-2 w-32 shrink-0">{{ new Date(`${file.date}T00:00:00Z`).toLocaleDateString() }}</div>
-									<div class="px-3 py-2 w-24 shrink-0 font-bold">
+									<div class="px-3 py-2">{{ new Date(`${file.date}T00:00:00Z`).toLocaleDateString() }}</div>
+									<div class="px-3 py-2 font-bold">
 										{{ file.stream === 'err' ? 'errors' : 'general' }}
 									</div>
-									<div class="px-3 py-2 w-20 shrink-0">{{ formatBytes(file.size) }}</div>
-									<div class="px-3 py-2 grow flex items-center justify-end">
+									<div class="px-3 py-2">{{ formatBytes(file.size) }}</div>
+									<div class="px-3 py-2 flex items-center justify-end">
 										<Spinner v-if="transcriptLoading && loadingFileKey === `${file.date}-${file.stream}`" class="h-4 w-4 text-teal-4" />
 										<Icon v-else icon="external" color="text-white-1" size="4" />
 									</div>
@@ -401,4 +401,7 @@ export default {
 </script>
 
 <style scoped>
+.logs-grid {
+	grid-template-columns: repeat(4, minmax(5rem, 1fr));
+}
 </style>

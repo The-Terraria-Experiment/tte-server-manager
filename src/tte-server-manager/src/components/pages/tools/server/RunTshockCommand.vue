@@ -45,6 +45,9 @@
 							<span v-else class="italic text-gray-6">No output</span>
 						</div>
 					</template>
+					<template v-if="!lastCommandOutput.length">
+						<div class="italic text-gray-6 ml-4 mt-2">No output</div>
+					</template>
 				</div>
 			</div>
 		</template>
