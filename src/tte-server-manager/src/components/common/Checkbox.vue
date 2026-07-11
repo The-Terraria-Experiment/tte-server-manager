@@ -1,29 +1,17 @@
 <template>
-	<div
-		:class="['rounded border-gray-5', effectiveValue ? 'bg-teal-5 border p-0.5' : 'bg-gray-1 border-2 hover:border', { 'cursor-pointer': !disabled },]"
-		@click="input"
-	>
-		<Icon
-			v-if="isChecked"
-			icon="checkmark"
-			color="text-gray-2"
-			class="h-full w-full relative"
-			svgStyle="h-full w-full"
-			:size="null"
-		/>
-		<div v-else-if="isIndeterminate" class="h-full w-full flex items-center justify-center">
-			<div class="w-2/3 h-0.5 rounded bg-teal-4"></div>
-		</div>
-	</div>
+	<input
+		ref="checkbox"
+		type="checkbox"
+		class="accent-teal-5"
+		:class="{ 'cursor-pointer': !disabled, 'cursor-not-allowed': disabled }"
+		:checked="isChecked"
+		:disabled="disabled"
+		@change="input"
+	/>
 </template>
 
 <script>
-import Icon from './Icon.vue';
-
 export default {
-	components: {
-		Icon,
-	},
 	props: {
 		disabled: {
 			type: Boolean,
@@ -39,11 +27,6 @@ export default {
 			default: false
 		}
 	},
-	data() {
-		return {
-
-		}
-	},
 	computed: {
 		effectiveValue() {
 			// value/modelValue are dual APIs (manual @input vs v-model); whichever
@@ -57,17 +40,24 @@ export default {
 			return this.effectiveValue === null;
 		}
 	},
+	watch: {
+		isIndeterminate: {
+			immediate: true,
+			handler(value) {
+				// The indeterminate state has no HTML attribute; it must be set as a DOM property.
+				this.$nextTick(() => {
+					if (this.$refs.checkbox) this.$refs.checkbox.indeterminate = value;
+				});
+			}
+		}
+	},
 	methods: {
-		input() {
+		input(e) {
 			if (this.disabled) return;
-			const next = !this.effectiveValue;
+			const next = e.target.checked;
 			this.$emit('input', next);
-			this.$emit("update:modelValue", next);
+			this.$emit('update:modelValue', next);
 		}
 	}
 }
 </script>
-
-<style scoped>
-@reference "../../theme.css";
-</style>
