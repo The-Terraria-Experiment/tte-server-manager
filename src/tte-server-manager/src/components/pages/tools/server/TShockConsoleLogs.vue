@@ -11,9 +11,57 @@
 			</template>
 			<template #content>
 				<div class="px-4 pb-4">
-					<div class="">
-						<ValueInput v-model="pattern" placeholder="Text or regex pattern to search for" />
-						<div class="flex flex-wrap gap-2 items-center mt-2">
+					<div class="bg-gray-1 px-4 pb-4 pt-2 rounded-md">
+						<div class="flex items-center justify-between mb-2">
+							<p class="font-main font-bold text-gray-8">ALL LOGS</p>
+							<FlexButton
+								class="px-2!"
+								:variant="BTN_VARIANT.SECONDARY"
+								leftIcon="arrow-rotate-right"
+								leftIconSize="4"
+								:disabled="listLoading"
+								:loading="listLoading"
+								@input="fetchLogList"
+							/>
+						</div>
+
+						<p v-if="!listLoading && logFiles.length === 0 && listLoaded" class="font-main text-gray-6 italic">
+							No log files available for this server yet.
+						</p>
+
+						<div v-if="logFiles.length > 0" class="max-h-64 overflow-auto rounded-md">
+							<div class="min-w-max">
+								<div class="flex font-main font-bold text-gray-8 text-sm sticky top-0 bg-gray-4">
+									<div class="px-3 py-2 w-32 shrink-0">Date</div>
+									<div class="px-3 py-2 w-24 shrink-0">Content</div>
+									<div class="px-3 py-2 w-20 shrink-0">Size</div>
+									<div class="px-3 py-2 grow"></div>
+								</div>
+								<div
+									v-for="(file, i) in logFiles"
+									:key="`${file.date}-${file.stream}`"
+									class="flex items-center cursor-pointer font-mono text-sm text-white-0 hover:bg-gray-5"
+									:class="i % 2 ? 'bg-gray-4' : 'bg-gray-3'"
+									@click="viewTranscript(file)"
+								>
+									<div class="px-3 py-2 w-32 shrink-0">{{ new Date(`${file.date}T00:00:00Z`).toLocaleDateString() }}</div>
+									<div class="px-3 py-2 w-24 shrink-0 font-bold">
+										{{ file.stream === 'err' ? 'errors' : 'general' }}
+									</div>
+									<div class="px-3 py-2 w-20 shrink-0">{{ formatBytes(file.size) }}</div>
+									<div class="px-3 py-2 grow flex items-center justify-end">
+										<Spinner v-if="transcriptLoading && loadingFileKey === `${file.date}-${file.stream}`" class="h-4 w-4 text-teal-4" />
+										<Icon v-else icon="external" color="text-white-1" size="4" />
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+
+
+					<div class="mt-4">
+						<div class="flex flex-wrap gap-2 items-center">
+							<ValueInput v-model="pattern" placeholder="Text or regex pattern to search for" class="w-full sm:w-1/4 sm:min-w-80" />
 							<div
 								class="flex items-center bg-blue-0 px-2 py-1 rounded-md cursor-pointer hover:bg-blue-1"
 								@click="useRegex = !useRegex"
@@ -28,13 +76,16 @@
 								<Checkbox class="h-4 w-4" :value="caseSensitive" />
 								<span class="ml-2 font-main font-bold text-white-1">Case sensitive</span>
 							</div>
+						</div>
+						<div class="flex flex-wrap gap-2 items-center mt-2">
 							<Dropdown
-								class="sm:max-w-1/4"
+								class="w-full sm:w-1/3 sm:min-w-80"
 								inputClass="bg-teal-3 text-white-1"
 								iconColor="text-white-1"
 								:options="streamOptions"
 								v-model="streamFilter"
 							/>
+							
 						</div>
 						<div class="flex flex-wrap gap-2 items-center mt-2">
 							<div class="py-1 pl-3 pr-1 bg-gray-2 rounded-md font-main font-bold text-white-0 flex items-center">
@@ -70,6 +121,7 @@
 							SEARCH
 						</FlexButton>
 					</div>
+
 					<div v-if="queryWasRun" class="mt-4">
 						<p class="font-main font-bold text-gray-8">
 							{{ matches.length }} match{{ matches.length === 1 ? '' : 'es' }} found across {{ filesScanned }} log file{{ filesScanned === 1 ? '' : 's' }}
@@ -85,56 +137,6 @@
 						>
 							VIEW RESULTS
 						</FlexButton>
-					</div>
-					<div class="px-0 pt-4 mt-4 border-t border-gray-4">
-						<div class="flex items-center justify-between mb-2">
-							<p class="font-main font-bold text-gray-8">View a full day's transcript</p>
-							<FlexButton
-								class="px-2!"
-								:variant="BTN_VARIANT.SECONDARY"
-								leftIcon="arrow-rotate-right"
-								leftIconSize="4"
-								:disabled="listLoading"
-								:loading="listLoading"
-								@input="fetchLogList"
-							/>
-						</div>
-
-						<p v-if="!listLoading && logFiles.length === 0 && listLoaded" class="font-main text-gray-6 italic">
-							No log files available for this server yet.
-						</p>
-
-						<div v-if="logFiles.length > 0" class="max-h-64 overflow-auto rounded-md">
-							<div class="flex font-main font-bold text-gray-6 text-sm sticky top-0 bg-gray-2">
-								<div class="px-2 py-1 w-32 shrink-0">Date</div>
-								<div class="px-2 py-1 w-24 shrink-0">Stream</div>
-								<div class="px-2 py-1 w-20 shrink-0">Size</div>
-								<div class="px-2 py-1 grow"></div>
-							</div>
-							<div
-								v-for="(file, i) in logFiles"
-								:key="`${file.date}-${file.stream}`"
-								class="flex items-center cursor-pointer font-mono text-sm text-white-0 hover:bg-blue-1"
-								:class="i % 2 ? 'bg-gray-4' : 'bg-gray-3'"
-								@click="viewTranscript(file)"
-							>
-								<div class="px-2 py-1 w-32 shrink-0">{{ new Date(`${file.date}T00:00:00Z`).toLocaleDateString() }}</div>
-								<div class="px-2 py-1 w-24 shrink-0 font-bold" :class="file.stream === 'err' ? 'text-red-4' : 'text-teal-3'">
-									{{ file.stream === 'err' ? 'errors' : 'console' }}
-								</div>
-								<div class="px-2 py-1 w-20 shrink-0">{{ formatBytes(file.size) }}</div>
-								<div class="px-2 py-1 grow flex items-center justify-end">
-									<Icon
-										v-if="transcriptLoading && loadingFileKey === `${file.date}-${file.stream}`"
-										icon="sync"
-										color="text-white-1"
-										size="4"
-										svgStyle="animate-spin"
-									/>
-									<Icon v-else icon="external" color="text-white-1" size="4" />
-								</div>
-							</div>
-						</div>
 					</div>
 				</div>
 			</template>
@@ -195,6 +197,7 @@ import Dropdown from '@/components/common/Dropdown.vue';
 import FlexButton from '@/components/common/FlexButton.vue';
 import Icon from '@/components/common/Icon.vue';
 import Popup from '@/components/common/Popup.vue';
+import Spinner from '@/components/common/Spinner.vue';
 import ValueInput from '@/components/common/ValueInput.vue';
 import { useServerStore } from '@/stores/serverStore';
 import { post } from '@/util/api';
@@ -228,15 +231,15 @@ export default {
 			serverStore: useServerStore(),
 
 			streamOptions: [
-				{ id: "both", text: "Console + errors" },
-				{ id: "out", text: "Console output only" },
-				{ id: "err", text: "Errors only" },
+				{ id: "out", text: "General output logs only" },
+				{ id: "err", text: "Fatal error logs only" },
+				{ id: "both", text: "General output logs and fatal error logs" },
 			],
 
 			pattern: "",
 			useRegex: false,
 			caseSensitive: false,
-			streamFilter: "both",
+			streamFilter: "out",
 			timeFilterStart: null,
 			timeFilterEnd: null,
 			timeFilterStartPopupOpen: false,
