@@ -10,6 +10,9 @@ import { PERMISSIONS } from "./shared/permissionValues.js";
 import { Permissions } from "./shared/utils/Perms.js";
 import { pushLog } from "./actions/pushLog.js";
 import { getLogs } from "./actions/getLogs.js";
+import { searchTShockLogs } from "./actions/searchTShockLogs.js";
+import { getTShockLogTranscript } from "./actions/getTShockLogTranscript.js";
+import { listTShockLogs } from "./actions/listTShockLogs.js";
 
 const automatedEndpoints: KeyedEndpointList = {
 	"POST /logging/{id}/push": {
@@ -21,6 +24,18 @@ const endpoints: EndpointList = {
 	"POST /logging/{id}/fetch": {
 		action: getLogs,
 		permRequired: PERMISSIONS.server.logs.read,
+	},
+	"POST /logging/{id}/tshock/search": {
+		action: searchTShockLogs,
+		permRequired: PERMISSIONS.server.logs.tshock.read,
+	},
+	"POST /logging/{id}/tshock/list": {
+		action: listTShockLogs,
+		permRequired: PERMISSIONS.server.logs.tshock.read,
+	},
+	"POST /logging/{id}/tshock/transcript": {
+		action: getTShockLogTranscript,
+		permRequired: PERMISSIONS.server.logs.tshock.read,
 	},
 };
 

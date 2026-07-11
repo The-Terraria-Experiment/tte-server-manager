@@ -75,7 +75,9 @@
 
 	<BrowseLogs />
 
-	<ServerConfig 
+	<TShockConsoleLogs />
+
+	<ServerConfig
 		v-if="selectedInstance && selectedInstanceData?.online"
 	/>
 
@@ -101,6 +103,7 @@ import ServerConfig from './tools/server/ServerConfig.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
 import BrowseLogs from './tools/server/BrowseLogs.vue';
+import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
 
 
@@ -116,6 +119,7 @@ export default {
 		ManageBans,
 		ServerConfig,
 		BrowseLogs,
+		TShockConsoleLogs,
 		RunTshockCommand,
 	},
 	props: {
