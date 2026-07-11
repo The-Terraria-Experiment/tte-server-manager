@@ -351,7 +351,7 @@ export default {
 			this.loading = true;
 
 			try {
-				const result = await post(`/logging/${this.selectedInstance}/fetch`, PERMISSIONS.server.logs.read, this.queryParams);
+				const result = await post(`/logging/${this.selectedInstance}/players/fetch`, PERMISSIONS.server.logs.read, this.queryParams);
 				this.logs.push(...result.entries);
 				this.lastFetchedLog = result.lastValue;
 				return true;

@@ -21,7 +21,7 @@ const automatedEndpoints: KeyedEndpointList = {
 };
 
 const endpoints: EndpointList = {
-	"POST /logging/{id}/fetch": {
+	"POST /logging/{id}/players/fetch": {
 		action: getLogs,
 		permRequired: PERMISSIONS.server.logs.read,
 	},
