@@ -2,7 +2,7 @@
 	<input
 		ref="checkbox"
 		type="checkbox"
-		class="accent-teal-5"
+		class="accent-blue-3"
 		:class="{ 'cursor-pointer': !disabled, 'cursor-not-allowed': disabled }"
 		:checked="isChecked"
 		:disabled="disabled"
