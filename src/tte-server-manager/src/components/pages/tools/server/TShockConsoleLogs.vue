@@ -112,7 +112,7 @@
 						<FlexButton
 							class="mt-4"
 							:variant="BTN_VARIANT.SECONDARY"
-							leftIcon="cloud-download"
+							leftIcon="magnifying-glass"
 							leftIconSize="5"
 							:disabled="loading"
 							:loading="loading"
