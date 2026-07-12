@@ -35,6 +35,7 @@
 			</div>
 			
 			<Transition
+				v-if="contentLoaded"
 				:name="floatingExpand ? 'floating' : 'collapse'"
 				@before-enter="beforeEnter"
 				@enter="enter"
@@ -47,6 +48,11 @@
 					<slot name="content"></slot>
 				</div>
 			</Transition>
+			<div v-else>
+				<div v-show="!collapsible || !collapsed">
+					<slot name="content"></slot>
+				</div>
+			</div>
 		</div>
 	</div>
 
@@ -96,6 +102,10 @@ export default {
 		loading: {
 			type: Boolean,
 			default: false
+		},
+		contentLoaded: {
+			type: Boolean,
+			default: true,
 		}
 	},
 	data() {
