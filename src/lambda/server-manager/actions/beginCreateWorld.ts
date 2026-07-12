@@ -82,6 +82,16 @@ const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFileP
 };
 
 /**
+ * Terraria's live worldgen status lines always contain an "-ing" verb ("Growing trees",
+ * "Settling liquids", "Generating structures", …) or the word "clean" ("Cleaning up world").
+ * Early in a run the log tail can instead catch unrelated TShock startup output, so we only
+ * surface lines matching this shape as worldgen statuses and ignore everything else.
+ */
+const isWorldgenStatusLine = (line: string): boolean => {
+	return /\w+ing\b/i.test(line) || /clean/i.test(line);
+};
+
+/**
  * Polls the world file until its size stabilizes (worldgen finished writing). When an stdout log
  * path is provided, the same SSM round-trip also tails the log's latest non-blank line — Terraria's
  * live worldgen status ("Growing trees", "Settling liquids", …) — and hands each new line to
@@ -129,7 +139,7 @@ const waitForWorldFileReady = async (
 			if (delimIdx !== -1) {
 				sizeOutput = rawOutput.slice(0, delimIdx);
 				const logLine = rawOutput.slice(delimIdx + LOG_DELIM.length).trim();
-				if (logLine && logLine !== lastLogLine) {
+				if (logLine && logLine !== lastLogLine && isWorldgenStatusLine(logLine)) {
 					lastLogLine = logLine;
 					try {
 						await onStatusLine(logLine);
