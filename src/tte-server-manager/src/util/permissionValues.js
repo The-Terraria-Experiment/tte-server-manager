@@ -5,8 +5,8 @@ export const PERMISSIONS = {
 		world: {
 			list: "server.world.list",
 			create: "server.world.create",
-			select: "server.world.select",
 			delete: "server.world.delete",
+			launch: "server.world.launch",
 		},
 		tshock: {
 			execute: "server.tshock.execute",
@@ -17,8 +17,11 @@ export const PERMISSIONS = {
 		},
 		status: {
 			read: "server.status.read",
-			start: "server.status.start",
 			stop: "server.status.stop",
+			autoshutoff: {
+				cancel: "server.status.autoshutoff.cancel",
+				pause: "server.status.autoshutoff.pause",
+			},
 		},
 		player: {
 			read: "server.player.read",

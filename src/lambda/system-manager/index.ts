@@ -35,11 +35,11 @@ const endpoints: EndpointList = {
 	},
 	"POST /system/autoshutoff/pause": {
 		action: pauseAutoshutoff,
-		permRequired: PERMISSIONS.server.status.start,
+		permRequired: PERMISSIONS.server.status.autoshutoff.pause,
 	},
 	"POST /system/autoshutoff/cancel": {
 		action: cancelAutoShutoff,
-		permRequired: PERMISSIONS.server.status.start,
+		permRequired: PERMISSIONS.server.status.autoshutoff.cancel,
 	},
 	"GET /system/roles": {
 		action: readRoles,

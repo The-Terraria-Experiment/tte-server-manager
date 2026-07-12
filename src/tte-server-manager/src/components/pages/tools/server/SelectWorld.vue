@@ -2,7 +2,7 @@
 	<StatusTile 
 		class="grow mt-2 gradient-tile"
 		collapsible
-		:perm-required="PERMISSIONS.server.world.select"
+		:perm-required="PERMISSIONS.server.world.launch"
 		:loading="serverStore.loading.files[selectedInstance]"
 	>
 		<template #header>
@@ -179,7 +179,7 @@ export default {
 			}
 		},
 		async startServer() {
-			this.$validatePermissions([PERMISSIONS.server.world.select, PERMISSIONS.server.status.start]);
+			this.$validatePermissions(PERMISSIONS.server.world.launch);
 
 			if (this.serverStore.loading.worldLaunch[this.selectedInstance]) return;
 
@@ -206,7 +206,7 @@ export default {
 			this.serverStore.loading.worldLaunch[this.selectedInstance] = true;
 
 			try {
-				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.select, {
+				await post(`/server/${this.selectedInstance}/world/null_id/select`, PERMISSIONS.server.world.launch, {
 					worldFilePath: this.selectWorld.selectedWorld,
 					port: this.selectWorld.port,
 					maxPlayers: this.selectWorld.maxplayers,
