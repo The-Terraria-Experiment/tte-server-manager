@@ -236,7 +236,15 @@ export default {
 		filesCount() {
 			const unique = Object.entries(this.instanceFiles)
 				.reduce(
-					(pathSet, [pathRoot, paths]) => new Set([...Object.values(paths).map(p => `${pathRoot}/${p}`), ...pathSet.values()]),
+					(pathSet, [pathRoot, paths]) => {
+						if (Object.values(this.filePathLocations).includes(pathRoot)) {
+							return new Set([
+								...Object.values(paths).map(p => `${pathRoot}/${p}`),
+								...pathSet.values()
+							]);
+						}
+						return pathSet;
+					},
 					new Set()
 				);
 			return unique.size;
