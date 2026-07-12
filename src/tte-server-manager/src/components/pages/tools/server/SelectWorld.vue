@@ -257,7 +257,7 @@ export default {
 	created() {
 		this.statusStore.subscribeToTaskEnd(TASK_IDS.SERVER_STATUS_CHECK, () => {
 			this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
-		});
+		}, "select-world-clear-launch-loading");
 	}
 }
 </script>

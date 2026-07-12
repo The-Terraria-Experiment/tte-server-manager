@@ -111,7 +111,7 @@ export default {
 
 				this.statusStore.subscribeToTaskEnd(TASK_IDS.SERVER_STATUS_CHECK, () => {
 					this.showStopButton = true;
-				});
+				}, "server-state-show-stop-button");
 				this.statusStore.startRepeatingTask(TASK_IDS.SERVER_STATUS_CHECK, () => !this.selectedServerData.state);
 
 				this.$alert.success("Server stopping");

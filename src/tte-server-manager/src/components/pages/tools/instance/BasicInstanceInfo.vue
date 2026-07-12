@@ -267,7 +267,7 @@ export default {
 
 			this.statusStore.subscribeToTaskEnd(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
 				this.showStateChangeButtons = true;
-			});
+			}, "basic-instance-info-show-state-buttons");
 		},
 	}
 }

@@ -128,8 +128,8 @@
 						<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
 					</div>
 					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
-					<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
-					<p v-if="lastWorldCreateStatus.detail" class="font-mono text-teal-4 text-xs mt-3 text-center break-all">{{ lastWorldCreateStatus.detail }}</p>
+					<!-- <p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p> -->
+					<p v-if="lastWorldCreateStatus.detail" class="font-mono text-xs mt-3 text-center break-all">Status: {{ lastWorldCreateStatus.detail }}</p>
 				</div>
 			</div>
 		</Popup>
@@ -236,9 +236,6 @@ export default {
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
-		},
-		selectedServerData() {
-			return this.serverStore.selectedServerData;
 		}
 	},
 	methods: {
@@ -269,9 +266,12 @@ export default {
 				console.error(error);
 			}
 		},
-		startWorldCreatePolling(firstStatus) {
+		startWorldCreatePolling(firstStatus, maxRepeats = 180) {
 			this.lastWorldCreateStatus = firstStatus;
-			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => ["failed", "completed"].includes(this.lastWorldCreateStatus.status), 5000, 60);
+			// Poll every 5s. The window is deliberately generous (default ~15min) because a
+			// cold start — booting the instance, SSM + TShock warmup, generating a large world,
+			// then uploading it — can take several minutes before the job reports completion.
+			this.statusStore.startRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK, () => ["failed", "completed"].includes(this.lastWorldCreateStatus.status), 5000, maxRepeats);
 		},
 		async createWorld() {
 			this.$validatePermissions(PERMISSIONS.server.world.create);
@@ -313,10 +313,22 @@ export default {
 				this.openWorldCreatePopup();
 				this.startWorldCreatePolling(defaultLastWorldCreateStatus());
 			} catch (e) {
-				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
+				// Note: don't clear the loading flag unconditionally here — the timeout branch
+				// below keeps world creation "in progress" and hands off to status polling.
 				if (e.message.includes("Instances not in a valid state")) {
+					this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 					this.$alert.warning("Could not create world: instance is not running or not responding");
-				} else {
+				} else if (e.message.includes("Endpoint request timed out")) {
+					// The instance was almost certainly off. Launching it (plus SSM + TShock warmup)
+					// reliably takes longer than the 30s API Gateway timeout, so the POST times out
+					// on our side even though the backend has accepted the job and is still working
+					// on it. Switch to polling the job status endpoint — the same flow the success
+					// path uses — instead of treating this as a failure.
+					this.$alert.info("Instance is starting up — this can take a few minutes");
+					this.openWorldCreatePopup();
+					this.startWorldCreatePolling(defaultLastWorldCreateStatus());
+				} else  {
+					this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 					this.$alert.error("Error creating world");
 					console.error(e);
 				}
@@ -334,8 +346,14 @@ export default {
 				this.$emit("refresh");
 				await delay(1200);
 				this.closeWorldCreatePopup();
-			} else {
+			} else if (this.lastWorldCreateStatus.status === "failed") {
 				this.$alert.error("World creation failed");
+				this.closeWorldCreatePopup();
+			} else {
+				// Polling stopped without the backend reporting a terminal state. The job is
+				// most likely still running (slow cold start / large world) and we simply
+				// stopped watching, so don't claim it failed — tell the user to check back.
+				this.$alert.warning("World creation is taking longer than expected — check back in a few minutes");
 				this.closeWorldCreatePopup();
 			}
 
