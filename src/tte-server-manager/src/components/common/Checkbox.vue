@@ -12,6 +12,7 @@
 
 <script>
 export default {
+	emits: ['input', 'update:modelValue'],
 	props: {
 		disabled: {
 			type: Boolean,
