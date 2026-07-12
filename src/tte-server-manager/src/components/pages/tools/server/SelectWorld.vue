@@ -2,7 +2,8 @@
 	<StatusTile 
 		class="grow mt-2 gradient-tile"
 		collapsible
-		:perm-required="PERMISSIONS.server.world.launch"
+		:perm-required="[PERMISSIONS.server.world.list, PERMISSIONS.server.world.launch]"
+		match-any-permission
 		:loading="serverStore.loading.files[selectedInstance]"
 	>
 		<template #header>
@@ -40,55 +41,57 @@
 				</div>
 			</div>
 
-			<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
-			<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
-				<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
-					<ValueInput
-						type="number"
-						max="9999"
-						min="1000"
-						placeholder="Value between 1000 and 9999"
-						v-model="selectWorld.port"
-					/>
-				</div> -->
+			<template v-if="canLaunch">
+				<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
+				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
+					<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
+						<ValueInput
+							type="number"
+							max="9999"
+							min="1000"
+							placeholder="Value between 1000 and 9999"
+							v-model="selectWorld.port"
+						/>
+					</div> -->
 
-				<div class="bg-gray-5 rounded-lg p-4 my-0 mx-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
-					<ValueInput
-						type="number"
-						max="500"
-						min="1"
-						placeholder="Value between 1 and 500"
-						v-model="selectWorld.maxplayers"
-					/>
+					<div class="bg-gray-5 rounded-lg p-4 my-0 mx-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
+						<ValueInput
+							type="number"
+							max="500"
+							min="1"
+							placeholder="Value between 1 and 500"
+							v-model="selectWorld.maxplayers"
+						/>
+					</div>
+
+					<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
+						<ValueInput
+							maxlength="25"
+							placeholder="Leave blank for none"
+							v-model="selectWorld.password"
+							:input-allowed="new Set(allowedPasswordChars)"
+						/>
+					</div> -->
 				</div>
 
-				<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-					<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
-					<ValueInput
-						maxlength="25"
-						placeholder="Leave blank for none"
-						v-model="selectWorld.password"
-						:input-allowed="new Set(allowedPasswordChars)"
-					/>
-				</div> -->
-			</div>
-
-			<div class="flex justify-end p-4">
-				<FlexButton 
-					v-if="!serverStore.loading.worldLaunch[selectedInstance]"
-					:variant="BTN_VARIANT.PRIMARY"
-					@input="startServer"
-					:disabled="!(selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !serverStore.loading.worldLaunch[selectedInstance] && !selectedServerData.state)"
-				>
-					<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
-				</FlexButton>
-				<div v-else-if="serverStore.loading.worldLaunch[selectedInstance]" class="flex items-center">
-					<Spinner class="h-5 w-5 text-teal-3" />
-					<p class="font-main font-bold text-teal-4 mx-2">SERVER STARTING...</p>
+				<div class="flex justify-end p-4">
+					<FlexButton 
+						v-if="!serverStore.loading.worldLaunch[selectedInstance]"
+						:variant="BTN_VARIANT.PRIMARY"
+						@input="startServer"
+						:disabled="!(selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !serverStore.loading.worldLaunch[selectedInstance] && !selectedServerData.state)"
+					>
+						<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
+					</FlexButton>
+					<div v-else-if="serverStore.loading.worldLaunch[selectedInstance]" class="flex items-center">
+						<Spinner class="h-5 w-5 text-teal-3" />
+						<p class="font-main font-bold text-teal-4 mx-2">SERVER STARTING...</p>
+					</div>
 				</div>
-			</div>
+			</template>
 		</template>
 		<template #content v-else>
 			<p class="font-main font-bold text-gray-7 p-5">LAUNCH IN PROGRESS, PLEASE WAIT</p>
@@ -158,6 +161,9 @@ export default {
 		},
 		serverIsAvailable() {
 			return this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
+		},
+		canLaunch() {
+			return this.$checkPermissions(PERMISSIONS.server.world.launch);
 		}
 	},
 	methods: {

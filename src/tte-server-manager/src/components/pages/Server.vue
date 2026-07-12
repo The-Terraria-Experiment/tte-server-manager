@@ -194,7 +194,9 @@ export default {
 			}
 		},
 		async fetchInstanceFiles(instanceID) {
-			this.$validatePermissions(PERMISSIONS.instance.files.read);
+			// The world list is sourced from this fetch, so viewing worlds
+			// (server.world.list) is sufficient even without instance.files.read.
+			this.$validatePermissions([PERMISSIONS.server.world.list, PERMISSIONS.instance.files.read], false);
 
 			try {
 				await this.serverStore.fetchInstanceFiles(instanceID);
@@ -245,7 +247,7 @@ export default {
 	async created() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
 			await this.fetchInstanceList();
-			if (this.$checkPermissions(PERMISSIONS.instance.files.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
+			if (this.$checkPermissions([PERMISSIONS.server.world.list, PERMISSIONS.instance.files.read], false) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
 			if (this.$checkPermissions(PERMISSIONS.server.status.read) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
@@ -265,7 +267,7 @@ export default {
 				};
 				doFetches();
 			}
-			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkPermissions(PERMISSIONS.instance.files.read)) {
+			if (!this.serverStore.getInstanceData(value) && !this.serverStore.isLoadingStatus(value) && this.$checkPermissions([PERMISSIONS.server.world.list, PERMISSIONS.instance.files.read], false)) {
 				this.fetchInstanceFiles(this.selectedInstance);
 			}
 		}

@@ -95,6 +95,12 @@ export default {
 			type: [String, Array, null],
 			default: null
 		},
+		// When permRequired is an array, require all of them by default. Set true
+		// to grant visibility if the user holds any one of them.
+		matchAnyPermission: {
+			type: Boolean,
+			default: false
+		},
 		displayIfNotAllowed: {
 			type: Boolean,
 			default: false
@@ -179,7 +185,7 @@ export default {
 		}
 	},
 	created() {
-		if (this.permRequired && !this.$checkPermissions(this.permRequired)) {
+		if (this.permRequired && !this.$checkPermissions(this.permRequired, !this.matchAnyPermission)) {
 			this.validated = false;
 		}
 	},

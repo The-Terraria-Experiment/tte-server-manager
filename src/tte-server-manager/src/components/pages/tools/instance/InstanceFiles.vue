@@ -1,6 +1,7 @@
 <template>
-	<StatusTile 
+	<StatusTile
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
+		match-any-permission
 		collapsible
 		class="mt-2"
 	>

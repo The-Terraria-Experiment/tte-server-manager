@@ -4,7 +4,7 @@ export const PermissionsMeta = {
 	server: {
 		list: {value: "server.list", description: "", used: false},
 		world: {
-			list: {value: "server.world.list", description: "", used: false},
+			list: {value: "server.world.list", description: pfx + "view available existing worlds"},
 			create: {value: "server.world.create", description: pfx + "generate a new Terraria world"},
 			launch: {value: "server.world.launch", description: pfx + "launch existing Terraria worlds"},
 			delete: {value: "server.world.delete", description: "", used: false},

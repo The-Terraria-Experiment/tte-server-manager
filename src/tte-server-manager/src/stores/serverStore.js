@@ -107,7 +107,7 @@ export const useServerStore = defineStore("serverstore", {
 			this.loading.files[instanceId] = true;
 
 			try {
-				const data = await get(`/instance/${instanceId}/files`, PERMISSIONS.instance.files.read);
+				const data = await get(`/instance/${instanceId}/files`, [PERMISSIONS.server.world.list, PERMISSIONS.instance.files.read]);
 				this.instanceFiles[instanceId] = data.files;
 				this.instanceFileRoots[instanceId] = data.pathRoots;
 				this.instanceWorldPaths[instanceId] = data.worldPaths;
