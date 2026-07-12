@@ -34,9 +34,11 @@ export const PERMISSIONS = {
 			},
 		},
 		logs: {
-			read: "server.logs.read",
-			ips: {
-				read: "server.logs.ips.read",
+			players: {
+				read: "server.logs.players.read",
+				ips: {
+					read: "server.logs.players.ips.read",
+				},
 			},
 			tshock: {
 				read: "server.logs.tshock.read",

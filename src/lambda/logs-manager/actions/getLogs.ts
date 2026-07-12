@@ -94,7 +94,7 @@ export const getLogs = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	if (ipAddress !== null) {
-		await Permissions.ValidatePermission(event, PERMISSIONS.server.logs.ips.read);
+		await Permissions.ValidatePermission(event, PERMISSIONS.server.logs.players.ips.read);
 
 		if (eventType !== null || eventTypes !== null || playerName !== null) {
 			return ResponseUtil.ValidationError("Specify ip only when not querying by eventType, eventTypes, or player");
