@@ -13,6 +13,17 @@ import { Delay } from "../shared/utils/Delay.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { TShockAPI } from "../shared/utils/TShockAPI.js";
 
+/**
+ * Resolves the daily TShock stdout log path (BASE-agnostic; matches the redirect target used when
+ * launching worldgen). Returns null when stdout logging isn't configured, in which case worldgen
+ * output is dropped to /dev/null and no live status can be read.
+ */
+const resolveOutLogPath = (): string | null => {
+	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
+	if (!outLogRoot) return null;
+	return path.posix.join(outLogRoot, `${new Date().toISOString().slice(0, 10)}.log`);
+};
+
 const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFilePath: string): string => {
 	// Validate and quote paths to handle spaces safely
 	const fsRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
@@ -39,9 +50,8 @@ const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFileP
 	}
 
 	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
-	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
-	if (outLogRoot) {
-		const outLogPath = path.posix.join(outLogRoot, `${new Date().toISOString().slice(0, 10)}.log`);
+	const outLogPath = resolveOutLogPath();
+	if (outLogPath) {
 		const escapedOutLogPath = outLogPath.replace(/"/g, '\\"');
 		command += ` 1>> "${escapedOutLogPath}"`;
 	} else {
@@ -71,21 +81,66 @@ const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFileP
 	return systemdLaunch;
 };
 
-const waitForWorldFileReady = async (filePath: string, instanceID: string) => {
+/**
+ * Polls the world file until its size stabilizes (worldgen finished writing). When an stdout log
+ * path is provided, the same SSM round-trip also tails the log's latest non-blank line — Terraria's
+ * live worldgen status ("Growing trees", "Settling liquids", …) — and hands each new line to
+ * onStatusLine so callers can surface real progress. onStatusLine is best-effort: its failures are
+ * swallowed and never abort the wait.
+ */
+const waitForWorldFileReady = async (
+	filePath: string,
+	instanceID: string,
+	outLogPath: string | null,
+	onStatusLine?: (line: string) => Promise<void>,
+) => {
 	const pollAttempts = Number(process.env.WORLD_CREATE_POLL_ATTEMPTS || 30);
 	const pollDelayMs = Number(process.env.WORLD_CREATE_POLL_DELAY_MS || 5000);
 	const stableCount = Number(process.env.WORLD_CREATE_STABLE_COUNT || 2);
 	const escapedPath = filePath.replace(/"/g, '\\"');
-	const statCommand = `if [ -f "${escapedPath}" ]; then stat -c %s "${escapedPath}"; else echo "MISSING"; fi`;
+	const statBlock = `if [ -f "${escapedPath}" ]; then stat -c %s "${escapedPath}"; else echo "MISSING"; fi`;
+
+	// When logging is configured, append the log's last non-blank line after a delimiter. Carriage
+	// returns are normalized to newlines first because Terraria rewrites in-place progress with \r,
+	// so the freshest status is the final segment rather than the final newline-terminated line.
+	const LOG_DELIM = "===WORLDGEN-LOGLINE===";
+	let tailBlock = "";
+	if (outLogPath && onStatusLine) {
+		const escapedLogPath = outLogPath.replace(/"/g, '\\"');
+		tailBlock = `if [ -f "${escapedLogPath}" ]; then tail -c 8192 "${escapedLogPath}" | tr '\\r' '\\n' | grep -av '^[[:space:]]*$' | tail -n 1; fi`;
+	}
+	const statCommand = tailBlock
+		? `${statBlock}; printf '%s\\n' "${LOG_DELIM}"; ${tailBlock}`
+		: statBlock;
 
 	const SSM = new SsmDao();
 
 	let lastSize = null;
 	let stableTicks = 0;
+	let lastLogLine = "";
 
 	for (let i = 0; i < pollAttempts; i++) {
 		const result = await SSM.ExecuteCommandGetResult(instanceID, [statCommand], 5000);
-		const output = (result.stdout || "").trim();
+		const rawOutput = result.stdout || "";
+
+		let sizeOutput = rawOutput;
+		if (tailBlock && onStatusLine) {
+			const delimIdx = rawOutput.indexOf(LOG_DELIM);
+			if (delimIdx !== -1) {
+				sizeOutput = rawOutput.slice(0, delimIdx);
+				const logLine = rawOutput.slice(delimIdx + LOG_DELIM.length).trim();
+				if (logLine && logLine !== lastLogLine) {
+					lastLogLine = logLine;
+					try {
+						await onStatusLine(logLine);
+					} catch {
+						// Reporting the status line is best-effort; never let it abort the wait.
+					}
+				}
+			}
+		}
+
+		const output = sizeOutput.trim();
 
 		if (!output || output === "MISSING") {
 			stableTicks = 0;
@@ -188,7 +243,16 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		updates: creationUpdate2
 	});
 	
-	await waitForWorldFileReady(worldFilePath, params.instanceID);
+	const outLogPath = resolveOutLogPath();
+	await waitForWorldFileReady(worldFilePath, params.instanceID, outLogPath, async (line) => {
+		const detailUpdate: SystemWorldCreateEntry = {
+			detail: line,
+			updatedAt: new Date().toISOString()
+		};
+		await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
+			updates: detailUpdate
+		});
+	});
 
 	const creationUpdate3: SystemWorldCreateEntry = {
 		step: "uploading-world-file",

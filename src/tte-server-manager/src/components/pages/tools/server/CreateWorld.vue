@@ -28,6 +28,7 @@
 							<p class="font-main font-bold text-teal-5 ml-3">{{ worldCreateStageLabel }}</p>
 						</div>
 						<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
+						<p v-if="lastWorldCreateStatus.detail" class="font-mono text-teal-4 text-xs mt-3 text-center break-all">{{ lastWorldCreateStatus.detail }}</p>
 						<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
 						<p class="font-mono text-gray-8 text-xs mt-3 text-center">Initiated by: {{ lastWorldCreateStatus.requestedBy || "(?)" }}</p>
 					</div>
@@ -128,6 +129,7 @@
 					</div>
 					<p class="font-main text-gray-9 text-sm sm:text-base text-center"><span class="font-bold">Stage:</span> {{ worldCreateStepLabel }}</p>
 					<p v-if="lastWorldCreateStatus.progress >= 0" class="font-mono text-gray-8 text-xs mt-3 text-center">Progress: {{ lastWorldCreateStatus.progress }}%</p>
+					<p v-if="lastWorldCreateStatus.detail" class="font-mono text-teal-4 text-xs mt-3 text-center break-all">{{ lastWorldCreateStatus.detail }}</p>
 				</div>
 			</div>
 		</Popup>
@@ -160,6 +162,7 @@ const defaultLastWorldCreateStatus = () => ({
 	status: "",
 	step: "",
 	progress: -1,
+	detail: null,
 	createdAt: null,
 	updatedAt: null,
 	jobID: null
