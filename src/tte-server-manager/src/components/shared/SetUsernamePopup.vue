@@ -66,10 +66,35 @@ export default {
 		userStore() {
 			return useUserStore();
 		},
+		// Recompute the auto-open decision whenever any input to it changes, so the popup
+		// appears the moment a first-time user finishes signing in - not only after a refresh.
+		autoOpenKey() {
+			return [
+				this.userStore.isAuthenticated,
+				this.userStore.user?.displayName,
+				this.userStore.permissions.length,
+			].join("|");
+		},
+	},
+	watch: {
+		autoOpenKey() {
+			this.maybeAutoOpen();
+		},
 	},
 	methods: {
 		openPopup() {
 			this.setUsernamePopupOpen = true;
+		},
+		// The mustCreate instance (rendered globally in App.vue) is responsible for prompting
+		// a signed-in user with no display name. App.vue's created() only fires this on a full
+		// load, which an in-app email login never triggers, so drive it from store state here.
+		// Gated on `access` to match App.vue, which shows a "no access" warning instead.
+		maybeAutoOpen() {
+			if (!this.mustCreate) return;
+			if (!this.userStore.isAuthenticated) return;
+			if (!this.$checkPermissions(PERMISSIONS.access)) return;
+			if (this.userStore.user?.displayName) return;
+			this.openPopup();
 		},
 		async saveUsername() {
 			if (!this.updatedUsername) {
@@ -91,14 +116,20 @@ export default {
 			}
 		},
 		async doLogout() {
+			sessionStorage.clear();
 			await this.userStore.signOut();
+			// Email sign-out doesn't reload the page, so close this popup and route away
+			// ourselves - otherwise it stays open over a logged-out app until a refresh.
+			this.setUsernamePopupOpen = false;
+			this.$router.push("/");
 		}
 	},
 	async mounted() {
 		await this.userStore.ensureUserFetched();
-		this.updatedUsername = this.userStore.user.displayName;
+		this.updatedUsername = this.userStore.user?.displayName || "";
 		await this.$nextTick();
 		this.userIsFetched = true;
+		this.maybeAutoOpen();
 	}
 }
 </script>
