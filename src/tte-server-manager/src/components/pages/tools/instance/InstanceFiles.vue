@@ -337,7 +337,11 @@ export default {
 				a.click();
 				document.body.removeChild(a);
 			} catch (e) {
-				this.$alert.error("Error generating download link");
+				if (e?.code === "SSM_NOT_READY") {
+					this.$alert.warning("The instance is still starting up. Please wait a moment and try again.");
+				} else {
+					this.$alert.error("Error generating download link");
+				}
 				console.error(e);
 			} finally {
 				this.loadingDownload = false;

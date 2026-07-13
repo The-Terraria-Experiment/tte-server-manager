@@ -5,7 +5,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { S3Dao, MISSING_LOCAL_FILE_MARKER } from "../shared/aws/S3.js";
-import { SsmDao } from "../shared/aws/SSM.js";
+import { SsmDao, isInstanceNotReadyForSsm } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
@@ -86,9 +86,33 @@ export const downloadFile = async (event: AuthorizedEvent, context: Context) => 
 
 		let commandId: string | undefined;
 		if (online) {
-			const syncCommand = await S3.SyncInstanceFileToS3(instanceId, localFilePath, bucketName, s3Key);
-			commandId = syncCommand.commandId;
-			const syncResult = await SSM.PollForCommandCompletion(commandId, instanceId);
+			let syncResult;
+			try {
+				const syncCommand = await S3.SyncInstanceFileToS3(instanceId, localFilePath, bucketName, s3Key);
+				commandId = syncCommand.commandId;
+				syncResult = await SSM.PollForCommandCompletion(commandId, instanceId);
+			} catch (error) {
+				// EC2 reports RUNNING before the SSM agent has registered (the boot warmup window), so a
+				// download attempted right after start fails to reach SSM. Surface a clear "still starting,
+				// retry shortly" response rather than a generic 500 — we can't safely serve the last-synced
+				// S3 copy here because a running server's live world isn't uploaded until shutdown.
+				if (isInstanceNotReadyForSsm(error)) {
+					await CWLogger.Action(FUNC_NAMES.INST_MGR, {
+						userId: Parsers.GetUserSub(event),
+						action: "download-file",
+						status: "error",
+						resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
+						details: { pathRoot, path, fileName, s3Key, reason: "ssm-not-ready", state },
+					});
+
+					return ResponseUtil.Error(
+						"The instance is still starting up. Please wait a moment and try again.",
+						409,
+						"SSM_NOT_READY",
+					);
+				}
+				throw error;
+			}
 
 			// The sync succeeds even when the source file is absent (the script skips it), which would
 			// leave a stale prior object at s3Key. Treat a skip as a hard failure so we never hand back

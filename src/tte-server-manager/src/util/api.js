@@ -101,7 +101,12 @@ async function makeRequestWithRetry(method, endpoint, options, retryCount) {
 	
 	if (!response.ok) {
 		const errorData = await response.json().catch(() => ({}));
-		throw new Error(errorData.message || `API error: ${response.status} ${response.statusText}`);
+		const error = new Error(errorData.message || `API error: ${response.status} ${response.statusText}`);
+		// Surface the structured error fields so callers can react to specific cases (e.g. SSM_NOT_READY).
+		error.code = errorData.code;
+		error.status = response.status;
+		error.details = errorData.details;
+		throw error;
 	}
 	
 	return response.json();
