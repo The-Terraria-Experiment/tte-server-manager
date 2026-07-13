@@ -3,6 +3,7 @@ import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
+import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { S3Dao, MISSING_LOCAL_FILE_MARKER } from "../shared/aws/S3.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
@@ -19,6 +20,7 @@ type DownloadFileBody = {
 const DB = new DynamoDao();
 const S3 = new S3Dao();
 const SSM = new SsmDao();
+const EC2 = new Ec2Dao();
 
 export const downloadFile = async (event: AuthorizedEvent, context: Context) => {
 	void context;
@@ -75,22 +77,48 @@ export const downloadFile = async (event: AuthorizedEvent, context: Context) => 
 		localPathComponents.push(fileName);
 		const localFilePath = localPathComponents.join("/");
 
-		const { commandId } = await S3.SyncInstanceFileToS3(instanceId, localFilePath, bucketName, s3Key);
-		const syncResult = await SSM.PollForCommandCompletion(commandId, instanceId);
+		// Instance files are synced up to S3 on shutdown, so when the box is offline we can serve the
+		// already-synced object directly instead of doing a live SSM re-sync (which requires SSM, and
+		// thus a running instance). While online we still re-sync so downloads reflect any edits made
+		// since the last shutdown.
+		const { state } = await EC2.GetInstanceStatus(instanceId);
+		const online = state === InstanceState.RUNNING;
 
-		// The sync succeeds even when the source file is absent (the script skips it), which would
-		// leave a stale prior object at s3Key. Treat a skip as a hard failure so we never hand back
-		// an out-of-date download URL.
-		if (syncResult.stdout.includes(MISSING_LOCAL_FILE_MARKER)) {
-			await CWLogger.Action(FUNC_NAMES.INST_MGR, {
-				userId: Parsers.GetUserSub(event),
-				action: "download-file",
-				status: "error",
-				resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-				details: { pathRoot, path, fileName, s3Key, localFilePath, commandId, reason: "source-file-missing" },
-			});
+		let commandId: string | undefined;
+		if (online) {
+			const syncCommand = await S3.SyncInstanceFileToS3(instanceId, localFilePath, bucketName, s3Key);
+			commandId = syncCommand.commandId;
+			const syncResult = await SSM.PollForCommandCompletion(commandId, instanceId);
 
-			return ResponseUtil.NotFoundError("File");
+			// The sync succeeds even when the source file is absent (the script skips it), which would
+			// leave a stale prior object at s3Key. Treat a skip as a hard failure so we never hand back
+			// an out-of-date download URL.
+			if (syncResult.stdout.includes(MISSING_LOCAL_FILE_MARKER)) {
+				await CWLogger.Action(FUNC_NAMES.INST_MGR, {
+					userId: Parsers.GetUserSub(event),
+					action: "download-file",
+					status: "error",
+					resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
+					details: { pathRoot, path, fileName, s3Key, localFilePath, commandId, reason: "source-file-missing" },
+				});
+
+				return ResponseUtil.NotFoundError("File");
+			}
+		} else {
+			// Offline: the object must already exist in S3 from a prior sync, otherwise there's
+			// nothing to download and we can't reach the instance to fetch it.
+			const objects = await S3.ListObjects(bucketName, s3Key);
+			if (!objects.some((obj) => obj.key === s3Key)) {
+				await CWLogger.Action(FUNC_NAMES.INST_MGR, {
+					userId: Parsers.GetUserSub(event),
+					action: "download-file",
+					status: "error",
+					resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
+					details: { pathRoot, path, fileName, s3Key, reason: "not-synced-offline", state },
+				});
+
+				return ResponseUtil.NotFoundError("File");
+			}
 		}
 
 		const downloadUrl = await S3.GetSignedDownloadUrl(bucketName, s3Key, 3600, fileName);
@@ -100,7 +128,7 @@ export const downloadFile = async (event: AuthorizedEvent, context: Context) => 
 			action: "download-file",
 			status: "ok",
 			resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-			details: { pathRoot, path, fileName, s3Key },
+			details: { pathRoot, path, fileName, s3Key, online, commandId },
 		});
 
 		return ResponseUtil.Success({ downloadUrl, fileName });

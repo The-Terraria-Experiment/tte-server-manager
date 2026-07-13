@@ -8,6 +8,7 @@ import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { CleanupUtil } from "../shared/utils/Cleanup.js";
 import { syncAndPruneTShockLogs } from "../shared/utils/TShockConsoleLogs.js";
+import { syncInstanceFilesToS3 } from "../shared/utils/InstanceFileSync.js";
 
 const EC2 = new Ec2Dao();
 
@@ -22,6 +23,7 @@ export const stop = async (event: AuthorizedEvent, context: Context) => {
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
 
 	await syncAndPruneTShockLogs(instanceId);
+	await syncInstanceFilesToS3(instanceId);
 	await EC2.StopInstance(instanceId);
 
 	await CleanupUtil.ClearWorldCreationStatus(instanceId);

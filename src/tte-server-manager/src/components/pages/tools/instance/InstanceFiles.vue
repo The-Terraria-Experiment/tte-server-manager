@@ -25,7 +25,7 @@
 					<p class="text-teal-3 ml-2 font-main font-bold">RESYNC FILES</p>
 				</div>
 			</FlexButton>
-			<p v-else class="italic text-gray-6 mx-4">Launch the instance to edit, sync, and download files</p>
+			<p v-else class="italic text-gray-6 mx-4">Launch the instance to edit, sync, and upload files. You can still browse and download existing files while it's offline.</p>
 
 			<div class="m-4 gap-4 filetile-parent flex flex-col lg:block lg:columns-2 2xl:columns-3">
 				<template v-for="(path, nickname) in filePathLocations">
@@ -36,7 +36,7 @@
 
 						<FileHierarchy
 							:editable="selectedInstanceData.state === 'ONLINE'"
-							:selectable="selectedInstanceData.state === 'ONLINE'"
+							selectable
 							class="mt-4 -ml-4"
 							:files="instanceFiles[path]"
 							@picked="($e) => handlePicked($e, path)"
@@ -130,6 +130,7 @@
 			</div>
 			<div class="flex justify-between mt-6">
 				<FlexButton
+					v-if="selectedInstanceData.state === 'ONLINE'"
 					:variant="BTN_VARIANT.DANGER"
 					@input="openDeleteFromInfo"
 				>
