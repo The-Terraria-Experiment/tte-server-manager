@@ -132,18 +132,23 @@
 				<FlexButton
 					v-if="selectedInstanceData.state === 'ONLINE'"
 					:variant="BTN_VARIANT.DANGER"
+					:disabled="loadingDownload"
 					@input="openDeleteFromInfo"
 				>
 					<p class="py-2 px-12">DELETE</p>
 				</FlexButton>
+				<div v-else></div>
 				<FlexButton
 					v-if="!fileInfoDetails.isFolder"
-					leftIcon="download"
+					:leftIcon="loadingDownload ? null : 'download'"
 					:disabled="loadingDownload"
 					:variant="BTN_VARIANT.SECONDARY"
 					@input="downloadFileAction"
 				>
-					DOWNLOAD
+					<div class="flex items-center">
+						<Spinner v-if="loadingDownload" class="h-4 w-4 mr-2" />
+						<p>DOWNLOAD</p>
+					</div>
 				</FlexButton>
 			</div>
 		</div>
@@ -161,6 +166,7 @@ import Checkbox from '../../../common/Checkbox.vue';
 import FileHierarchy from '../../../common/FileHierarchy.vue';
 import FilePicker from '../../../common/FilePicker.vue';
 import Popup from '../../../common/Popup.vue';
+import Spinner from '@/components/common/Spinner.vue';
 
 
 export default {
@@ -338,7 +344,7 @@ export default {
 				document.body.removeChild(a);
 			} catch (e) {
 				if (e?.code === "SSM_NOT_READY") {
-					this.$alert.warning("The instance is still starting up. Please wait a moment and try again.");
+					this.$alert.warning("The instance is not yet ready to handle downloads. Please wait a moment and try again.");
 				} else {
 					this.$alert.error("Error generating download link");
 				}
