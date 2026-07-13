@@ -116,8 +116,16 @@ export default {
 		async handleSignOut() {
 			sessionStorage.clear();
 			this.logoutClicked = true;
-			await this.userStore.signOut();
-			this.router.push('/');
+			try {
+				await this.userStore.signOut();
+				// Email sign-out is a local (non-redirecting) operation, so unlike the
+				// federated hosted-UI logout the page never reloads to reset this UI -
+				// close the popup and clear the spinner ourselves.
+				this.profilePopupOpen = false;
+				this.router.push('/');
+			} finally {
+				this.logoutClicked = false;
+			}
 		},
 		async handleClearCache() {
 			this.loadingClearCache = true;

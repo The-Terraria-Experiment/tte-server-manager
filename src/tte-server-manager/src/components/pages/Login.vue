@@ -10,7 +10,7 @@
 			</div>
 			<Authenticator :formFields="formFields">
 				<template v-slot="{user}">
-					<!-- This won't be shown because we redirect on auth change -->
+					<!-- This won't be shown because we redirect on the signedIn Hub event -->
 				</template>
 			</Authenticator>
 		</div>
@@ -19,11 +19,11 @@
 
 <script setup>
 import { Authenticator } from "@aws-amplify/ui-vue";
-import { I18n } from "aws-amplify/utils";
+import { Hub, I18n } from "aws-amplify/utils";
 import "@aws-amplify/ui-vue/styles.css";
-import { onMounted } from "vue";
+import { onMounted, onUnmounted } from "vue";
 import { useUserStore } from "../../stores/userStore";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import PatreonSignInButton from "../shared/PatreonSignInButton.vue";
 import GoogleSignInButton from "../shared/GoogleSignInButton.vue";
 
@@ -57,15 +57,36 @@ const formFields = {
 	},
 };
 
+const userStore = useUserStore();
+const router = useRouter();
+const route = useRoute();
+
+const redirectToApp = () => {
+	const target = route.query.redirect || "/";
+	router.push(target);
+};
+
+// The Amplify <Authenticator> signs email users in via in-place API calls (no page
+// reload), so onMounted alone can't catch it - listen for the signedIn event and
+// redirect off the login page. Federated logins reload the page and are handled by
+// onMounted below.
+let unsubscribeAuthHub;
 onMounted(async () => {
-	const userStore = useUserStore();
-	const router = useRouter();
+	unsubscribeAuthHub = Hub.listen("auth", async ({ payload }) => {
+		if (payload.event !== "signedIn") return;
+		await userStore.loadUser(true);
+		redirectToApp();
+	});
 
 	await userStore.loadUser();
 
 	if (userStore.isAuthenticated) {
-		router.push("/");
+		redirectToApp();
 	}
+});
+
+onUnmounted(() => {
+	unsubscribeAuthHub?.();
 });
 </script>
 
