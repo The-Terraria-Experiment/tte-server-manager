@@ -12,6 +12,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { Delay } from "../shared/utils/Delay.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { TShockAPI } from "../shared/utils/TShockAPI.js";
+import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
 
 /**
  * Resolves the daily TShock stdout log path (BASE-agnostic; matches the redirect target used when
@@ -44,10 +45,11 @@ const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFileP
 		command += ` -seed "${escapedSeed}"`;
 	}
 	command += ` -port ${params.port} -maxplayers ${params.maxPlayers}`;
-	if (params.password) {
-		const escapedPassword = params.password.replace(/"/g, '\\"');
-		command += ` -password "${escapedPassword}"`;
-	}
+
+	// NOTE: The server password is intentionally NOT passed on the command line. TShock has no
+	// -password/-pass switch and ignores the vanilla one, so a CLI password is silently dropped and
+	// config.json wins. The `-autocreate` run generates the world and then keeps serving it, so the
+	// live server's password is written into config.json before launch (see applyServerPasswordToConfig).
 
 	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
 	const outLogPath = resolveOutLogPath();
@@ -220,6 +222,9 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 	const command = buildCreateWorldTShockCommand(params.params, worldFilePath);
 	const s3Key = path.posix.join(params.instanceID, params.params.worldFolderPath, `${params.params.worldName}.wld`);
 
+	// Never log the plaintext password to CloudWatch.
+	const loggableParams = { ...params.params, password: params.params.password ? "[redacted]" : "" };
+
 	const creationUpdate1: SystemWorldCreateEntry = {
 		status: "running",
 		step: "starting-tshock",
@@ -229,6 +234,14 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
 		updates: creationUpdate1
 	});
+
+	// TShock ignores CLI passwords, so write the requested server password into config.json before
+	// the -autocreate run (which generates the world and then serves it) reads it. Blank = leave the
+	// existing config password untouched. The instance is already running with SSM ready (ensured by
+	// queueCreateWorld before this worker was invoked).
+	if (params.params.password && String(params.params.password).trim()) {
+		await applyServerPasswordToConfig(params.instanceID, String(params.params.password));
+	}
 
 	const SSM = new SsmDao();
 	const tshockResult = await SSM.ExecuteCommand(params.instanceID, [command]);
@@ -240,7 +253,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		details: {
 			commandID: tshockResult.commandId,
 			worldFilePath,
-			params: params.params
+			params: loggableParams
 		}
 	});
 
@@ -282,7 +295,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		status: "uploading-world",
 		details: {
 			worldFilePath,
-			params: params.params
+			params: loggableParams
 		}
 	});
 
@@ -315,7 +328,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 			createCommand: tshockResult.commandId,
 			uploadCommand: upload.commandId,
 			worldFilePath,
-			params,
+			params: { ...params, params: loggableParams },
 			s3Key
 		}
 	});

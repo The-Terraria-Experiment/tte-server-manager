@@ -83,6 +83,9 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 		return ResponseUtil.ValidationError(`Failed to queue world creation: ${e?.message}`);
 	}
 
+	// Never log the plaintext password to CloudWatch.
+	const loggableParams = { ...(event.parsedBody || {}), password: (event.parsedBody || {}).password ? "[redacted]" : "" };
+
 	const requestedBy = Parsers.GetUserSub(event);
 	Assert.IsTruthyString(requestedBy, "No user ID");
 	const jobID = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
@@ -119,7 +122,7 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 		status: "queued",
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 		details: {
-			params: event.parsedBody,
+			params: loggableParams,
 			jobID,
 			instanceID
 		}

@@ -11,6 +11,7 @@ import { Parsers } from "../shared/utils/Parsers.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { TShockAPI } from "../shared/utils/TShockAPI.js";
+import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 
@@ -34,7 +35,7 @@ const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	}
 };
 
-const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlayers: number, password: string | undefined): string => {
+const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlayers: number): string => {
 	const tshockPath = process.env.TSHOCK_PATH;
 	const fsRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	Assert.IsTruthyString(tshockPath, "TShock executable path not configured (TSHOCK_PATH env var missing)");
@@ -49,9 +50,11 @@ const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlaye
 	command += ` -port ${port}`;
 	command += ` -maxplayers ${maxPlayers}`;
 
-	if (password && password.trim()) {
-		command += ` -password "${password}"`;
-	}
+	// NOTE: The server password is intentionally NOT passed on the command line. TShock has no
+	// -password/-pass switch and ignores the vanilla one entirely — the only thing that sets
+	// Netplay.ServerPassword under TShock is the interactive prompt, so a CLI password is silently
+	// dropped and config.json wins. We instead write ServerPassword into config.json before launch
+	// (see applyServerPasswordToConfig).
 
 	// Append stdout redirection into daily log file when configured (otherwise drop to /dev/null)
 	const outLogRoot = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
@@ -158,8 +161,11 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 		return ResponseUtil.ValidationError("Instance is not running");
 	}
 
-	const launchCommand = buildLaunchWorldTShockCommand(worldFilePath, port, maxPlayers, password);
+	const launchCommand = buildLaunchWorldTShockCommand(worldFilePath, port, maxPlayers);
 	const launchGuardCommand = buildPreLaunchGuardPath();
+
+	// Never log the plaintext password to CloudWatch.
+	const loggableParams = { ...(event.parsedBody || {}), password: password ? "[redacted]" : "" };
 
 	CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 		userId: Parsers.GetUserSub(event),
@@ -167,7 +173,7 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 		status: "commands-built",
 		resource: `${event.httpMethod ?? 'unknown method'}: ${event.path ?? 'unknown path'}`,
 		details: {
-			params: event.parsedBody
+			params: loggableParams
 		}
 	});
 
@@ -189,6 +195,11 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 			});
 
 			return ResponseUtil.ValidationError("A TShock process is already running on this instance.");
+		}
+
+		// Apply the launch password by overriding config.json before starting (TShock ignores CLI passwords).
+		if (password && String(password).trim()) {
+			await applyServerPasswordToConfig(instanceID, String(password));
 		}
 
 		const result = await SSM.ExecuteCommand(instanceID, [launchCommand]);
@@ -228,7 +239,7 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 			stack: new Error().stack,
 			details: {
 				instanceID,
-				params: event.parsedBody
+				params: loggableParams
 			}
 		});
 

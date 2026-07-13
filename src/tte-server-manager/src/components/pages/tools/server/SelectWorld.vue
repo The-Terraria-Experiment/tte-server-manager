@@ -66,15 +66,15 @@
 						/>
 					</div>
 
-					<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+					<div class="bg-gray-5 rounded-lg p-4 my-0 mx-4 flex flex-col">
 						<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
 						<ValueInput
 							maxlength="25"
-							placeholder="Leave blank for none"
+							placeholder="Leave blank to use config file"
 							v-model="selectWorld.password"
 							:input-allowed="new Set(allowedPasswordChars)"
 						/>
-					</div> -->
+					</div>
 				</div>
 
 				<div class="flex justify-end p-4">

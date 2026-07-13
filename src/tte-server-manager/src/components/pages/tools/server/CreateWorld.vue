@@ -98,6 +98,15 @@
 							v-model="newWorldData.maxPlayers"
 						/>
 					</div>
+					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
+						<ValueInput
+							maxlength="25"
+							placeholder="Leave blank to use config file"
+							v-model="newWorldData.password"
+							:input-allowed="new Set(allowedPasswordChars)"
+						/>
+					</div>
 				</div>
 				<div class="flex justify-end p-4">
 					<FlexButton
@@ -154,6 +163,7 @@ const defaultNewWorldData = () => ({
 	seed: "fortheworthy",
 	maxPlayers: 16,
 	port: 7777,
+	password: "",
 	worldFileLocation: null
 });
 
@@ -184,6 +194,12 @@ export default {
 			serverStore: useServerStore(),
 			statusStore: useStatusStore(),
 			newWorldData: defaultNewWorldData(),
+			allowedPasswordChars: [
+				...Array.from({ length: 26 }).map((_, i) => String.fromCharCode(97 + i)),
+				...Array.from({ length: 26 }).map((_, i) => String.fromCharCode(65 + i)),
+				...Array.from({ length: 10 }).map((_, i) => i.toString()),
+				'_'
+			],
 			worldSizeDropdownOptions: [
 				{ id: 1, text: "Small" },
 				{ id: 2, text: "Medium" },
@@ -284,6 +300,7 @@ export default {
 				[this.newWorldData.evil < 1 || this.newWorldData.evil > 3, "Invalid world evil"],
 				[!this.newWorldData.name || !/^[a-zA-Z0-9_\s]+$/.test(this.newWorldData.name), "World name can only include alphanumeric characters, underscores, and whitespace"],
 				[!this.newWorldData.maxPlayers, "Cannot have 0 max players"],
+				[this.newWorldData.password && !/^[a-zA-Z0-9_]+$/.test(this.newWorldData.password), "The password can only contain alphanumeric characters and underscores"],
 				[!this.newWorldData.worldFileLocation, "Invalid file location"]
 			];
 
@@ -301,7 +318,7 @@ export default {
 				const queued = await post(`/server/${this.selectedInstance}/world/create`, PERMISSIONS.server.world.create, {
 					port: this.newWorldData.port,
 					maxPlayers: this.newWorldData.maxPlayers,
-					password: "",
+					password: this.newWorldData.password ?? "",
 					size: this.newWorldData.size,
 					difficulty: this.newWorldData.difficulty,
 					evil: this.newWorldData.evil,
