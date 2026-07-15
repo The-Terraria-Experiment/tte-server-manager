@@ -50,8 +50,8 @@
 
 	<Popup
 		:open="isFilePickerOpen"
-		header-text="UPLOAD FILE"
-		body-class="w-11/12 sm:w-1/4 h-max"
+		header-text="UPLOAD FILES"
+		body-class="w-11/12 sm:w-1/2 xl:w-1/3 2xl:w-1/4 h-max"
 		@xClicked="cancelFilePicker"
 		:setState="onFileCleared"
 		:buttons="[
@@ -61,11 +61,11 @@
 	>
 		<div class="p-4">
 			<div class="flex items-center font-semibold text-white-0 flex-wrap">
-				<p class="font-main mr-1 mb-1">Upload file to</p>
+				<p class="font-main mr-1 mb-1">Upload file(s) to</p>
 				<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm">{{ addFilePathRoot + "/" + addFilePath.join("/")}}</div>
 			</div>
 			<div>
-				<p class="font-main font-semibold text-white-0 my-2">Choose a file or folder to upload.</p>
+				<p class="font-main font-semibold text-white-0 my-2">Choose file(s) or folder to upload.</p>
 			</div>
 			
 			<!-- Toggle between file and folder mode -->
