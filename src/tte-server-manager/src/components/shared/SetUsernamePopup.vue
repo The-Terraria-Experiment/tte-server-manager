@@ -4,7 +4,7 @@
 		@xClicked="setUsernamePopupOpen = false"
 		headerText="Set Username"
 		:xDisabled="mustCreate"
-		bodyClass="w-11/12 md:w-1/3 h-2/3"
+		bodyClass="w-11/12 sm:w-2/3 md:w-1/2 xl:w-1/3 h-max"
 		layer="2"
 		:buttons="[
 			mustCreate ? { variant: BTN_VARIANT.DANGER, text: 'LOG OUT', onClick: doLogout } : null,
@@ -28,7 +28,7 @@
 				Please use the same name you use in other places.
 			</p>
 
-			<div class="flex justify-center w-full py-4 mt-2 md:mt-10">
+			<div class="flex justify-center w-full py-4 mt-2 md:mt-10 mb-6">
 				<ValueInput placeholder="Enter username" v-model="updatedUsername" maxlength="25" />
 			</div>
 		</div>
