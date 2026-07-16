@@ -130,8 +130,9 @@ export default {
 		async handleClearCache() {
 			this.loadingClearCache = true;
 			sessionStorage.clear();
-			await new Promise((res, rej) => setTimeout(res, 500));
+			await new Promise((res, rej) => setTimeout(res, 1000));
 			this.loadingClearCache = false;
+			window.location.reload();
 		},
 		async startPatreonLink() {
 			if (this.linkingPatreon) return;
