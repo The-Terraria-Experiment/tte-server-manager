@@ -3,9 +3,20 @@ import { SsmDao } from "../aws/SSM.js";
 import { CWLogger } from "../aws/CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
 import { getRecentDates } from "./LogDateRanges.js";
+import { pollsUntilDeadline } from "./SyncBudget.js";
 
 /** Local TShock log files older than this many days are pruned from the instance on shutdown. */
 const LOCAL_RETENTION_DAYS = 30;
+
+/**
+ * Archiving two small log files is quick, so this keeps its own modest ceiling. It also never claims
+ * more than {@link LOG_SYNC_BUDGET_SHARE} of the shared shutdown budget: the instance file sync runs
+ * after this one and carries the world saves, so a slow archive must not leave it nothing. Whatever
+ * this doesn't use rolls over to it.
+ */
+const LOG_SYNC_POLL_INTERVAL_MS = 1000;
+const LOG_SYNC_MAX_POLLS = 8;
+const LOG_SYNC_BUDGET_SHARE = 0.5;
 
 /**
  * Helpers for the TShock/TerrariaServer process's own stdout+stderr stream — NOT a generic
@@ -56,8 +67,10 @@ const shellEscapeDq = (value: string): string => value.replace(/"/g, "\\\"");
  *
  * Combining upload + prune into one command keeps it to a single round trip on the shutdown path;
  * the two concerns don't overlap (prune only touches files far older than what we upload).
+ *
+ * @param deadline Absolute epoch-ms to stop waiting, from {@link shutdownSyncDeadline}.
  */
-export async function syncAndPruneTShockLogs(instanceId: string): Promise<void> {
+export async function syncAndPruneTShockLogs(instanceId: string, deadline: number): Promise<void> {
 	const bucket = process.env.S3_LOGS_BUCKET_NAME;
 	if (!bucket) {
 		await CWLogger.Error(CW_LOG_GENERAL, {
@@ -122,7 +135,15 @@ export async function syncAndPruneTShockLogs(instanceId: string): Promise<void> 
 	try {
 		const SSM = new SsmDao();
 		const { commandId } = await SSM.ExecuteCommand(instanceId, commands);
-		await SSM.PollForCommandCompletion(commandId, instanceId, 1000, 8);
+
+		const share = Math.floor(pollsUntilDeadline(deadline, LOG_SYNC_POLL_INTERVAL_MS) * LOG_SYNC_BUDGET_SHARE);
+		const maxPolls = Math.min(LOG_SYNC_MAX_POLLS, share);
+		if (maxPolls === 0) {
+			// Out of budget: leave the archive in flight rather than delay the stop any further.
+			return;
+		}
+
+		await SSM.PollForCommandCompletion(commandId, instanceId, LOG_SYNC_POLL_INTERVAL_MS, maxPolls);
 	} catch (error) {
 		await CWLogger.Error(CW_LOG_GENERAL, {
 			userId: null,

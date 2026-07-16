@@ -4,9 +4,9 @@ export const PermissionsMeta = {
 	server: {
 		list: {value: "server.list", description: "", used: false},
 		world: {
-			list: {value: "server.world.list", description: "", used: false},
+			list: {value: "server.world.list", description: pfx + "view available existing worlds"},
 			create: {value: "server.world.create", description: pfx + "generate a new Terraria world"},
-			select: {value: "server.world.select", description: pfx + "launch existing Terraria worlds"},
+			launch: {value: "server.world.launch", description: pfx + "launch existing Terraria worlds"},
 			delete: {value: "server.world.delete", description: "", used: false},
 		},
 		tshock: {
@@ -18,8 +18,11 @@ export const PermissionsMeta = {
 		},
 		status: {
 			read: {value: "server.status.read", description: pfx + "view the online status of any running Terraria server"},
-			start: {value: "server.status.start", description: pfx + "manage auto-shutoff"}, // todo: change this
 			stop: {value: "server.status.stop", description: pfx + "stop any running Terraria server"},
+			autoshutoff: {
+				cancel: {value: "server.status.autoshutoff.cancel", description: pfx + "cancel an in-progress auto shutoff"},
+				pause: {value: "server.status.autoshutoff.pause", description: pfx + "pause auto shutoff arbitrarily"},
+			}
 		},
 		player: {
 			read: {value: "server.player.read", description: pfx + "read detailed information about online players on Terraria servers", used: false},
@@ -32,9 +35,11 @@ export const PermissionsMeta = {
 			},
 		},
 		logs: {
-			read: {value: "server.logs.read", description: pfx + "fetch and browse player logs"},
-			ips: {
-				read: {value: "server.logs.ips.read", description: pfx + "view the IP address data of player logs"},
+			players: {
+				read: {value: "server.logs.players.read", description: pfx + "fetch and browse player logs"},
+				ips: {
+					read: {value: "server.logs.players.ips.read", description: pfx + "view the IP address data of player logs"},
+				},
 			},
 			tshock: {
 				read: {value: "server.logs.tshock.read", description: pfx + "view and search TShock logs"},

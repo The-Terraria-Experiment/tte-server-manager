@@ -210,10 +210,10 @@ export default {
 	created() {
 		this.statusStore.subscribeToTask(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
 			this.fetchInstanceStatus(this.selectedInstance);
-		});
+		}, "instance-page-fetch-status");
 		this.statusStore.subscribeToTaskEnd(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
 			this.fetchInstanceFiles(this.selectedInstance);
-		});
+		}, "instance-page-fetch-files");
 	},
 	watch: {
 		selectedInstance(value) {

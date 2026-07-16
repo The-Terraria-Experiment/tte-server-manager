@@ -51,7 +51,9 @@ const endpoints: EndpointList = {
 	},
 	"GET /instance/{id}/files": {
 		action: readFiles,
-		permRequired: PERMISSIONS.instance.files.read,
+		// World list (SelectWorld) and the file hierarchy (InstanceFiles) share this
+		// single listing endpoint, so either permission is sufficient to fetch it.
+		permRequired: [PERMISSIONS.server.world.list, PERMISSIONS.instance.files.read],
 	},
 	"POST /instance/{id}/files/tree": {
 		action: getInstanceFiles,

@@ -2,9 +2,9 @@
 	<div>
 		<StatusTile
 			class="grow gradient-tile"
-			collapsible
 			:floatingExpand="!isMobile"
 			:perm-required="PERMISSIONS.server.status.read"
+			:collapsible="$checkPermissions(PERMISSIONS.server.status.autoshutoff.pause) || shutoffIsScheduled"
 			:loading="loading"
 		>
 			<template #header>
@@ -31,7 +31,7 @@
 				</div>
 				<div>
 					<FlexButton
-						v-if="shutoffIsScheduled"
+						v-if="shutoffIsScheduled && canCancelShutoff"
 						class="mx-4 mb-4"
 						:disabled="loading"
 						:variant="BTN_VARIANT.DANGER"
@@ -40,6 +40,7 @@
 						<p class="py-2 px-12">CANCEL AUTO SHUTOFF</p>
 					</FlexButton>
 					<FlexButton
+						v-if="$checkPermissions(PERMISSIONS.server.status.autoshutoff.pause)"
 						class="mx-4 mb-4"
 						:disabled="loading"
 						:variant="BTN_VARIANT.SECONDARY"
@@ -114,6 +115,9 @@ export default {
 		shutoffIsScheduled() {
 			return Boolean(this.selectedServerData?.autoShutoff?.scheduledShutdownAt);
 		},
+		canCancelShutoff() {
+			return this.$checkPermissions(PERMISSIONS.server.status.autoshutoff.cancel);
+		},
 		shutoffIsPaused() {
 			return Boolean(this.selectedServerData?.autoShutoff?.pauseUntilAt) && (this.selectedServerData?.autoShutoff?.pauseUntilAt > Date.now());
 		},
@@ -154,13 +158,13 @@ export default {
 		async pauseShutoff() {
 			this.pauseUntilPickerOpen = false;
 
-			this.$validatePermissions(PERMISSIONS.server.status.start);
+			this.$validatePermissions(PERMISSIONS.server.status.autoshutoff.pause);
 
 			if (this.loading) return;
 			this.loading = true;
 
 			try {
-				await post("/system/autoshutoff/pause", PERMISSIONS.server.status.start, {
+				await post("/system/autoshutoff/pause", PERMISSIONS.server.status.autoshutoff.pause, {
 					serverId: this.selectedInstance,
 					pauseUntilAt: Date.parse(this.pauseUntilValue)
 				});
@@ -183,13 +187,13 @@ export default {
 		async clearPause() {
 			this.pauseUntilPickerOpen = false;
 
-			this.$validatePermissions(PERMISSIONS.server.status.start);
+			this.$validatePermissions(PERMISSIONS.server.status.autoshutoff.pause);
 
 			if (this.loading) return;
 			this.loading = true;
 
 			try {
-				await post("/system/autoshutoff/pause", PERMISSIONS.server.status.start, {
+				await post("/system/autoshutoff/pause", PERMISSIONS.server.status.autoshutoff.pause, {
 					serverId: this.selectedInstance,
 					pauseUntilAt: null
 				});
@@ -204,13 +208,13 @@ export default {
 		async cancelShutoff() {
 			this.pauseUntilPickerOpen = false;
 
-			this.$validatePermissions(PERMISSIONS.server.status.start);
+			this.$validatePermissions(PERMISSIONS.server.status.autoshutoff.cancel);
 
 			if (this.loading) return;
 			this.loading = true;
 
 			try {
-				await post("/system/autoshutoff/cancel", PERMISSIONS.server.status.start, {
+				await post("/system/autoshutoff/cancel", PERMISSIONS.server.status.autoshutoff.cancel, {
 					serverId: this.selectedInstance,
 				});
 				this.$alert.success("Auto shutoff canceled");

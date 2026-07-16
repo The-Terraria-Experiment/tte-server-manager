@@ -24,6 +24,33 @@ export interface S3ObjectSummary {
  */
 export const MISSING_LOCAL_FILE_MARKER = "Missing local file, skipping";
 
+/**
+ * aws-cli `--include`/`--exclude` filters are glob patterns with no escape syntax, so a relative
+ * path containing one of these characters cannot be expressed as an exact filter. Those files fall
+ * back to a per-file copy rather than risk a pattern that silently over- or under-matches.
+ */
+const GLOB_METACHARS = /[*?[\]]/;
+
+/** Max `--include` filters per sync invocation, to keep the SSM command payload bounded. */
+const SYNC_INCLUDE_BATCH = 150;
+
+/**
+ * Instance-side commands run through two shells — the SSM script, then the `bash -lc` login shell we
+ * need for ubuntu's AWS credentials — so every value crosses two rounds of quote parsing. Rather than
+ * hand-count backslashes across both levels, arguments are single-quoted for the inner shell (where
+ * nothing but `'` is special) and the finished command is then escaped once for the outer one. World
+ * names come from user input and may legally contain quotes or spaces, and a single mis-escaped path
+ * would otherwise break the whole script under `set -e`.
+ */
+const shellSingleQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
+
+/** Escapes a fully-formed command so it survives embedding in an outer double-quoted string. */
+const escapeForDoubleQuoted = (command: string): string => command.replace(/([\\"$`])/g, "\\$1");
+
+/** Runs a command as ubuntu through a login shell, so the AWS CLI picks up its profile/region. */
+const runAsUbuntu = (command: string): string =>
+	`runuser -u ubuntu -- /bin/bash -lc "${escapeForDoubleQuoted(command)}"`;
+
 export class S3Dao {
 	private static instance: S3Dao | null = null;
 	private readonly s3Client!: S3Client;
@@ -234,7 +261,103 @@ export class S3Dao {
 	}
 
 	/**
-	 * Executes SSM commands to sync multiple files from an instance to S3.
+	 * Makes the S3 copies of a set of tracked files match the instance, uploading only the ones that
+	 * actually changed.
+	 *
+	 * Prefer this over {@link SyncInstanceFilesToS3} for multi-file syncs. That method issues one
+	 * `aws s3 cp` per file, which re-uploads every byte every run and pays a fresh CLI process startup
+	 * per file — with a few dozen tracked world files that alone overruns the caller's lambda timeout.
+	 * This batches the whole set into `aws s3 sync` calls that compare size/mtime first and skip
+	 * unchanged files, so a typical shutdown uploads only the world that was actually played.
+	 *
+	 * `--exclude "*"` plus an explicit `--include` per tracked path is what keeps this from repeating
+	 * the old "sync uploaded everything on disk" bug: the filters restrict it to exactly the paths
+	 * passed in. Callers supply paths relative to `baseRoot`, which map 1:1 onto `{instanceId}/{path}`
+	 * keys in the bucket.
+	 */
+	public async SyncTrackedFilesToS3(params: {
+		instanceId: string;
+		bucketName: string;
+		baseRoot: string;
+		relativePaths: string[];
+	}): Promise<{ commandId: string }> {
+		const { instanceId, bucketName, baseRoot, relativePaths } = params;
+
+		if (!instanceId) {
+			throw new Error("instanceId is required");
+		}
+		if (!bucketName) {
+			throw new Error("bucketName is required");
+		}
+		if (!baseRoot) {
+			throw new Error("baseRoot is required");
+		}
+		if (!relativePaths || relativePaths.length === 0) {
+			throw new Error("relativePaths is required");
+		}
+
+		const trimmedBase = baseRoot.replace(/\/+$/, "");
+		const destination = `s3://${bucketName}/${instanceId}/`;
+
+		const filterable = relativePaths.filter((p) => !GLOB_METACHARS.test(p));
+		const literal = relativePaths.filter((p) => GLOB_METACHARS.test(p));
+
+		const commands: string[] = [
+			"#!/bin/bash",
+			"set -e",
+			"",
+			`echo "Starting incremental S3 sync (${relativePaths.length} tracked file(s))"`,
+			"",
+		];
+
+		for (let i = 0; i < filterable.length; i += SYNC_INCLUDE_BATCH) {
+			const includes = filterable
+				.slice(i, i + SYNC_INCLUDE_BATCH)
+				.map((p) => `--include ${shellSingleQuote(p)}`)
+				.join(" ");
+
+			commands.push(
+				runAsUbuntu(
+					`aws s3 sync ${shellSingleQuote(trimmedBase)} ${shellSingleQuote(destination)} --exclude '*' ${includes} --only-show-errors`,
+				),
+			);
+		}
+
+		for (const relativePath of literal) {
+			const localPath = `${trimmedBase}/${relativePath}`;
+			const uri = `s3://${bucketName}/${instanceId}/${relativePath}`;
+
+			commands.push(`if [ -f ${shellSingleQuote(localPath)} ]; then`);
+			commands.push(`  ${runAsUbuntu(`aws s3 cp ${shellSingleQuote(localPath)} ${shellSingleQuote(uri)} --only-show-errors`)}`);
+			commands.push("fi");
+		}
+
+		commands.push("");
+		commands.push("echo \"Completed incremental S3 sync\"");
+
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-sync-tracked-files-to-s3",
+			resource: null,
+			details: {
+				instanceId,
+				bucketName,
+				fileCount: relativePaths.length,
+				syncBatches: Math.ceil(filterable.length / SYNC_INCLUDE_BATCH),
+				literalCopies: literal.length,
+			},
+		});
+
+		return this.ssmDao.ExecuteCommand(instanceId, commands);
+	}
+
+	/**
+	 * Executes SSM commands to sync multiple files from an instance to S3, copying each one
+	 * unconditionally.
+	 *
+	 * This is the right call for single-file, refresh-now paths (see {@link SyncInstanceFileToS3}),
+	 * where the caller needs the S3 copy rewritten and reads {@link MISSING_LOCAL_FILE_MARKER} out of
+	 * stdout. For syncing many files at once, use {@link SyncTrackedFilesToS3} instead.
 	 */
 	public async SyncInstanceFilesToS3(params: {
 		instanceId: string;

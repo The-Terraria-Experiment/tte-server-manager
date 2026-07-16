@@ -18,7 +18,7 @@ function getUserSub() {
  * Make an authenticated API request
  * @param {string} method - HTTP method (GET, POST, PUT, DELETE)
  * @param {string} endpoint - API endpoint path (e.g., '/instances')
- * @param {string} permission - Permission required to call this endpoint
+ * @param {string|string[]} permission - Permission required to call this endpoint; an array passes if the user holds any one of them
  * @param {object} options - Request options
  * @param {object} options.body - Request body for POST/PUT
  * @returns {Promise<any>} Response data
@@ -32,9 +32,10 @@ export async function apiRequest(method, endpoint, permission, options = {}) {
 		throw new Error('User is not authenticated');
 	}
 	
-	// Check permissions if required
+	// Check permissions if required. An array of permissions passes when the user
+	// holds any one of them (matches the backend's any-of validation).
 	if (permission) {
-		const hasPermission = userStore.hasPermission(permission);
+		const hasPermission = userStore.hasPermissions(permission, false);
 		if (!hasPermission) {
 			throw new Error(`Insufficient permissions:`, permission);
 		}
@@ -100,7 +101,12 @@ async function makeRequestWithRetry(method, endpoint, options, retryCount) {
 	
 	if (!response.ok) {
 		const errorData = await response.json().catch(() => ({}));
-		throw new Error(errorData.message || `API error: ${response.status} ${response.statusText}`);
+		const error = new Error(errorData.message || `API error: ${response.status} ${response.statusText}`);
+		// Surface the structured error fields so callers can react to specific cases (e.g. SSM_NOT_READY).
+		error.code = errorData.code;
+		error.status = response.status;
+		error.details = errorData.details;
+		throw error;
 	}
 	
 	return response.json();

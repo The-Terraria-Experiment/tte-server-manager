@@ -1,6 +1,7 @@
 <template>
-	<StatusTile 
+	<StatusTile
 		:perm-required="[PERMISSIONS.instance.files.read, PERMISSIONS.instance.files.write]"
+		match-any-permission
 		collapsible
 		class="mt-2"
 	>
@@ -24,7 +25,7 @@
 					<p class="text-teal-3 ml-2 font-main font-bold">RESYNC FILES</p>
 				</div>
 			</FlexButton>
-			<p v-else class="italic text-gray-6 mx-4">Launch the instance to edit, sync, and download files</p>
+			<p v-else class="italic text-gray-6 mx-4">Launch the instance to edit, sync, and upload files. You can still browse and download existing files while it's offline.</p>
 
 			<div class="m-4 gap-4 filetile-parent flex flex-col lg:block lg:columns-2 2xl:columns-3">
 				<template v-for="(path, nickname) in filePathLocations">
@@ -35,7 +36,7 @@
 
 						<FileHierarchy
 							:editable="selectedInstanceData.state === 'ONLINE'"
-							:selectable="selectedInstanceData.state === 'ONLINE'"
+							selectable
 							class="mt-4 -ml-4"
 							:files="instanceFiles[path]"
 							@picked="($e) => handlePicked($e, path)"
@@ -49,8 +50,8 @@
 
 	<Popup
 		:open="isFilePickerOpen"
-		header-text="UPLOAD FILE"
-		body-class="w-11/12 sm:w-1/4 h-max"
+		header-text="UPLOAD FILES"
+		body-class="w-11/12 sm:w-1/2 xl:w-1/3 2xl:w-1/4 h-max"
 		@xClicked="cancelFilePicker"
 		:setState="onFileCleared"
 		:buttons="[
@@ -60,11 +61,11 @@
 	>
 		<div class="p-4">
 			<div class="flex items-center font-semibold text-white-0 flex-wrap">
-				<p class="font-main mr-1 mb-1">Upload file to</p>
+				<p class="font-main mr-1 mb-1">Upload file(s) to</p>
 				<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm">{{ addFilePathRoot + "/" + addFilePath.join("/")}}</div>
 			</div>
 			<div>
-				<p class="font-main font-semibold text-white-0 my-2">Choose a file or folder to upload.</p>
+				<p class="font-main font-semibold text-white-0 my-2">Choose file(s) or folder to upload.</p>
 			</div>
 			
 			<!-- Toggle between file and folder mode -->
@@ -129,19 +130,25 @@
 			</div>
 			<div class="flex justify-between mt-6">
 				<FlexButton
+					v-if="selectedInstanceData.state === 'ONLINE'"
 					:variant="BTN_VARIANT.DANGER"
+					:disabled="loadingDownload"
 					@input="openDeleteFromInfo"
 				>
 					<p class="py-2 px-12">DELETE</p>
 				</FlexButton>
+				<div v-else></div>
 				<FlexButton
 					v-if="!fileInfoDetails.isFolder"
-					leftIcon="download"
+					:leftIcon="loadingDownload ? null : 'download'"
 					:disabled="loadingDownload"
 					:variant="BTN_VARIANT.SECONDARY"
 					@input="downloadFileAction"
 				>
-					DOWNLOAD
+					<div class="flex items-center">
+						<Spinner v-if="loadingDownload" class="h-4 w-4 mr-2" />
+						<p>DOWNLOAD</p>
+					</div>
 				</FlexButton>
 			</div>
 		</div>
@@ -159,6 +166,7 @@ import Checkbox from '../../../common/Checkbox.vue';
 import FileHierarchy from '../../../common/FileHierarchy.vue';
 import FilePicker from '../../../common/FilePicker.vue';
 import Popup from '../../../common/Popup.vue';
+import Spinner from '@/components/common/Spinner.vue';
 
 
 export default {
@@ -236,7 +244,15 @@ export default {
 		filesCount() {
 			const unique = Object.entries(this.instanceFiles)
 				.reduce(
-					(pathSet, [pathRoot, paths]) => new Set([...Object.values(paths).map(p => `${pathRoot}/${p}`), ...pathSet.values()]),
+					(pathSet, [pathRoot, paths]) => {
+						if (Object.values(this.filePathLocations).includes(pathRoot)) {
+							return new Set([
+								...Object.values(paths).map(p => `${pathRoot}/${p}`),
+								...pathSet.values()
+							]);
+						}
+						return pathSet;
+					},
 					new Set()
 				);
 			return unique.size;
@@ -327,7 +343,11 @@ export default {
 				a.click();
 				document.body.removeChild(a);
 			} catch (e) {
-				this.$alert.error("Error generating download link");
+				if (e?.code === "SSM_NOT_READY") {
+					this.$alert.warning("The instance is not yet ready to handle downloads. Please wait a moment and try again.");
+				} else {
+					this.$alert.error("Error generating download link");
+				}
 				console.error(e);
 			} finally {
 				this.loadingDownload = false;

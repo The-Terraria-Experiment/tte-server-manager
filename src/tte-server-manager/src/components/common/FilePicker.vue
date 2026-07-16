@@ -1,7 +1,7 @@
 <template>
 	<div class="p-4">
 		<label class="text-cream font-main font-bold text-center bg-linear-to-r from-teal-4 to-teal-1 p-4 w-full cursor-pointer rounded-lg flex items-center gradientbg select-none">
-			<p class="w-full text-center">{{ isFolder ? 'CHOOSE FOLDER' : 'CHOOSE FILE' }}</p>
+			<p class="w-full text-center">{{ isFolder ? 'CHOOSE FOLDER' : 'CHOOSE FILE(S)' }}</p>
 			<input 
 				ref="fileInput" 
 				type="file" 

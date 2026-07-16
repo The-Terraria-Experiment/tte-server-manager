@@ -10,7 +10,7 @@ export type LambdaHandler<TEvent = unknown> = (
 export type EndpointList = {
 	[key: string]: {
 		action: ((event: AuthorizedEvent, context: Context) => Promise<APIGatewayProxyResult> | APIGatewayProxyResult) | null,
-		permRequired: PermissionValue
+		permRequired: PermissionValue | PermissionValue[]
 	}
 }
 

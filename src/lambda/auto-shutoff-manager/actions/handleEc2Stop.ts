@@ -1,14 +1,17 @@
+import type { Context } from "aws-lambda";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import type { AutoShutoffMessage, CheckResult } from "./types.js";
 import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
 import { syncAndPruneTShockLogs } from "../shared/utils/TShockConsoleLogs.js";
+import { syncInstanceFilesToS3 } from "../shared/utils/InstanceFileSync.js";
+import { shutdownSyncDeadline } from "../shared/utils/SyncBudget.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 const IDLE_MINUTES = parseNumber(process.env.AUTO_SHUTOFF_IDLE_MINUTES, 60);
 
-export async function handleEc2Stop(message: AutoShutoffMessage): Promise<CheckResult> {
+export async function handleEc2Stop(message: AutoShutoffMessage, context: Context): Promise<CheckResult> {
 	const serverId = message.serverId;
 	if (!serverId) {
 		return { action: "skip", reason: "missing-server-id" };
@@ -46,7 +49,12 @@ export async function handleEc2Stop(message: AutoShutoffMessage): Promise<CheckR
 	}
 
 	try {
-		await syncAndPruneTShockLogs(serverId);
+		// Shared budget from this invocation's remaining time — see shutdownSyncDeadline. This handler
+		// runs on a tighter lambda timeout than the interactive stop, so the syncs must yield early
+		// enough to still issue the stop below.
+		const syncDeadline = shutdownSyncDeadline(context);
+		await syncAndPruneTShockLogs(serverId, syncDeadline);
+		await syncInstanceFilesToS3(serverId, syncDeadline);
 
 		const ec2 = new Ec2Dao();
 		await ec2.StopInstance(serverId);

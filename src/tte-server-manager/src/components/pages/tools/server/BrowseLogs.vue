@@ -2,7 +2,7 @@
 	<div>
 		<StatusTile
 			class="grow mt-2 gradient-tile"
-			:perm-required="PERMISSIONS.server.logs.read"
+			:perm-required="PERMISSIONS.server.logs.players.read"
 			:loading="loading"
 		>
 			<template #header>
@@ -303,7 +303,7 @@ export default {
 			return this.logs.slice(this.logsPage * this.logPageSize, (this.logsPage + 1) * this.logPageSize);
 		},
 		canViewIP() {
-			return this.$checkPermissions(PERMISSIONS.server.logs.ips.read);
+			return this.$checkPermissions(PERMISSIONS.server.logs.players.ips.read);
 		},
 		gridStyle() {
 			return `grid-template-columns: repeat(${this.canViewIP ? 8 : 7}, minmax(max-content, 1fr));`;
@@ -311,7 +311,7 @@ export default {
 	},
 	methods: {
 		async fetchInitial() {
-			await this.$validatePermissions(PERMISSIONS.server.logs.read);
+			await this.$validatePermissions(PERMISSIONS.server.logs.players.read);
 
 			if (this.loading) return;
 
@@ -327,7 +327,7 @@ export default {
 			}
 		},
 		async fetchLogs() {
-			await this.$validatePermissions(PERMISSIONS.server.logs.read);
+			await this.$validatePermissions(PERMISSIONS.server.logs.players.read);
 
 			if (this.loading) return;
 
@@ -351,7 +351,7 @@ export default {
 			this.loading = true;
 
 			try {
-				const result = await post(`/logging/${this.selectedInstance}/players/fetch`, PERMISSIONS.server.logs.read, this.queryParams);
+				const result = await post(`/logging/${this.selectedInstance}/players/fetch`, PERMISSIONS.server.logs.players.read, this.queryParams);
 				this.logs.push(...result.entries);
 				this.lastFetchedLog = result.lastValue;
 				return true;
@@ -382,7 +382,7 @@ export default {
 			this.logsPage = this.logsPage + 1;
 		},
 		async detectRunningSession() {
-			await this.$validatePermissions(PERMISSIONS.server.logs.read);
+			await this.$validatePermissions(PERMISSIONS.server.logs.players.read);
 
 			if (this.loadingActiveSession) return;
 			this.loadingActiveSession = true;
@@ -414,7 +414,7 @@ export default {
 		}
 	},
 	mounted() {
-		if (this.$checkPermissions(PERMISSIONS.server.logs.ips.read)) {
+		if (this.$checkPermissions(PERMISSIONS.server.logs.players.ips.read)) {
 			this.filterByOptions.push({ id: FILTER.IP, text: "Specific IP address" });
 		}
 	}

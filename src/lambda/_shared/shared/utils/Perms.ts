@@ -81,13 +81,16 @@ export class Permissions {
 	}
 
 	/**
-	 * Validate user has permission for resource/action
+	 * Validate user has permission for resource/action. When passed an array of
+	 * permissions, access is granted if the user holds *any* one of them.
 	 * @param event - API Gateway event (contains requestContext.authorizer)
-	 * @param permission - Permission to validate
+	 * @param permission - Permission (or list of alternatives) to validate
 	 * @throws Error if permission denied
 	 */
-	public static async ValidatePermission(event: APIGatewayProxyEvent, permission: string): Promise<void> {
-		Assert.IsTruthyString(permission, "validatePermission requires permission value");
+	public static async ValidatePermission(event: APIGatewayProxyEvent, permission: string | string[]): Promise<void> {
+		const permissions = Array.isArray(permission) ? permission : [permission];
+		Assert.IsTruthy(permissions.length > 0, "validatePermission requires at least one permission value");
+		permissions.forEach((perm) => Assert.IsTruthyString(perm, "validatePermission requires permission value"));
 		Assert.IsTruthy(event, "validatePermission requires a Gateway event");
 
 		const userSub = Parsers.GetUserSub(event);
@@ -97,20 +100,27 @@ export class Permissions {
 				action: "attempt-perm-check",
 				status: "401",
 				resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-				details: { permRequired: permission },
+				details: { permRequired: permissions },
 			});
 
 			throw new Error("Unauthorized: No user context");
 		}
 
-		const permitted = await Permissions.CheckPermission(userSub, permission);
+		let permitted = false;
+		for (const perm of permissions) {
+			if (await Permissions.CheckPermission(userSub, perm)) {
+				permitted = true;
+				break;
+			}
+		}
+
 		if (!permitted) {
 			await CWLogger.Action(CW_LOG_GENERAL, {
 				userId: userSub ?? "unknown",
 				action: "attempt-perm-check",
 				status: "403",
 				resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-				details: { permRequired: permission },
+				details: { permRequired: permissions },
 			});
 
 			throw new Error(`Permission denied to <${userSub}> for resource <${event.httpMethod} ${event.resource}>`);

@@ -40,6 +40,7 @@ export const getWorldgenStatus = async (event: AuthorizedEvent, context: Context
 		status: jobStatus.status || "unknown",
 		step: jobStatus.step || null,
 		progress: jobStatus.progress || 0,
+		detail: jobStatus.detail || null,
 		createdAt: jobStatus.createdAt || null,
 		updatedAt: jobStatus.updatedAt || null,
 		requestedBy: jobStatus.requestedBy || null,

@@ -37,14 +37,31 @@ export const useStatusStore = defineStore("statusStore", {
 				this.subscriptions[taskID] = [];
 			}
 
+			if (this.isAlreadySubscribed(this.subscriptions[taskID], handler, handlerID)) {
+				return;
+			}
+
 			this.subscriptions[taskID].push({ handler, id: handlerID });
 		},
-		subscribeToTaskEnd(taskID, handler) {
+		subscribeToTaskEnd(taskID, handler, handlerID = null) {
 			if (!this.endSubscriptions[taskID]) {
 				this.endSubscriptions[taskID] = [];
 			}
 
-			this.endSubscriptions[taskID].push({ handler });
+			if (this.isAlreadySubscribed(this.endSubscriptions[taskID], handler, handlerID)) {
+				return;
+			}
+
+			this.endSubscriptions[taskID].push({ handler, id: handlerID });
+		},
+		isAlreadySubscribed(subscribers, handler, handlerID) {
+			// Dedupe by explicit ID when provided (so inline handlers can still be
+			// deduped), otherwise fall back to the handler's function reference.
+			if (handlerID !== null) {
+				return subscribers.some(h => h.id === handlerID);
+			}
+
+			return subscribers.some(h => h.handler === handler);
 		}
 	}
 });

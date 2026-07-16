@@ -36,10 +36,6 @@ const endpoints: EndpointList = {
 		action: getStatus,
 		permRequired: PERMISSIONS.server.status.read,
 	},
-	// "POST /server/{id}/start": {
-	// 	action: null,
-	// 	permRequired: PERMISSIONS.server.status.start,
-	// },
 	"POST /server/{id}/stop": {
 		action: stop,
 		permRequired: PERMISSIONS.server.status.stop,
@@ -56,10 +52,6 @@ const endpoints: EndpointList = {
 		action: reloadConfig,
 		permRequired: PERMISSIONS.server.config.write,
 	},
-	// "PUT /server/{id}/config": {
-	// 	action: null,
-	// 	permRequired: PERMISSIONS.server.config.write,
-	// },
 	"POST /server/{id}/tshock/command": {
 		action: runCommand,
 		permRequired: PERMISSIONS.server.tshock.execute,
@@ -78,7 +70,7 @@ const endpoints: EndpointList = {
 	},
 	"POST /server/{id}/world/{worldId}/select": {
 		action: launchWorld,
-		permRequired: PERMISSIONS.server.world.select,
+		permRequired: PERMISSIONS.server.world.launch,
 	},
 	// "DELETE /server/{id}/world/{worldId}/delete": {
 	// 	action: null,

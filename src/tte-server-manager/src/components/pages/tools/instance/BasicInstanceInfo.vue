@@ -3,6 +3,7 @@
 		<StatusTile 
 			:class="['grow', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
 			:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
+			:contentLoaded="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
 			:perm-required="PERMISSIONS.instance.status.read"
 			:floatingExpand="!isMobile"
 			display-if-not-allowed
@@ -267,7 +268,7 @@ export default {
 
 			this.statusStore.subscribeToTaskEnd(TASK_IDS.INSTANCE_STATUS_CHECK, () => {
 				this.showStateChangeButtons = true;
-			});
+			}, "basic-instance-info-show-state-buttons");
 		},
 	}
 }

@@ -11,6 +11,21 @@ export interface SsmCommandResult {
 	commandID?: string;
 }
 
+/**
+ * True when an SSM error means the instance isn't ready to receive commands yet — typically the
+ * warmup window right after boot, where EC2 already reports the instance RUNNING but its SSM agent
+ * hasn't registered. AWS surfaces this from SendCommand as `InvalidInstanceId` ("Instances [...] not
+ * in a valid state for account ..."). Callers can use this to return a "wait and retry" response
+ * instead of a generic 500.
+ */
+export function isInstanceNotReadyForSsm(error: unknown): boolean {
+	const err = error as { name?: string; Code?: string; message?: string } | null;
+	if (!err) return false;
+	const name = err.name ?? err.Code ?? "";
+	const message = err.message ?? "";
+	return name === "InvalidInstanceId" || /InvalidInstanceId|not in a valid state/i.test(message);
+}
+
 export class SsmDao {
 	private readonly ssmClient: SSMClient;
 

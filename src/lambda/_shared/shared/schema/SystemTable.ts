@@ -5,6 +5,8 @@ export type SystemWorldCreateEntry = {
 	status?: string,
 	step?: string,
 	progress?: number,
+	/** Latest raw worldgen status line tailed from the TShock stdout log (e.g. "Growing trees"). Liveness/progress hint only. */
+	detail?: string,
 	createdAt?: string,
 	updatedAt?: string,
 	jobID?: string

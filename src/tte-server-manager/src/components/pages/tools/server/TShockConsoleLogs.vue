@@ -112,7 +112,7 @@
 						<FlexButton
 							class="mt-4"
 							:variant="BTN_VARIANT.SECONDARY"
-							leftIcon="cloud-download"
+							leftIcon="magnifying-glass"
 							leftIconSize="5"
 							:disabled="loading"
 							:loading="loading"
@@ -334,7 +334,7 @@ export default {
 
 			try {
 				const result = await post(`/logging/${this.selectedInstance}/tshock/list`, PERMISSIONS.server.logs.tshock.read, {});
-				this.logFiles = result.files;
+				this.logFiles = result.files.filter((file) => file.size > 0);
 				this.listLoaded = true;
 			} catch (e) {
 				this.$alert.error("Failed to load log file list");

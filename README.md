@@ -13,8 +13,8 @@ This allows us to run Terraria servers on EC2 instances, with access allowed to 
 
 #### Using this project
 
-While this repository does contain all the code that runs this site, it does not contain everything needed to get a new instance running right away. That mostly includes AWS resources that were set up manually through the AWS Console, rather than by SAM or similar.
-Additionally, the current designed scope of this project only covers one set of servers for one user under one AWS account. If you like what this project offers and you wish the scope were larger, feel free to open a Github issue or discussion, or send us an email to let us know you're interested!
+While this repository does contain all the code that runs this site, it does not contain everything needed to get a new instance of it running right away. That mostly includes AWS resources that were set up manually through the AWS Console, rather than by IaC templates.
+Additionally, the current designed scope of this project is hard-coded to support only The Terraria Experiment's fleet of servers. If you like what this project offers and want to use it yourself, feel free to open a Github issue or discussion, or send us an email to let us know you're interested!
 
 #### Bugs and Issues
 

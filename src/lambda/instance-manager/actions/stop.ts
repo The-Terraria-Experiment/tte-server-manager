@@ -8,12 +8,12 @@ import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { CleanupUtil } from "../shared/utils/Cleanup.js";
 import { syncAndPruneTShockLogs } from "../shared/utils/TShockConsoleLogs.js";
+import { syncInstanceFilesToS3 } from "../shared/utils/InstanceFileSync.js";
+import { shutdownSyncDeadline } from "../shared/utils/SyncBudget.js";
 
 const EC2 = new Ec2Dao();
 
 export const stop = async (event: AuthorizedEvent, context: Context) => {
-	void context;
-
 	const instanceId = event.pathParameters?.id;
     if (!instanceId) {
         return ResponseUtil.ValidationError("Instance ID is required");
@@ -21,7 +21,12 @@ export const stop = async (event: AuthorizedEvent, context: Context) => {
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
 
-	await syncAndPruneTShockLogs(instanceId);
+	// Both syncs share one budget drawn from this invocation's remaining time: they need the box
+	// online, but must never eat the room needed to actually issue the stop below.
+	const syncDeadline = shutdownSyncDeadline(context);
+	await syncAndPruneTShockLogs(instanceId, syncDeadline);
+	await syncInstanceFilesToS3(instanceId, syncDeadline);
+
 	await EC2.StopInstance(instanceId);
 
 	await CleanupUtil.ClearWorldCreationStatus(instanceId);
