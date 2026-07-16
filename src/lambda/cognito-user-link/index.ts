@@ -13,7 +13,7 @@ import { CognitoDao } from "./shared/aws/Cognito.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "./shared/constants.js";
-import { PATREON_TIERMAP_KEY_PREFIX, ROLE_KEY_PREFIX, SYSTEM_TABLE } from "./shared/vars.js";
+import { PATREON_TIERMAP_KEY_PREFIX, ROLE_KEY_PREFIX } from "./shared/vars.js";
 import type { PatreonTierMapEntry, RoleEntry } from "./shared/schema/SystemTable.js";
 
 type CognitoTriggerEvent = PreSignUpTriggerEvent | PostConfirmationTriggerEvent;
@@ -44,23 +44,40 @@ function getUserSub(event: CognitoTriggerEvent): string | null {
 	return event.request.userAttributes?.sub || null;
 }
 
-function resolvePermTableFromUserPool(userPoolId?: string | null): string | null {
+/**
+ * `systemTable` is nullable because tier grants are a bonus: if it can't be resolved for this
+ * pool the grants are skipped, rather than risk reading another environment's tier->role map.
+ */
+type ResolvedTables = { permTable: string; systemTable: string | null };
+
+/**
+ * Resolves every table this Lambda touches from the *incoming* userPoolId, never from
+ * ACTIVE_ENV. Cognito invokes this one function for both the prod and stage pools, so
+ * ACTIVE_ENV describes only whichever environment last published the running version -
+ * deriving a table name from it lets a prod signup read stage data (and vice versa), which
+ * is exactly how a stage tier->role mapping once granted admin on prod.
+ */
+function resolveTablesFromUserPool(userPoolId?: string | null): ResolvedTables | null {
 	const {
 		COGNITO_POOL_ID_PROD,
 		COGNITO_POOL_ID_STAGE,
 		PERM_TABLE_PROD,
 		PERM_TABLE_STAGE,
 		PERM_TABLE,
+		SYSTEM_TABLE_PROD,
+		SYSTEM_TABLE_STAGE,
 	} = process.env;
 
 	if (!userPoolId) return null;
 
 	if (COGNITO_POOL_ID_PROD && userPoolId === COGNITO_POOL_ID_PROD) {
-		return PERM_TABLE_PROD || PERM_TABLE || null;
+		const permTable = PERM_TABLE_PROD || PERM_TABLE;
+		return permTable ? { permTable, systemTable: SYSTEM_TABLE_PROD || null } : null;
 	}
 
 	if (COGNITO_POOL_ID_STAGE && userPoolId === COGNITO_POOL_ID_STAGE) {
-		return PERM_TABLE_STAGE || PERM_TABLE || null;
+		const permTable = PERM_TABLE_STAGE || PERM_TABLE;
+		return permTable ? { permTable, systemTable: SYSTEM_TABLE_STAGE || null } : null;
 	}
 
 	return null;
@@ -73,6 +90,7 @@ function resolvePermTableFromUserPool(userPoolId?: string | null): string | null
  */
 async function resolveGrantsFromTierIds(
 	tierIds: string[],
+	systemTable: string,
 ): Promise<{ permissions: string[]; resourceAccess: string[] }> {
 	const DB = new DynamoDao();
 	const permissions = new Set<string>();
@@ -80,13 +98,13 @@ async function resolveGrantsFromTierIds(
 
 	for (const tierId of tierIds) {
 		const tierEntry = (await DB.GetItem(
-			SYSTEM_TABLE,
+			systemTable,
 			`${PATREON_TIERMAP_KEY_PREFIX}${tierId}`,
 		)) as PatreonTierMapEntry | null;
 
 		if (!tierEntry?.roleId) continue;
 
-		const roleEntry = (await DB.GetItem(SYSTEM_TABLE, `${ROLE_KEY_PREFIX}${tierEntry.roleId}`)) as RoleEntry | null;
+		const roleEntry = (await DB.GetItem(systemTable, `${ROLE_KEY_PREFIX}${tierEntry.roleId}`)) as RoleEntry | null;
 		if (!roleEntry) continue;
 
 		(roleEntry.permissions || []).forEach((p) => permissions.add(p));
@@ -166,9 +184,9 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 			event.response.autoVerifyEmail = true;
 
 			if (canonicalProviderName === "Patreon") {
-				const resolvedPermTable = resolvePermTableFromUserPool(event.userPoolId);
-				if (resolvedPermTable) {
-					await new DynamoDao().UpdateItem(resolvedPermTable, `user#${existingUser.sub}`, {
+				const resolved = resolveTablesFromUserPool(event.userPoolId);
+				if (resolved) {
+					await new DynamoDao().UpdateItem(resolved.permTable, `user#${existingUser.sub}`, {
 						updates: { patreonLinked: true },
 					});
 				}
@@ -195,9 +213,9 @@ async function handlePreSignUp(event: PreSignUpTriggerEvent): Promise<PreSignUpT
 }
 
 async function handlePostConfirmation(event: PostConfirmationTriggerEvent): Promise<PostConfirmationTriggerEvent> {
-	const resolvedPermTable = resolvePermTableFromUserPool(event?.userPoolId);
+	const resolved = resolveTablesFromUserPool(event?.userPoolId);
 
-	if (!resolvedPermTable) {
+	if (!resolved) {
 		console.error("Unable to resolve permission table for user pool", {
 			userPoolId: event?.userPoolId,
 			hasProdPool: Boolean(process.env.COGNITO_POOL_ID_PROD),
@@ -232,12 +250,28 @@ async function handlePostConfirmation(event: PostConfirmationTriggerEvent): Prom
 		const resourceAccess = new Set<string>();
 
 		const tierIdsRaw = event.request.userAttributes["custom:patreon_tiers"];
-		if (tierIdsRaw) {
-			const tierIds = tierIdsRaw.split(",").map((t) => t.trim()).filter(Boolean);
-			const grants = await resolveGrantsFromTierIds(tierIds);
-			grants.permissions.forEach((p) => permissions.add(p));
-			grants.resourceAccess.forEach((r) => resourceAccess.add(r));
+		const tierIds = tierIdsRaw
+			? tierIdsRaw.split(",").map((t) => t.trim()).filter(Boolean)
+			: [];
+
+		if (tierIds.length) {
+			if (resolved.systemTable) {
+				const grants = await resolveGrantsFromTierIds(tierIds, resolved.systemTable);
+				grants.permissions.forEach((p) => permissions.add(p));
+				grants.resourceAccess.forEach((r) => resourceAccess.add(r));
+			} else {
+				console.error("Skipping Patreon tier grants - no system table for user pool", {
+					userPoolId: event?.userPoolId,
+				});
+			}
 		}
+
+		// The provider prefix Cognito generates is always lowercase ("patreon_<id>"), so match
+		// against the canonical name rather than the raw prefix.
+		const federatedIdentity = splitFederatedUsername(username);
+		const providerName = federatedIdentity
+			? PROVIDER_NAME_CANONICAL[federatedIdentity.providerName.toLowerCase()]
+			: undefined;
 
 		// Create user record for DynamoDB
 		const userRecord = {
@@ -248,12 +282,14 @@ async function handlePostConfirmation(event: PostConfirmationTriggerEvent): Prom
 			email,
 			permissions: [...permissions], // Default role; admins can grant additional roles later,
 			resourceAccess: [...resourceAccess],
+			patreonLinked: providerName === "Patreon",
+			patreonTiers: tierIds,
 			createdAt: new Date().toISOString(),
 			lastLogin: new Date().toISOString(),
 		};
 
 		// Write to DynamoDB
-		const success = await new DynamoDao().PutItem(resolvedPermTable, userRecord);
+		const success = await new DynamoDao().PutItem(resolved.permTable, userRecord);
 
 		await CWLogger.Action(FUNC_NAMES.COG_LINK, {
 			userId: getUserSub(event) ?? "unknown",
@@ -266,7 +302,8 @@ async function handlePostConfirmation(event: PostConfirmationTriggerEvent): Prom
 				sub,
 				username,
 				userPoolId: event?.userPoolId,
-				permTable: resolvedPermTable,
+				permTable: resolved.permTable,
+				systemTable: resolved.systemTable,
 			});
 			// Don't throw - allow Cognito to complete registration even if Dynamo fails
 		} else {
@@ -274,7 +311,8 @@ async function handlePostConfirmation(event: PostConfirmationTriggerEvent): Prom
 				sub,
 				username,
 				userPoolId: event?.userPoolId,
-				permTable: resolvedPermTable,
+				permTable: resolved.permTable,
+				systemTable: resolved.systemTable,
 			});
 		}
 
