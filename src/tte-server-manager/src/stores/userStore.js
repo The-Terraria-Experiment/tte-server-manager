@@ -17,8 +17,12 @@ export const useUserStore = defineStore("userstore", {
 	getters: {
 		isAuthenticated: (state) => !!state.user,
 		username: (state) => state.user?.username || null,
+		// Cognito lowercases the provider prefix in the federated usernames it generates
+		// ("patreon_<id>"), so the username fallback has to match case-insensitively. It only
+		// covers records created before patreonLinked was persisted at signup.
 		isPatreonLinked: (state) =>
-			Boolean(state.accountData?.patreonLinked) || Boolean(state.accountData?.username?.startsWith("Patreon_")),
+			Boolean(state.accountData?.patreonLinked) ||
+			Boolean(state.accountData?.username?.toLowerCase().startsWith("patreon_")),
 		hasPermission: (state) => (permission) => {
 			return state.permissions.includes(permission);
 		},
