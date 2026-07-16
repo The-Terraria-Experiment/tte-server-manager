@@ -96,7 +96,7 @@ The application runs in three environments with distinct deployment strategies a
   - `_shared`: middleware, AWS client wrappers (`DynamoDB`, `S3`, `EC2`, `SSM`, `Cognito`, `CloudWatch`, `SecretsManager`, `Lambda`, `SQS`), and utils (`TShockAPI`, `TShockConfig`, `Perms`, etc.) used by all of the above.
 - **Auth:** Cognito User Pool (Amplify Gen 2 backend, config in `src/tte-server-manager/amplify/`), federated with the in-house `patreon-oidc` Lambda so Patreon is the identity source; permission checks are per-user, resolved from a permissions table keyed by `user#<sub>` and enforced both client-side (`hasPermissions` in `userStore`, gating UI + `apiRequest` calls) and server-side (each lambda's action handlers).
 - **Data:** DynamoDB — permission/user-link data, instance metadata/status, system notices, Patreon tier map, roles. Table names/keys are supplied via env vars per function rather than fixed constants; verify the current schema in `_shared/shared/utils/Perms.ts` and the relevant `_shared/shared/aws/DynamoDB.ts` callers before assuming structure.
-- **Files:** S3 buckets for TShock config (`S3_CONFIG_BUCKET_NAME`) and console logs (`S3_LOGS_BUCKET_NAME`); synced to/from EC2 via SSM; world/instance files served through `instance-manager`.
+- **Files:** S3 buckets for the instance filestore (`S3_FILESTORE_NAME`), TShock config (`S3_CONFIG_BUCKET_NAME`), and console logs (`S3_LOGS_BUCKET_NAME`); synced to/from EC2 via SSM; world/instance files served through `instance-manager`. The filestore is the source of truth for which instance files are *tracked*: whatever exists under `{instanceId}/` is what gets browsed, downloaded, and re-synced on shutdown — so anything that lands there stays tracked until explicitly deleted.
 - **Secrets/IAM:** TShock REST token in Secrets Manager (`TSHOCK_SECRET_NAME`); Patreon OAuth creds, OIDC signing key, relay-state and link-intent secrets also in Secrets Manager; Lambda roles least-privilege (S3, Dynamo, EC2, SSM, Secrets).
 - **Observability:** CloudWatch logs/metrics via the shared `CWLogger`; structured logs from Lambdas.
 
@@ -132,7 +132,7 @@ The application runs in three environments with distinct deployment strategies a
   - `COGNITO_USER_POOL_ID_PROD`/`_STAGE`, `COGNITO_CLIENT_ID_PROD`/`_STAGE`
   - `PATREON_SHIM_BASE_URL_PROD`/`_STAGE`, `ISSUER_URL_PROD`/`_STAGE`, `APP_ORIGIN_PROD`/`_STAGE`, `ALLOWED_COGNITO_REDIRECT_URIS`
   - `PERM_TABLE_PROD`/`_STAGE`, `INSTANCE_TABLE_NAME`, `SYS_MSG_KEY`
-  - `S3_CONFIG_BUCKET_NAME`, `S3_LOGS_BUCKET_NAME`, `BASE_ROOT`
+  - `S3_FILESTORE_NAME`, `S3_CONFIG_BUCKET_NAME`, `S3_LOGS_BUCKET_NAME`, `BASE_ROOT`
   - `EC2_INSTANCE_IDS` (CSV), `SSM_FILE_TREE_DOCUMENT`, `SSM_FILE_TREE_IGNORE_DIRS`
   - `TSHOCK_SECRET_NAME`, `TSHOCK_API_PORT`, `TSHOCK_PATH`, `TSHOCK_WD`, `TSHOCK_OUT_LOGS`, `TSHOCK_ERR_LOGS`
   - `AUTO_SHUTOFF_IDLE_MINUTES`, `AUTO_SHUTOFF_SERVER_IDS`, `AUTO_SHUTOFF_QUEUE_URL`
@@ -187,6 +187,7 @@ The application runs in three environments with distinct deployment strategies a
 - Route53/Global Accelerator health checks against the EC2 fleet on port 7777 show up as repeated `15.177.x.x` "connecting..." noise in TShock logs — this is our own health-checking, not an attack; don't block it, move the GA health-check port if it needs to stop.
 - Cognito Lambda trigger aliases only work when set via the CLI/API — the Console UI has no alias selector. Never run `update-user-pool` to fix this: it's a full-replace call and will wipe the custom email template.
 - `patreon-oidc` intentionally skips the shared action/permission middleware other lambdas use, because it's called by Cognito and Patreon directly rather than the authenticated frontend — don't "fix" it to match the other lambdas' pattern.
+- The shutdown file sync runs *before* `EC2.StopInstance` (SSM can't reach a box that's powering off), so anything slow there costs the stop itself. Its wait budget must come from `shutdownSyncDeadline(context)` — a fixed poll ceiling silently outgrew both callers' lambda timeouts (30s / 15s) and killed the invocation before it ever issued the stop. Multi-file syncs go through `S3.SyncTrackedFilesToS3` (batched `aws s3 sync`, uploads only what changed); `SyncInstanceFilesToS3` copies every file unconditionally and is only for single-file refresh paths. A bare `aws s3 sync` with no `--exclude "*"` + per-file `--include` filters is what caused the original "uploaded everything on disk" bug — keep the filters.
 
 ---
 

@@ -34,19 +34,14 @@ export const syncFilesToInstance = async (
 	const resolvedBasePath = baseLocalPath ?? "/opt/terraria";
 	const prefix = `${instanceId}/`;
 	const s3Keys = s3Objects.map((obj) => obj.key).filter((key) => key && !key.endsWith("/"));
-	const filesToUpload = s3Keys.map((s3Key) => {
-		const relativePath = s3Key.startsWith(prefix) ? s3Key.slice(prefix.length) : s3Key;
-		return {
-			localPath: `${resolvedBasePath}/${relativePath}`,
-			destinationKey: s3Key,
-		};
-	});
+	const relativePaths = s3Keys.map((s3Key) => (s3Key.startsWith(prefix) ? s3Key.slice(prefix.length) : s3Key));
 
-	const uploadResult = filesToUpload.length
-		? await S3.SyncInstanceFilesToS3({
+	const uploadResult = relativePaths.length
+		? await S3.SyncTrackedFilesToS3({
 				instanceId,
 				bucketName: s3Bucket,
-				files: filesToUpload,
+				baseRoot: resolvedBasePath,
+				relativePaths,
 			})
 		: null;
 

@@ -7,7 +7,6 @@ import { handleCheck } from "./actions/handleCheck.js";
 import { handleEc2Stop } from "./actions/handleEc2Stop.js";
 
 export const handler = async (event: SQSEvent, context: Context) => {
-	void context;
 	const results: unknown[] = [];
 
 	CWLogger.Action(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
@@ -28,7 +27,7 @@ export const handler = async (event: SQSEvent, context: Context) => {
 				results.push(await handleCheck(message));
 				break;
 			case "ec2-stop":
-				results.push(await handleEc2Stop(message));
+				results.push(await handleEc2Stop(message, context));
 				break;
 			default:
 				await CWLogger.Error(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
