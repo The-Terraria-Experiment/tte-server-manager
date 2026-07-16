@@ -1,6 +1,8 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { HmacToken } from "../shared/utils/HmacToken.js";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
+import { CWLogger } from "../shared/aws/CloudWatch.js";
+import { FUNC_NAMES } from "../shared/constants.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { loadPatreonCreds } from "../lib/patreonCreds.js";
 import { PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
@@ -8,6 +10,39 @@ import type { FederationRelayState, LinkIntentPayload, LinkRelayState } from "./
 
 const RELAY_STATE_TTL_MS = 5 * 60 * 1000;
 const PATREON_SCOPES = "identity identity[email] identity.memberships";
+
+/**
+ * Reduces a redirect URI to the parts that must match exactly, so that trivia like a trailing
+ * slash or host casing can't cause a false reject. Anything non-HTTPS or unparseable is
+ * rejected outright, which also rules out `javascript:`/`data:` targets.
+ */
+function normalizeRedirectUri(value: string): string | null {
+	try {
+		const url = new URL(value);
+		if (url.protocol !== "https:") return null;
+
+		return `https://${url.host.toLowerCase()}${url.pathname.replace(/\/+$/, "")}`;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * `redirect_uri` arrives as an untrusted query param and callback.ts later echoes the Patreon
+ * authorization code to it. Without an allowlist this route is an open redirect that hands a
+ * victim's code to any attacker-chosen URL, so only our own User Pools' hosted-UI endpoints
+ * are accepted. Fails closed: an unset allowlist rejects every federation attempt rather than
+ * silently reverting to "trust whatever was passed".
+ */
+function isAllowedCognitoRedirectUri(candidate: string): boolean {
+	const normalizedCandidate = normalizeRedirectUri(candidate);
+	if (!normalizedCandidate) return false;
+
+	return (process.env.ALLOWED_COGNITO_REDIRECT_URIS || "")
+		.split(",")
+		.map((entry) => normalizeRedirectUri(entry.trim()))
+		.some((entry) => entry !== null && entry === normalizedCandidate);
+}
 
 export const authorize = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	void context;
@@ -59,6 +94,17 @@ export const authorize = async (event: APIGatewayProxyEvent, context: Context): 
 
 		if (!cognitoState || !cognitoRedirectUri) {
 			return ResponseUtil.ValidationError("Missing state or redirect_uri");
+		}
+
+		if (!isAllowedCognitoRedirectUri(cognitoRedirectUri)) {
+			// Either a misconfigured pool or someone probing for an open redirect - worth a log
+			// line either way, since a legitimate caller can only ever send an allowlisted value.
+			await CWLogger.Error(FUNC_NAMES.PATREON_OIDC, {
+				error: "Rejected unrecognized redirect_uri",
+				details: { redirectUri: cognitoRedirectUri },
+			});
+
+			return ResponseUtil.ValidationError("Unrecognized redirect_uri");
 		}
 
 		relayPayload = {
