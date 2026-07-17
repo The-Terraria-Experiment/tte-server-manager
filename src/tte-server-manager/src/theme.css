@@ -72,24 +72,30 @@ These add height and width classes from 4 to 20 with step of 2, not worrying abo
 
 @font-face {
 	font-family: "Inter";
-	src: url("/fonts/Inter-VariableFont_opsz,wght.ttf");
+	src: url("/fonts/Inter-VariableFont.woff2") format("woff2");
+	font-style: normal;
+	font-display: swap;
 }
 
 @font-face {
 	font-family: "Inter";
-	src: url("/fonts/Inter-Italic-VariableFont_opsz\,wght.ttf");
+	src: url("/fonts/Inter-Italic-VariableFont.woff2") format("woff2");
 	font-style: italic;
+	font-display: swap;
 }
 
 @font-face {
 	font-family: "JetBrains Mono";
-	src: url("/fonts/JetBrainsMono-VariableFont_wght.ttf");
+	src: url("/fonts/JetBrainsMono-VariableFont.woff2") format("woff2");
+	font-style: normal;
+	font-display: swap;
 }
 
 @font-face {
 	font-family: "JetBrains Mono";
-	src: url("/fonts/JetBrainsMono-Italic-VariableFont_wght.ttf");
+	src: url("/fonts/JetBrainsMono-Italic-VariableFont.woff2") format("woff2");
 	font-style: italic;
+	font-display: swap;
 }
 
 
