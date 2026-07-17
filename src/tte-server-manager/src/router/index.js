@@ -1,23 +1,16 @@
 import { createRouter, createWebHistory } from "vue-router"
-import Home from "../components/pages/Home.vue";
-import Overview from "../components/pages/Overview.vue";
-import Instance from "../components/pages/Instance.vue";
-import Server from "../components/pages/Server.vue";
-import Users from "../components/pages/Users.vue";
-import Login from "../components/pages/Login.vue";
 import { useUserStore } from "../stores/userStore";
-import Terms from "../components/pages/Terms.vue";
 
 export const router = createRouter({
 	history: createWebHistory(),
 	routes: [
-		{ path: "/terms-and-conditions-privacy-policy", component: Terms, meta: { requiresAuth: false } },
-		{ path: "/login", component: Login, meta: { requiresAuth: false } },
-		{ path: "/overview", component: Overview, meta: { requiresAuth: true } },
-		{ path: "/instance", component: Instance, meta: { requiresAuth: true } },
-		{ path: "/server", component: Server, meta: { requiresAuth: true } },
-		{ path: "/users", component: Users, meta: { requiresAuth: true } },
-		{ path: "/", component: Overview, meta: { requiresAuth: false } },
+		{ path: "/terms-and-conditions-privacy-policy", component: () => import("../components/pages/Terms.vue"), meta: { requiresAuth: false } },
+		{ path: "/login", component: () => import("../components/pages/Login.vue"), meta: { requiresAuth: false } },
+		{ path: "/overview", component: () => import("../components/pages/Overview.vue"), meta: { requiresAuth: true } },
+		{ path: "/instance", component: () => import("../components/pages/Instance.vue"), meta: { requiresAuth: true } },
+		{ path: "/server", component: () => import("../components/pages/Server.vue"), meta: { requiresAuth: true } },
+		{ path: "/users", component: () => import("../components/pages/Users.vue"), meta: { requiresAuth: true } },
+		{ path: "/", component: () => import("../components/pages/Overview.vue"), meta: { requiresAuth: false } },
 		{ path: "/:pathMatch(.*)*", redirect: "/" }, // catch-all
 	]
 });
