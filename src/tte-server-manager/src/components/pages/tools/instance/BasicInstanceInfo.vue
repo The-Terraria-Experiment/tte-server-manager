@@ -2,8 +2,8 @@
 	<div class="flex flex-col sm:grid sm:grid-cols-2 2xl:grid-cols-4 mt-6 gap-2">
 		<StatusTile 
 			:class="['grow', selectedInstanceData.state === 'ONLINE' ? 'gradient-tile-green' : 'gradient-tile-red']" 
-			:collapsible="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
-			:contentLoaded="['ONLINE', 'OFFLINE'].includes(selectedInstanceData.state)"
+			:collapsible="showStatusOptions"
+			:contentLoaded="showStatusOptions"
 			:perm-required="PERMISSIONS.instance.status.read"
 			:floatingExpand="!isMobile"
 			display-if-not-allowed
@@ -177,7 +177,10 @@ export default {
 		}
 	},
 	computed: {
-		
+		showStatusOptions() {
+			return ['ONLINE', 'OFFLINE'].includes(this.selectedInstanceData.state) &&
+				this.$checkPermissions([PERMISSIONS.instance.status.stop, PERMISSIONS.instance.status.restart], false);
+		}
 	},
 	methods: {
 		openConfirmStopPopup() {
