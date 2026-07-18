@@ -2,6 +2,7 @@
 	<StatusTile 
 		class="grow gradient-tile"
 		:collapsible="selectedServerData.state"
+		:contentLoaded="selectedServerData.state && selectedServerData.status !== undefined"
 		:floatingExpand="!isMobile"
 		:perm-required="PERMISSIONS.server.status.read"
 	>

@@ -3,6 +3,7 @@
 		<StatusTile
 			:class="['grow gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			:collapsible="selectedServerData.state && showStopButton"
+			:contentLoaded="selectedServerData.state && serverStore.worldStatusData[this.selectedInstance] !== undefined"
 			:perm-required="PERMISSIONS.server.status.read"
 			:floatingExpand="!isMobile"
 			:loading="statusLoading || statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)"
@@ -68,6 +69,8 @@ export default {
 		return {
 			PERMISSIONS,
 			BTN_VARIANT,
+			WORLD_STATES,
+
 			TASK_IDS,
 			serverStore: useServerStore(),
 			statusStore: useStatusStore(),
