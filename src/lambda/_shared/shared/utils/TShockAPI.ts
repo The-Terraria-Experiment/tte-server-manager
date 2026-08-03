@@ -243,6 +243,9 @@ export class TShockAPI {
 		const base = `http://${this.ip}:${process.env.TSHOCK_API_PORT}`;
 		const endpoint = '/v2/token/create';
 
+		// TShock's token endpoint only accepts the login pair as query parameters, so this URL
+		// carries a live credential. It must never be logged or put in an error message
+		// un-redacted — see `redactCredentials`, which `Network` applies to anything it names.
 		const params = `?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
 		const { statusCode, json } = await Network.HTTPJsonRequest(`${base}${endpoint}${params}`, { method: HttpMethod.GET, headers: { 'Accept': 'application/json' } });
 

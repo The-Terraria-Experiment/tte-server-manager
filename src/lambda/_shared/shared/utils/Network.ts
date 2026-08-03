@@ -1,9 +1,15 @@
 import * as http from "http";
+import { redactCredentials } from "./Redact.js";
 
 export type RequestBody = Record<string, any> | string | null;
 
 export class Network {
 	public static HTTPJsonRequest(url: string, params: RequestParams, body: RequestBody = null): Promise<RequestResponse> {
+		// Callers pass credentials in the query string (TShock's token endpoint has no other
+		// way to take them), and these rejections are surfaced to the client by several
+		// handlers, so the URL is only ever named in redacted form.
+		const safeUrl = redactCredentials(url);
+
 		return new Promise((resolve, reject) => {
 			const req = http.request(url, params, (res) => {
 				let chunks = "";
@@ -21,7 +27,7 @@ export class Network {
 						json = chunks ? JSON.parse(chunks) : {};
 					} catch (err) {
 						const error = err instanceof Error ? err : new Error(String(err));
-						return reject(new Error(`Invalid JSON from ${url} (${statusCode}): ${error.message}`));
+						return reject(new Error(`Invalid JSON from ${safeUrl} (${statusCode}): ${error.message}`));
 					}
 
 					resolve({statusCode, json});
@@ -30,7 +36,7 @@ export class Network {
 
 			req.on("error", (err) => reject(err));
 			req.on("timeout", () => {
-				req.destroy(new Error(`Request timed out for ${url}`));
+				req.destroy(new Error(`Request timed out for ${safeUrl}`));
 			});
 
 			if (body !== null && body !== undefined) {

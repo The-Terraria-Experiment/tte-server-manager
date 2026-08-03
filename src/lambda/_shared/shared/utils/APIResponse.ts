@@ -1,6 +1,7 @@
 import type { APIGatewayProxyResult } from "aws-lambda";
 import { CWLogger } from "../aws/CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
+import { redact, redactCredentials } from "./Redact.js";
 
 const ALLOWED_ORIGINS: Set<string> = new Set(
 	(process.env.ALLOWED_ORIGIN || "")
@@ -43,13 +44,19 @@ export class ResponseUtil {
 		code = "INTERNAL_ERROR",
 		details: unknown = null,
 	): APIGatewayProxyResult {
+		// Most callers pass a caught `e.message` straight through, so this is the last point
+		// at which an internal string can be stopped from reaching both CloudWatch and the
+		// browser. Redact here rather than trusting every call site to have done it.
+		const safeMessage = redactCredentials(message);
+		const safeDetails = details === null || details === undefined ? details : redact(details);
+
 		CWLogger.Error(CW_LOG_GENERAL, {
-			error: message,
+			error: safeMessage,
 			stack: new Error().stack,
 			details: {
 				statusCode,
 				code,
-				givenDetails: details
+				givenDetails: safeDetails
 			}
 		});
 
@@ -58,8 +65,8 @@ export class ResponseUtil {
 			headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
 			body: JSON.stringify({
 				code,
-				message,
-				...(details !== null && details !== undefined ? { details } : {}),
+				message: safeMessage,
+				...(safeDetails !== null && safeDetails !== undefined ? { details: safeDetails } : {}),
 			}),
 		};
 	}

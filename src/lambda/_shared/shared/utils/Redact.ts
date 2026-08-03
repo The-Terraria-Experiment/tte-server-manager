@@ -7,15 +7,39 @@ const REDACTED = "[REDACTED]";
  */
 const SENSITIVE_KEY = /secret|password|passwd|token|authorization|cookie|credential|api[-_]?key/i;
 
+/**
+ * Names that are credential-bearing only as a URL/query parameter. `username` is half of a
+ * login pair there, but as an object key it's ordinary user data that logs want readable —
+ * so this widens `redactCredentials` only, never `redact`.
+ */
+const SENSITIVE_PARAM = /^(user|username|login)$/i;
+
 const MAX_DEPTH = 8;
+
+const PAIR = /([^=&?\s]+)=([^&\s]*)/g;
 
 /**
  * Redacts `key=value` pairs whose key looks sensitive, for form-urlencoded bodies
  * (`grant_type=x&client_secret=y`) and bare query strings alike.
  */
 function redactEncodedPairs(value: string): string {
-	return value.replace(/([^=&?\s]+)=([^&\s]*)/g, (match, key: string) =>
-		SENSITIVE_KEY.test(key) ? `${key}=${REDACTED}` : match,
+	return value.replace(PAIR, (match, key: string) => (SENSITIVE_KEY.test(key) ? `${key}=${REDACTED}` : match));
+}
+
+/**
+ * Strips credentials out of free text that may embed a URL or query string — error
+ * messages, stack traces, log lines. Error messages travel further than logs do: several
+ * action handlers echo `e.message` straight back to the browser, so any string built from a
+ * URL has to come through here first. TShock's `/v2/token/create` takes its username and
+ * password as query parameters, which makes this the difference between a debuggable error
+ * and a published credential.
+ *
+ * Only parameter *values* are replaced; the origin and path survive so the message still
+ * says what failed and where.
+ */
+export function redactCredentials(text: string): string {
+	return text.replace(PAIR, (match, key: string) =>
+		SENSITIVE_KEY.test(key) || SENSITIVE_PARAM.test(key) ? `${key}=${REDACTED}` : match,
 	);
 }
 
