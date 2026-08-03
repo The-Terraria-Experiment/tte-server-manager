@@ -224,11 +224,19 @@ export default {
 		},
 
 		async fetchWorldCreationStatus() {
-			const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+			try {
+				const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
 
-			if (status && status.found !== false) {
-				this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
-				this.$refs.createWorld.startWorldCreatePolling(status);
+				// Only pick up a job that's actually still going. A finished — or abandoned — row
+				// sticks around until someone starts the next creation, and attaching the poller to
+				// it would replay its outcome as a fresh alert on every page load.
+				if (status && status.found !== false && !status.isDone) {
+					this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
+					this.$refs.createWorld.startWorldCreatePolling(status);
+				}
+			} catch (e) {
+				this.$alert.error("Error checking world creation status");
+				console.error(e);
 			}
 		},
 

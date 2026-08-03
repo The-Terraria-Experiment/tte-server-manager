@@ -247,7 +247,9 @@ export class TShockAPI {
 		// carries a live credential. It must never be logged or put in an error message
 		// un-redacted — see `redactCredentials`, which `Network` applies to anything it names.
 		const params = `?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-		const { statusCode, json } = await Network.HTTPJsonRequest(`${base}${endpoint}${params}`, { method: HttpMethod.GET, headers: { 'Accept': 'application/json' } });
+		// Same explicit timeout as APIRequest. Token acquisition sits in front of every other TShock
+		// call, so an unbounded wait here stalls whatever the caller was actually trying to do.
+		const { statusCode, json } = await Network.HTTPJsonRequest(`${base}${endpoint}${params}`, { method: HttpMethod.GET, headers: { 'Accept': 'application/json' }, timeout: 5000 });
 
 		if (statusCode >= 200 && statusCode < 300) {
 			const tokenExpiry = Date.now() + 5 * 60 * 1000; // Expire in 5 minutes

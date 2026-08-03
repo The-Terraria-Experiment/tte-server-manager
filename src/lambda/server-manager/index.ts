@@ -167,31 +167,39 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 
 	let creationResult;
 	try {
-		creationResult = await beginCreateWorld(event);
+		creationResult = await beginCreateWorld(event, context);
 	} catch (e: any) {
+		const failureReason = e?.message ?? "unknown error";
+
 		CWLogger.Error(FUNC_NAMES.SERV_MGR, {
 			userId: event.requestedBy,
 			action: "create-world",
-			error: e?.message,
+			error: failureReason,
 			stack: new Error().stack,
 			details: {
 				event
 			}
 		});
-		
+
 		const DB = new DynamoDao();
+		// The reason is stored on the job so the frontend can say *what* went wrong instead of a bare
+		// "World creation failed" — for worldgen the useful cases (TShock never started, world path not
+		// configured, ran out of time mid-generation) are indistinguishable to a user otherwise.
 		const errorUpdate: SystemWorldCreateEntry = {
 			status: "failed",
 			step: "failed",
+			failureReason,
 			updatedAt: new Date().toISOString(),
 		};
 		await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${event.instanceID}`, {
 			updates: errorUpdate
 		});
 
-		return ResponseUtil.Error(e?.message ?? "unknown error");
+		// Returned, not rethrown: this worker is invoked asynchronously, so a throw would have lambda
+		// retry it — and the job is already recorded as failed, so a retry could only muddy that.
+		return ResponseUtil.Error(failureReason);
 	}
-	
+
 	return creationResult;
 }
 

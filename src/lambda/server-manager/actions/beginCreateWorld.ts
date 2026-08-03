@@ -1,5 +1,7 @@
+import type { Context } from "aws-lambda";
 import type { InstanceDataEntry } from "../shared/schema/InstanceTable.js";
 import type { NewWorldRequestData, NewWorldRequestParams } from "../index.js";
+import { boundedWaitDeadline } from "../shared/utils/SyncBudget.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Assert } from "../shared/utils/Assert.js";
@@ -96,17 +98,23 @@ const isWorldgenStatusLine = (line: string): boolean => {
 /**
  * Polls the world file until its size stabilizes (worldgen finished writing). When an stdout log
  * path is provided, the same SSM round-trip also tails the log's latest non-blank line — Terraria's
- * live worldgen status ("Growing trees", "Settling liquids", …) — and hands each new line to
- * onStatusLine so callers can surface real progress. onStatusLine is best-effort: its failures are
+ * live worldgen status ("Growing trees", "Settling liquids", …) — and hands each poll to onPoll so
+ * callers can heartbeat the job and surface real progress. onPoll is best-effort: its failures are
  * swallowed and never abort the wait.
+ *
+ * The wait is bounded by `deadline` rather than by a poll count. Each iteration costs an SSM
+ * round-trip plus the poll delay (~10s together), so the old fixed 30 attempts budgeted almost
+ * exactly the lambda's own 300s timeout: the loop could never finish and report a failure, because
+ * the invocation was killed first — leaving the job row stuck on "waiting-for-world-file" forever
+ * with no worker left alive to move it. Giving up before the invocation dies is the entire point.
  */
 const waitForWorldFileReady = async (
 	filePath: string,
 	instanceID: string,
 	outLogPath: string | null,
-	onStatusLine?: (line: string) => Promise<void>,
+	deadline: number,
+	onPoll?: (line: string | null) => Promise<void>,
 ) => {
-	const pollAttempts = Number(process.env.WORLD_CREATE_POLL_ATTEMPTS || 30);
 	const pollDelayMs = Number(process.env.WORLD_CREATE_POLL_DELAY_MS || 5000);
 	const stableCount = Number(process.env.WORLD_CREATE_STABLE_COUNT || 2);
 	const escapedPath = filePath.replace(/"/g, '\\"');
@@ -117,7 +125,7 @@ const waitForWorldFileReady = async (
 	// so the freshest status is the final segment rather than the final newline-terminated line.
 	const LOG_DELIM = "===WORLDGEN-LOGLINE===";
 	let tailBlock = "";
-	if (outLogPath && onStatusLine) {
+	if (outLogPath && onPoll) {
 		const escapedLogPath = outLogPath.replace(/"/g, '\\"');
 		tailBlock = `if [ -f "${escapedLogPath}" ]; then tail -c 8192 "${escapedLogPath}" | tr '\\r' '\\n' | grep -av '^[[:space:]]*$' | tail -n 1; fi`;
 	}
@@ -130,25 +138,35 @@ const waitForWorldFileReady = async (
 	let lastSize = null;
 	let stableTicks = 0;
 	let lastLogLine = "";
+	let everSawFile = false;
 
-	for (let i = 0; i < pollAttempts; i++) {
+	while (Date.now() < deadline) {
 		const result = await SSM.ExecuteCommandGetResult(instanceID, [statCommand], 5000);
 		const rawOutput = result.stdout || "";
 
 		let sizeOutput = rawOutput;
-		if (tailBlock && onStatusLine) {
+		let freshLine: string | null = null;
+		if (tailBlock && onPoll) {
 			const delimIdx = rawOutput.indexOf(LOG_DELIM);
 			if (delimIdx !== -1) {
 				sizeOutput = rawOutput.slice(0, delimIdx);
 				const logLine = rawOutput.slice(delimIdx + LOG_DELIM.length).trim();
 				if (logLine && logLine !== lastLogLine && isWorldgenStatusLine(logLine)) {
 					lastLogLine = logLine;
-					try {
-						await onStatusLine(logLine);
-					} catch {
-						// Reporting the status line is best-effort; never let it abort the wait.
-					}
+					freshLine = logLine;
 				}
+			}
+		}
+
+		// Every poll heartbeats, not just the ones carrying a new status line. A run where TShock
+		// never starts produces no log lines at all, and without a heartbeat that job is
+		// indistinguishable from one whose worker has died — which is what decides whether a later
+		// request gets to replace it. See WorldgenJob.
+		if (onPoll) {
+			try {
+				await onPoll(freshLine);
+			} catch {
+				// Reporting progress is best-effort; never let it abort the wait.
 			}
 		}
 
@@ -167,6 +185,8 @@ const waitForWorldFileReady = async (
 			continue;
 		}
 
+		everSawFile = true;
+
 		if (lastSize !== null && size === lastSize) {
 			stableTicks += 1;
 			if (stableTicks >= stableCount) {
@@ -180,10 +200,30 @@ const waitForWorldFileReady = async (
 		await new Delay(pollDelayMs);
 	}
 
-	throw new Error("World file did not become ready in time");
+	// Two very different failures land here, and the difference is the whole diagnosis: a file that
+	// never appeared means TShock never got as far as writing one (bad path, failed launch, missing
+	// runtime), while a file still growing means worldgen was simply slower than the invocation.
+	if (!everSawFile) {
+		throw new Error(
+			`TShock never created the world file at ${filePath} — the server likely failed to start.` +
+			(lastLogLine ? ` Last console output: ${lastLogLine}` : " No console output was produced."),
+		);
+	}
+
+	throw new Error(
+		`World file at ${filePath} was still being written when time ran out (last size ${lastSize} bytes).` +
+		(lastLogLine ? ` Last console output: ${lastLogLine}` : ""),
+	);
 };
 
-export const beginCreateWorld = async (params: NewWorldRequestData) => {
+/**
+ * Wall-clock room the worker keeps for everything after the world file is ready: the S3 upload and
+ * its SSM completion poll, the final status writes, and the delay that lets the frontend observe
+ * "completed" before the row is deleted.
+ */
+const POST_WAIT_RESERVE_MS = Number(process.env.WORLD_CREATE_UPLOAD_RESERVE_MS || 90000);
+
+export const beginCreateWorld = async (params: NewWorldRequestData, context: Context) => {
 	CWLogger.CAction(3, FUNC_NAMES.SERV_MGR, {
 		userId: params.requestedBy,
 		action: "create-world",
@@ -197,14 +237,42 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 	Assert.IsTruthyString(tshockPath, "TShock executable path not configured (TSHOCK_PATH env var missing)");
 
 	const DB = new DynamoDao();
+	const jobKey = `${WORLD_CREATE_KEY}#${params.instanceID}`;
+
+	// Claim the job before doing anything that touches the instance. Async invocation means lambda
+	// retries this worker up to twice on its own after a timeout or crash, and each retry would
+	// otherwise dispatch another `-autocreate` run at the same world file — several TShocks writing
+	// one .wld, whose size then never stabilizes, so the wait can't succeed either. The claim is
+	// conditional on the row still being this job and unclaimed, so only the first invocation
+	// proceeds; the losers fall through to hWorker, which records the job as failed. That makes the
+	// retry the thing that *detects* a dead first attempt rather than the thing that duplicates it.
+	const claimedAt = new Date().toISOString();
+	const claim = await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
+		UpdateExpression: "SET #workerStartedAt = :now, #updatedAt = :now",
+		ExpressionAttributeNames: { "#workerStartedAt": "workerStartedAt", "#updatedAt": "updatedAt" },
+		ExpressionAttributeValues: { ":now": claimedAt, ":jid": params.jobID },
+		ConditionExpression: "attribute_exists(uid) AND jobID = :jid AND attribute_not_exists(workerStartedAt)",
+	});
+	if (!claim) {
+		throw new Error(
+			"World creation was already picked up by an earlier worker for this job — the first attempt " +
+			"stopped without reporting a result. Start a new world creation to try again.",
+		);
+	}
 
 	const instanceTable = process.env.INSTANCE_TABLE_NAME;
 	Assert.IsTruthyString(instanceTable, "Instance table name not configured (INSTANCE_TABLE_NAME env var missing)");
 	const instanceData = await DB.GetItem(instanceTable!, `inst#${params.instanceID}`) as InstanceDataEntry;
 	const worldPaths = instanceData?.worldPaths || [];
 
+	// Thrown rather than returned: a returned error response is a *successful* worker run as far as
+	// the invoker is concerned, so the job row would sit at "queued" with nobody left to advance it.
+	// Only a throw reaches hWorker's catch and gets the job marked failed.
 	if (!worldPaths.some(validPath => params.params.worldFolderPath === validPath)) {
-		return ResponseUtil.ValidationError("World file path is unauthorized");
+		throw new Error(
+			`World file path "${params.params.worldFolderPath}" is not one of the configured world paths ` +
+			`for ${params.instanceID}. Check the instance's worldPaths entry.`,
+		);
 	}
 
 	const fsRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
@@ -231,7 +299,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 20,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
+	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
 		updates: creationUpdate1
 	});
 
@@ -262,17 +330,17 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 45,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
+	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
 		updates: creationUpdate2
 	});
 	
 	const outLogPath = resolveOutLogPath();
-	await waitForWorldFileReady(worldFilePath, params.instanceID, outLogPath, async (line) => {
+	await waitForWorldFileReady(worldFilePath, params.instanceID, outLogPath, boundedWaitDeadline(context, POST_WAIT_RESERVE_MS), async (line) => {
 		const detailUpdate: SystemWorldCreateEntry = {
-			detail: line,
+			...(line !== null ? { detail: line } : {}),
 			updatedAt: new Date().toISOString()
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
+		await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
 			updates: detailUpdate
 		});
 	});
@@ -282,7 +350,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 85,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
+	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
 		updates: creationUpdate3
 	});
 
@@ -316,7 +384,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 		progress: 100,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`, {
+	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
 		updates: creationUpdate4
 	});
 
@@ -337,7 +405,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData) => {
 	// (currently polls every 5s, so a little more than 2 poll cycles should be enough)
 	await new Delay(12000);
 
-	const success = await DB.DeleteItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${params.instanceID}`);
+	const success = await DB.DeleteItem(SYSTEM_TABLE, jobKey);
 	if (!success) {
 		return ResponseUtil.Error("Clean-up failed");
 	}

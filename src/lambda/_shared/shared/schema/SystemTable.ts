@@ -8,8 +8,13 @@ export type SystemWorldCreateEntry = {
 	/** Latest raw worldgen status line tailed from the TShock stdout log (e.g. "Growing trees"). Liveness/progress hint only. */
 	detail?: string,
 	createdAt?: string,
+	/** Heartbeat. Touched on every poll of the world file, so a stale value means the worker died — see WorldgenJob. */
 	updatedAt?: string,
-	jobID?: string
+	jobID?: string,
+	/** Set once, by the first worker invocation to claim this job. Its presence is what makes a lambda async retry a no-op instead of a second worldgen run. */
+	workerStartedAt?: string,
+	/** Why the job ended up in `failed`, in terms meant for the user rather than a stack trace. */
+	failureReason?: string
 };
 
 export type RoleEntry = {
