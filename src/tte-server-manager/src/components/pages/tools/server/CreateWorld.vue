@@ -167,6 +167,10 @@ const defaultNewWorldData = () => ({
 	worldFileLocation: null
 });
 
+// Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
+const POLL_HANDLER_ID = "create-world-poll-status";
+const FINISH_HANDLER_ID = "create-world-handle-finished";
+
 const defaultLastWorldCreateStatus = () => ({
 	requestedBy: null,
 	status: "",
@@ -414,8 +418,14 @@ export default {
 		}
 	},
 	created() {
-		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.pollWorldCreateStatus);
-		this.statusStore.subscribeToTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, this.handleCreationFinished);
+		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.pollWorldCreateStatus, POLL_HANDLER_ID);
+		this.statusStore.subscribeToTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, this.handleCreationFinished, FINISH_HANDLER_ID);
+	},
+	beforeUnmount() {
+		// Without this the previous instance's handlers keep running after a route change, so the
+		// alerts land against a component that's no longer on screen — and multiply with each visit.
+		this.statusStore.unsubscribeFromTask(TASK_IDS.CREATE_WORLD_CHECK, POLL_HANDLER_ID);
+		this.statusStore.unsubscribeFromTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, FINISH_HANDLER_ID);
 	},
 	watch: {
 		worldFileLocationOptions(value) {

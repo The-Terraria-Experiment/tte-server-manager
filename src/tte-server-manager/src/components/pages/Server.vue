@@ -106,6 +106,9 @@ import BrowseLogs from './tools/server/BrowseLogs.vue';
 import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
 
+// Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
+const STATUS_HANDLER_ID = "server-page-fetch-status";
+
 
 export default {
 	mixins: [],
@@ -264,7 +267,10 @@ export default {
 			}
 		}
 
-		this.statusStore.subscribeToTask(TASK_IDS.SERVER_STATUS_CHECK, this.fetchServerStatus);
+		this.statusStore.subscribeToTask(TASK_IDS.SERVER_STATUS_CHECK, this.fetchServerStatus, STATUS_HANDLER_ID);
+	},
+	beforeUnmount() {
+		this.statusStore.unsubscribeFromTask(TASK_IDS.SERVER_STATUS_CHECK, STATUS_HANDLER_ID);
 	},
 	watch: {
 		selectedInstance(value) {
