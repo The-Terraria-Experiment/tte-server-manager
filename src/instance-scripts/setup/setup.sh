@@ -226,12 +226,18 @@ step_layout() {
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT"
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/tshock"
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/logs"
+	# TSHOCK_OUT_LOGS / TSHOCK_ERR_LOGS point *inside* logs/, and the launch command redirects into
+	# them with `1>> .../stdout/DATE.log`. Shell redirection creates the file but never the directory,
+	# so if these are missing the redirect fails before exec and TShock silently never starts --
+	# no world file, no console output, nothing to diagnose from.
+	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/logs/stdout"
+	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/logs/errout"
 	# Sibling to tshock/, not inside it -- matches the existing fleet's "worlds"
 	# validRoots entry, and keeps world saves out of the REST-account bootstrap's
 	# throwaway world (which lives in /tmp, not here).
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/worlds"
 
-	ok "$ROOT/{tshock,logs,worlds}"
+	ok "$ROOT/{tshock,logs/{stdout,errout},worlds}"
 }
 
 step_ssm() {

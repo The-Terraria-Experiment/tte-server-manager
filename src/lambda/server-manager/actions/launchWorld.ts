@@ -14,6 +14,7 @@ import { TShockAPI } from "../shared/utils/TShockAPI.js";
 import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
+import { ensureLogDirsCommand, joinLaunchSteps } from "../shared/utils/TShockLaunch.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
@@ -81,7 +82,7 @@ const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlaye
 	Assert.IsTruthyString(workingDir, "TShock working directory not configured (TSHOCK_WD env var missing)");
 	const cdRoot = `cd "${workingDir}"`;
 
-	const serviceScript = `${cdRoot} && exec ${command} < /dev/null`;
+	const serviceScript = joinLaunchSteps(cdRoot, ensureLogDirsCommand(), `exec ${command} < /dev/null`);
 	const escapedServiceScript = serviceScript.replace(/'/g, `'"'"'`);
 	const systemdLaunch = `systemd-run --unit "tshock-$(date +%s)-$$" --uid ubuntu --working-directory "${workingDir}" --collect --quiet /bin/bash -c '${escapedServiceScript}' && echo "TShock launch dispatched"`;
 

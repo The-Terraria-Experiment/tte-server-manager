@@ -2,6 +2,7 @@ import type { Context } from "aws-lambda";
 import type { InstanceDataEntry } from "../shared/schema/InstanceTable.js";
 import type { NewWorldRequestData, NewWorldRequestParams } from "../index.js";
 import { boundedWaitDeadline } from "../shared/utils/SyncBudget.js";
+import { ensureLogDirsCommand, joinLaunchSteps } from "../shared/utils/TShockLaunch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Assert } from "../shared/utils/Assert.js";
@@ -77,7 +78,7 @@ const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFileP
 	Assert.IsTruthyString(workingDir, "TShock working directory not configured (TSHOCK_WD env var missing)");
 	const cdRoot = `cd "${workingDir}"`;
 
-	const serviceScript = `${cdRoot} && exec ${command} < /dev/null`;
+	const serviceScript = joinLaunchSteps(cdRoot, ensureLogDirsCommand(), `exec ${command} < /dev/null`);
 	const escapedServiceScript = serviceScript.replace(/'/g, `'"'"'`);
 	// Using systemd so that SSM can detach and TShock continues running headless indefinitely
 	const systemdLaunch = `systemd-run --unit "tshock-$(date +%s)-$$" --uid ubuntu --working-directory "${workingDir}" --collect --quiet /bin/bash -c '${escapedServiceScript}' && echo "TShock launch dispatched"`;
