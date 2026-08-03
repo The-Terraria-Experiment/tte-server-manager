@@ -1,5 +1,6 @@
 /todo/*
 /help/*
+/tmp/*
 /node_modules/*
 /scripts/*
 **/tsbuild/**

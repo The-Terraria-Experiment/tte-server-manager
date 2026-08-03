@@ -1,0 +1,20 @@
+[Unit]
+Description=Push the local TTE metrics buffer to S3
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as ubuntu because that's the user whose environment has the AWS CLI
+# configured -- the TShock log sync shells out the same way (see
+# syncAndPruneTShockLogs in _shared/shared/utils/TShockConsoleLogs.ts).
+User=ubuntu
+Group=ubuntu
+EnvironmentFile=/etc/tte-metrics.env
+ExecStart=/usr/local/bin/tte-metrics-upload
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/tte-metrics

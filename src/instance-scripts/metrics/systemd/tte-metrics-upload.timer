@@ -1,0 +1,10 @@
+[Unit]
+Description=Push TTE metrics to S3 every 5 minutes
+
+[Timer]
+OnBootSec=120
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

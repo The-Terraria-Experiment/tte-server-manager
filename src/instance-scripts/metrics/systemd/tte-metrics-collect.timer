@@ -1,0 +1,13 @@
+[Unit]
+Description=Sample CPU/memory every minute
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=60
+AccuracySec=5s
+# Deliberately NOT Persistent=yes: a missed sample while the instance was
+# stopped is genuinely missing data, not work to catch up on. Replaying it at
+# boot would just write a duplicate timestamp with a bogus CPU delta.
+
+[Install]
+WantedBy=timers.target
