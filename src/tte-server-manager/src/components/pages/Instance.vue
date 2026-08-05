@@ -61,10 +61,16 @@
 		:selected-instance-data="selectedInstanceData" 
 	/>
 
-	<InstanceFiles 
+	<InstanceMetrics
 		v-if="selectedInstance"
-		:selected-instance-data="selectedInstanceData" 
-		:loading="loading" 
+		:key="selectedInstance"
+		:selected-instance-data="selectedInstanceData"
+	/>
+
+	<InstanceFiles
+		v-if="selectedInstance"
+		:selected-instance-data="selectedInstanceData"
+		:loading="loading"
 	/>
 	
 </template>
@@ -79,6 +85,7 @@ import { useUserStore } from '../../stores/userStore';
 import BasicInstanceInfo from './tools/instance/BasicInstanceInfo.vue';
 import InstanceFiles from './tools/instance/InstanceFiles.vue';
 import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
+import InstanceMetrics from './tools/instance/InstanceMetrics.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
@@ -92,6 +99,7 @@ export default {
 		BasicInstanceInfo,
 		InstanceFiles,
 		InstanceFilePaths,
+		InstanceMetrics,
 		MajorLoader,
 	},
 	props: {

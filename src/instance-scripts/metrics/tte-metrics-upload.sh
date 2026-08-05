@@ -1,13 +1,20 @@
 #!/bin/sh
 #
-# Pushes the local metric buffer to S3 and prunes old local files. Runs on a
-# timer (every few minutes) and once more on shutdown via tte-metrics-flush.
+# Pushes the local metric buffer to S3 and prunes old local files. May run on a
+# timer, on shutdown via tte-metrics-flush, or on demand from the web UI (which
+# reaches it through `tte-metrics-ctl upload`).
 #
-# Each hour is a single object that gets overwritten in place rather than an
-# append-only stream of small objects: it keeps the object count trivial and
-# makes the read side a plain prefix list.
+# The whole buffer goes up in ONE `aws s3 sync`, not one `aws s3 cp` per hour.
+# The AWS CLI is Python: every invocation costs the better part of a second of
+# CPU and ~100MB RSS, which on a single-core instance is the single most
+# expensive thing this collector does. With manual-trigger uploads the backlog
+# can be arbitrarily many hours, so per-file `cp` would scale that cost with the
+# gap between triggers. One sync is flat regardless of backlog.
 #
-# Key layout: s3://$BUCKET/$PREFIX/$INSTANCE_ID/YYYY/MM/DD/HH.jsonl
+# This is why the local buffer mirrors the S3 key layout exactly -- sync can
+# only preserve a layout it already has:
+#
+#   $DIR/YYYY/MM/DD/HH.jsonl  ->  s3://$BUCKET/$PREFIX/$INSTANCE_ID/YYYY/MM/DD/HH.jsonl
 #
 set -eu
 
@@ -40,21 +47,24 @@ else
 	printf '%s\n' "$IID" > "$IID_CACHE"
 fi
 
-# Upload the current hour AND the previous one. The previous hour keeps taking
-# samples between its final scheduled upload and the rollover, so a
-# current-hour-only push would silently drop up to one upload interval's worth
-# of data every single hour.
-now=$(date -u +%s)
-for offset in 0 3600; do
-	at=$((now - offset))
-	stamp=$(date -u -d "@$at" +%Y-%m-%dT%H)
-	src="$DIR/$stamp.jsonl"
-	[ -f "$src" ] || continue
+# --exclude/--include are load-bearing, not decoration: the buffer dir also holds
+# the .cpu delta state and the .instance-id cache, and neither belongs in S3.
+#
+# Completed hours are immutable, so sync skips them after their first upload;
+# only the current hour is re-sent each run, which is the same write pattern as
+# before. The object count stays one per instance-hour.
+aws s3 sync "$DIR" "s3://$BUCKET/$PREFIX/$IID/" \
+	--exclude "*" --include "*.jsonl" \
+	--only-show-errors
 
-	key="$PREFIX/$IID/$(date -u -d "@$at" +%Y/%m/%d)/$(date -u -d "@$at" +%H).jsonl"
-	aws s3 cp "$src" "s3://$BUCKET/$key" --only-show-errors
-done
+# Everything below only runs on a successful sync -- `set -e` aborts the script
+# on a non-zero aws exit. That ordering is the whole safety property: under
+# manual-trigger uploads a buffer file can be days old and still be the only
+# copy of that data, so pruning by mtime alone (as this used to do) would
+# silently delete metrics that had never reached S3. Reaching this line means
+# every .jsonl present is in S3.
+find "$DIR" -name '*.jsonl' -mtime "+$RETAIN_DAYS" -delete 2>/dev/null || true
 
-# S3 is the durable copy; the local buffer only needs to cover the gap between
-# uploads plus enough slack to debug a failed push.
-find "$DIR" -maxdepth 1 -name '*.jsonl' -mtime "+$RETAIN_DAYS" -delete 2>/dev/null || true
+# The dated directories are cheap but unbounded; drop the ones the prune above
+# emptied out so the tree doesn't accumulate a folder per day forever.
+find "$DIR" -mindepth 1 -type d -empty -delete 2>/dev/null || true

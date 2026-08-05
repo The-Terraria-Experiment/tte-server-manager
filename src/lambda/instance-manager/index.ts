@@ -23,6 +23,9 @@ import { getInstanceFiles } from "./actions/getInstanceFiles.js";
 import { readFileContent } from "./actions/readFileContent.js";
 import { writeFileContent } from "./actions/writeFileContent.js";
 import { downloadFile } from "./actions/downloadFile.js";
+import { readMetricsConfig } from "./actions/readMetricsConfig.js";
+import { writeMetricsConfig } from "./actions/writeMetricsConfig.js";
+import { triggerMetricsUpload } from "./actions/triggerMetricsUpload.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
@@ -45,8 +48,24 @@ const endpoints: EndpointList = {
 		action: restart,
 		permRequired: PERMISSIONS.instance.status.restart,
 	},
+	// Reserved for reading the metric data itself; the collector's own on/off and
+	// timing config live under /metrics/config below.
 	"GET /instance/{id}/metrics": {
 		action: null,
+		permRequired: PERMISSIONS.instance.metrics.read,
+	},
+	"GET /instance/{id}/metrics/config": {
+		action: readMetricsConfig,
+		permRequired: PERMISSIONS.instance.metrics.read,
+	},
+	"PUT /instance/{id}/metrics/config": {
+		action: writeMetricsConfig,
+		permRequired: PERMISSIONS.instance.metrics.write,
+	},
+	// A read-tier permission on purpose: this refreshes what's in S3, it doesn't
+	// change how the collector is configured.
+	"POST /instance/{id}/metrics/upload": {
+		action: triggerMetricsUpload,
 		permRequired: PERMISSIONS.instance.metrics.read,
 	},
 	"GET /instance/{id}/files": {

@@ -13,6 +13,15 @@ Group=ubuntu
 EnvironmentFile=/etc/tte-metrics.env
 ExecStart=/usr/local/bin/tte-metrics-upload
 
+# The AWS CLI is Python: roughly a second of CPU and ~100MB RSS per run, which
+# is by far the most expensive thing in this collector. Some of the fleet is
+# single-core, where that second is a second TShock does not get. Idle
+# scheduling doesn't make the work cheaper, it makes it yield -- the upload runs
+# on cycles nothing else wants, so it stops mattering that it is expensive.
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectSystem=strict

@@ -305,13 +305,61 @@ step_tshock() {
 	ok "installed from s3://$TSHOCK_BUCKET/$TSHOCK_KEY"
 }
 
+# Pulls one field out of the inst# row's metricsConfig map, or prints nothing.
+# Always returns 0: a missing row, a missing attribute and a box that predates
+# the setting are all normal, and under `set -e` a non-zero return here would
+# abort the whole provision.
+read_metrics_cfg() {
+	local field=$1 dtype=$2 key val
+
+	[ -n "$INSTANCE_TABLE" ] || return 0
+
+	key=$(printf '{"uid":{"S":"inst#%s"}}' "$INSTANCE_ID")
+	val=$(aws dynamodb get-item --table-name "$INSTANCE_TABLE" --key "$key" \
+		--query "Item.metricsConfig.M.${field}.${dtype}" --output text 2>/dev/null || true)
+
+	if [ -n "$val" ] && [ "$val" != "None" ]; then
+		printf '%s' "$val"
+	fi
+	return 0
+}
+
 step_metrics() {
 	log "metrics collector"
 
 	local installer="$HERE/../metrics/install.sh"
 	[ -f "$installer" ] || die "metrics installer not found at $installer -- stage the whole instance-scripts/ directory, not just setup/"
 
-	TTE_METRICS_BUCKET="$LOGS_BUCKET" bash "$installer"
+	# Rebuilding a box that already has an inst# row picks its saved metrics
+	# settings back up, so a fleet replacement doesn't silently reset everything
+	# configured from the web UI. A genuinely new instance has no row yet (this
+	# step runs before `register` seeds one) and falls through to the installer's
+	# own defaults.
+	local cfg_enabled cfg_mode cfg_collect cfg_upload cfg_retain
+	# --output text renders a DynamoDB BOOL as Python's True/False; the installer
+	# and tte-metrics-ctl both want lowercase.
+	cfg_enabled=$(read_metrics_cfg enabled BOOL | tr '[:upper:]' '[:lower:]')
+	cfg_mode=$(read_metrics_cfg uploadMode S)
+	cfg_collect=$(read_metrics_cfg collectSec N)
+	cfg_upload=$(read_metrics_cfg uploadSec N)
+	cfg_retain=$(read_metrics_cfg retainDays N)
+
+	# Built as an array for `env` rather than as inline VAR=val prefixes: prefix
+	# assignments are recognised when the command is parsed, so a ${x:+VAR=val}
+	# that expands later lands as an argument to bash instead of as a variable.
+	local -a envs=(TTE_METRICS_BUCKET="$LOGS_BUCKET")
+	if [ -n "$cfg_enabled" ]; then envs+=(TTE_METRICS_ENABLED="$cfg_enabled"); fi
+	if [ -n "$cfg_mode" ]; then envs+=(TTE_METRICS_UPLOAD_MODE="$cfg_mode"); fi
+	if [ -n "$cfg_collect" ]; then envs+=(TTE_METRICS_COLLECT_SEC="$cfg_collect"); fi
+	if [ -n "$cfg_upload" ]; then envs+=(TTE_METRICS_UPLOAD_SEC="$cfg_upload"); fi
+	if [ -n "$cfg_retain" ]; then envs+=(TTE_METRICS_RETAIN_DAYS="$cfg_retain"); fi
+
+	if [ -n "$cfg_collect" ]; then
+		ok "reusing saved metrics config from inst#${INSTANCE_ID}"
+	fi
+
+	env "${envs[@]}" bash "$installer"
+
 	ok "metrics installed"
 }
 

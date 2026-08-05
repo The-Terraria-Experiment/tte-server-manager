@@ -41,12 +41,19 @@ touch, so it's left as a placeholder:
       "Resource": ["arn:aws:s3:::ttesm-logs/metrics/*",
                    "arn:aws:s3:::ttesm-logs/tshock-console/*"] },
     { "Effect": "Allow", "Action": ["s3:ListBucket"],
-      "Resource": ["arn:aws:s3:::<filestore-bucket>", "arn:aws:s3:::ttesm-server-configs"] },
+      "Resource": ["arn:aws:s3:::<filestore-bucket>", "arn:aws:s3:::ttesm-server-configs",
+                   "arn:aws:s3:::ttesm-logs"] },
     { "Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem"],
       "Resource": "arn:aws:dynamodb:<region>:<account-id>:table/ttesm-instance-data" }
   ]
 }
 ```
+
+`s3:ListBucket` on the **logs** bucket is required by the metrics uploader: it
+uses `aws s3 sync`, which lists the destination prefix to decide what changed.
+The old per-file `aws s3 cp` never listed anything, so a policy predating that
+change will have `PutObject` but not `ListBucket` and the upload will fail with
+`AccessDenied` on the list — with the objects themselves perfectly writable.
 
 That last statement is for the `register` step (below) and is scoped to a single
 table, matching the blast radius of everything else here. Deliberately **not**
@@ -142,6 +149,12 @@ instance is genuinely different (e.g. pointing at a test bucket).
 
 Copy the whole `instance-scripts/` directory, not just `setup/` — the metrics
 step invokes `../metrics/install.sh`.
+
+If the instance's `inst#<id>` row already carries a `metricsConfig` (i.e. you're
+rebuilding a box whose collector was configured from the web UI), the `metrics`
+step reads it back and applies it, so a fleet replacement doesn't silently reset
+everyone's settings to defaults. A genuinely new instance has no row yet — this
+step runs before `register` seeds one — and gets the installer's defaults.
 
 `TTE_REST_PASSWORD` **must** match `TSHOCK_PASSWORD` in the Secrets Manager
 secret named by `TSHOCK_SECRET_NAME`. The script has no way to check this; if
@@ -272,6 +285,7 @@ three (`register`'s guard only skips if the *new* instance's row already has
 ## Verify
 
 ```bash
+tte-metrics-ctl status
 systemctl list-timers 'tte-metrics-*'
 sqlite3 /home/ubuntu/terraria/tshock/tshock.sqlite "SELECT Username, Usergroup FROM Users;"
 jq '.Settings | {RestApiEnabled, RestApiPort, EnableTokenEndpointAuthentication}' \

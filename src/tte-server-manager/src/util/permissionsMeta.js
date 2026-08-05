@@ -55,7 +55,8 @@ export const PermissionsMeta = {
 			restart: {value: "instance.status.restart", description: pfx + "reboot instances"},
 		},
 		metrics: {
-			read: {value: "instance.metrics.read", description: "", used: false},
+			read: {value: "instance.metrics.read", description: pfx + "view and force refresh instance metrics"},
+			write: {value: "instance.metrics.write", description: pfx + "modify metrics collector configuration"},
 		},
 		files: {
 			read: {value: "instance.files.read", description: pfx + "view and download all files on the instance"},

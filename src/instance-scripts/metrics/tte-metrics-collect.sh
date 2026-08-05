@@ -15,8 +15,18 @@ STATE="$DIR/.cpu"
 
 mkdir -p "$DIR"
 
-ts=$(date -u +%s)
-file="$DIR/$(date -u +%Y-%m-%dT%H).jsonl"
+# One date(1) fork for both the timestamp and the buffer path. The buffer
+# mirrors the S3 key layout (YYYY/MM/DD/HH.jsonl) rather than using a flat
+# YYYY-MM-DDTHH name, so the uploader can push the whole tree with a single
+# `aws s3 sync` instead of one `aws s3 cp` per hour -- see tte-metrics-upload.sh.
+set -- $(date -u '+%s %Y/%m/%d/%H')
+ts=$1
+file="$DIR/$2.jsonl"
+
+# Builtin test first so the mkdir only forks on the hour rollover, not on every
+# single sample.
+dir=${file%/*}
+[ -d "$dir" ] || mkdir -p "$dir"
 
 # /proc/stat's cpu line is cumulative jiffies since boot, so a utilization
 # percentage only exists as a delta against the previous sample. Idle time is
