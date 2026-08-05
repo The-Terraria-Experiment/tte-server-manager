@@ -3,11 +3,16 @@ import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
-import { SsmDao, isInstanceNotReadyForSsm } from "../shared/aws/SSM.js";
+import { SsmDao, isInstanceNotReadyForSsm, isSsmPollTimeout } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
-import { buildUploadCommand, describeSelftestFailure, parseMetricsStatus } from "../shared/utils/InstanceMetrics.js";
+import {
+	METRICS_SSM_POLL,
+	buildUploadCommand,
+	describeSelftestFailure,
+	parseMetricsStatus,
+} from "../shared/utils/InstanceMetrics.js";
 
 const EC2 = new Ec2Dao();
 const SSM = new SsmDao();
@@ -50,9 +55,12 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 
 	let status;
 	try {
-		// The uploader can take a few seconds when a manual-mode backlog has built
-		// up, so allow a longer poll window than the default before giving up.
-		const result = await SSM.ExecuteCommandGetResult(instanceId, buildUploadCommand(selftest), 1000, 45);
+		const result = await SSM.ExecuteCommandGetResult(
+			instanceId,
+			buildUploadCommand(selftest),
+			METRICS_SSM_POLL.intervalMs,
+			METRICS_SSM_POLL.maxPolls,
+		);
 		status = parseMetricsStatus(result);
 	} catch (error) {
 		if (isInstanceNotReadyForSsm(error)) {
@@ -63,12 +71,29 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 			);
 		}
 
+		// Running out of poll budget is not a failed upload — the command is still
+		// going on the box and will finish. Saying so keeps the user from retrying
+		// an upload that already happened. A selftest falls through to the branch
+		// below instead, since an inconclusive probe is not a pass.
+		if (isSsmPollTimeout(error) && !selftest) {
+			return ResponseUtil.Error(
+				"The upload is taking longer than expected and is still running on the instance. Refresh in a moment to see the result.",
+				409,
+				"UPLOAD_STILL_RUNNING",
+			);
+		}
+
 		// A selftest that fails is a finding about the instance, not a fault in
 		// this function — reporting it as a 500 would bury the one piece of
 		// information the probe exists to produce. The uploader exits non-zero on a
 		// bad probe, which SSM surfaces as a command failure carrying its stderr.
 		if (selftest) {
-			const detail = describeSelftestFailure(error instanceof Error ? error.message : String(error));
+			// An inconclusive probe is not a pass, so a poll timeout still lands
+			// here — but it says something different from a rejected PUT, and the
+			// raw "SSM command <id> timed out" would be a poor thing to show.
+			const detail = isSsmPollTimeout(error)
+				? "The probe didn't report back in time, so signing could not be confirmed either way. Try again — if it keeps timing out, check the SSM agent on the instance."
+				: describeSelftestFailure(error instanceof Error ? error.message : String(error));
 
 			await CWLogger.Action(FUNC_NAMES.INST_MGR, {
 				userId: Parsers.GetUserSub(event),

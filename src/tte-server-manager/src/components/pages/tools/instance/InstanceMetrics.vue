@@ -439,9 +439,18 @@ export default {
 				this.$alert.success("Metrics uploaded");
 			} catch (e) {
 				// The buffered-hours and last-upload figures describe a moment that
-				// just failed to happen; keeping them on screen would misreport them
-				// as post-upload numbers.
+				// hasn't resolved; keeping them on screen would misreport them as
+				// post-upload numbers either way.
 				this.actual = null;
+
+				// The upload outran the poll budget but is still running on the box.
+				// Not an error — reporting it as one invites a retry of work that is
+				// about to finish on its own.
+				if (e.code === "UPLOAD_STILL_RUNNING") {
+					this.$alert.warning(e.message);
+					return;
+				}
+
 				this.$alert.error(e.message || "Error uploading metrics");
 				console.error(e);
 			} finally {

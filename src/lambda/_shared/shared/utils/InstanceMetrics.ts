@@ -49,6 +49,27 @@ export const METRICS_BOUNDS = {
 	retainDays: { min: 1, max: 30 },
 } as const;
 
+/**
+ * SSM poll budget for every metrics action, sized to fit inside **API Gateway's
+ * 29-second integration timeout** rather than the lambda's own timeout.
+ *
+ * All three metrics endpoints are synchronous request/response behind the
+ * gateway. A lambda that polls longer than the gateway will wait produces a 504
+ * for the browser while the invocation keeps running and succeeds — so the work
+ * happens, the UI reports failure, and the obvious response (retry) re-runs it.
+ * `SsmDao`'s own default of 30 × 1000ms is already past that line, which is why
+ * these actions pass an explicit budget instead of taking the default.
+ *
+ * 20s of polling leaves ~9s of headroom for the cold start, `SendCommand`, and
+ * marshalling the response, none of which this budget controls. Overrunning it
+ * is not data loss: the command finishes on the box regardless, and callers use
+ * `isSsmPollTimeout` to say so rather than reporting a failure.
+ */
+export const METRICS_SSM_POLL = {
+	intervalMs: 1000,
+	maxPolls: 20,
+} as const;
+
 export const DEFAULT_METRICS_CONFIG: MetricsConfig = {
 	enabled: true,
 	uploadMode: "timer",

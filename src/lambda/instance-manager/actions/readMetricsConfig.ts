@@ -9,6 +9,7 @@ import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import {
+	METRICS_SSM_POLL,
 	buildStatusCommand,
 	hasMetricsDrift,
 	parseMetricsStatus,
@@ -59,7 +60,12 @@ export const readMetricsConfig = async (event: AuthorizedEvent, context: Context
 			unreachable = "instance-offline";
 		} else {
 			try {
-				const result = await SSM.ExecuteCommandGetResult(instanceId, buildStatusCommand());
+				const result = await SSM.ExecuteCommandGetResult(
+					instanceId,
+					buildStatusCommand(),
+					METRICS_SSM_POLL.intervalMs,
+					METRICS_SSM_POLL.maxPolls,
+				);
 				actual = parseMetricsStatus(result);
 				if (!actual) {
 					unreachable = "collector-not-installed";

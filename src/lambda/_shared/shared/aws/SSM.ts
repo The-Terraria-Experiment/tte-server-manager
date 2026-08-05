@@ -26,6 +26,21 @@ export function isInstanceNotReadyForSsm(error: unknown): boolean {
 	return name === "InvalidInstanceId" || /InvalidInstanceId|not in a valid state/i.test(message);
 }
 
+/**
+ * True when an SSM error means we gave up waiting, not that the command failed.
+ *
+ * `PollForCommandCompletion` throws this once it exhausts its poll budget. The
+ * distinction matters to callers: the command is still running on the box and
+ * will still finish, so this is "we stopped watching", not "it didn't work".
+ * Reporting it as a failure invites the user to retry work that already
+ * happened — which for a metrics upload means re-uploading, and for anything
+ * non-idempotent would be worse.
+ */
+export function isSsmPollTimeout(error: unknown): boolean {
+	const message = (error as { message?: string } | null)?.message ?? "";
+	return /^SSM command .* timed out$/.test(message);
+}
+
 export class SsmDao {
 	private readonly ssmClient: SSMClient;
 

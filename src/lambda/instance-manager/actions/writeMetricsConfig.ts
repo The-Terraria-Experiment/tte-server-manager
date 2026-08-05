@@ -8,7 +8,12 @@ import { SsmDao, isInstanceNotReadyForSsm } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
-import { buildApplyCommand, parseMetricsStatus, validateMetricsConfig } from "../shared/utils/InstanceMetrics.js";
+import {
+	METRICS_SSM_POLL,
+	buildApplyCommand,
+	parseMetricsStatus,
+	validateMetricsConfig,
+} from "../shared/utils/InstanceMetrics.js";
 
 const DB = new DynamoDao();
 const EC2 = new Ec2Dao();
@@ -54,7 +59,12 @@ export const writeMetricsConfig = async (event: AuthorizedEvent, context: Contex
 
 	let status;
 	try {
-		const result = await SSM.ExecuteCommandGetResult(instanceId, buildApplyCommand(config));
+		const result = await SSM.ExecuteCommandGetResult(
+			instanceId,
+			buildApplyCommand(config),
+			METRICS_SSM_POLL.intervalMs,
+			METRICS_SSM_POLL.maxPolls,
+		);
 		status = parseMetricsStatus(result);
 	} catch (error) {
 		if (isInstanceNotReadyForSsm(error)) {
