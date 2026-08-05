@@ -4,7 +4,7 @@
 		match-any-permission
 		collapsible
 		class="mt-2"
-		:loading="loading.fetch || loading.save || loading.upload"
+		:loading="loading.fetch || loading.save || loading.upload || loading.selftest"
 	>
 		<template #header>
 			<Icon icon="gauge" color="text-gray-6" size="5" />
@@ -105,6 +105,21 @@
 						<p>Buffered hours: <span class="text-teal-4">{{ actual.pendingFiles }}</span></p>
 						<p>Last upload: <span class="text-teal-4">{{ lastUploadText }}</span></p>
 					</div>
+
+					<!--
+						Kept on screen rather than left to the alert: alerts for non-errors
+						expire after 5s, and the result of a diagnostic is the thing you
+						want still readable while you go fix what it found.
+					-->
+					<div v-if="selftestResult" class="mt-4 font-main font-semibold">
+						<p :class="selftestResult.ok ? 'text-teal-4' : 'text-yellow-2'">
+							{{ selftestResult.ok ? "Upload selftest passed" : "Upload selftest failed" }}
+							<span class="text-gray-7">— {{ selftestResult.at }}</span>
+						</p>
+						<p v-if="selftestResult.message" class="text-gray-7 mt-1 max-w-2xl">
+							{{ selftestResult.message }}
+						</p>
+					</div>
 				</template>
 
 				<div class="flex flex-wrap justify-end w-full mt-6 gap-4">
@@ -115,6 +130,14 @@
 						@input="refresh"
 					>
 						<p class="font-main font-bold py-2 px-8 md:px-12">{{ loaded ? "REFRESH" : "RETRY" }}</p>
+					</FlexButton>
+					<FlexButton
+						v-if="loaded && instanceOnline && $checkPermissions(PERMISSIONS.instance.metrics.read)"
+						:variant="BTN_VARIANT.SECONDARY"
+						:disabled="loading.selftest"
+						@input="runSelftest"
+					>
+						<p class="font-main font-bold py-2 px-8 md:px-12">SELF-TEST</p>
 					</FlexButton>
 					<FlexButton
 						v-if="loaded && instanceOnline && $checkPermissions(PERMISSIONS.instance.metrics.read)"
@@ -199,10 +222,15 @@ export default {
 			actual: null,
 			drift: false,
 			installed: null,
+			// Result of the most recent upload selftest, or null if it hasn't been
+			// run this session. Never seeded — an untested collector and a passing
+			// one must not look alike.
+			selftestResult: null,
 			loading: {
 				fetch: false,
 				save: false,
 				upload: false,
+				selftest: false,
 			},
 			uploadModeOptions: [
 				{ id: "timer", text: "On a schedule" },
@@ -341,6 +369,56 @@ export default {
 				console.error(e);
 			} finally {
 				this.loading.save = false;
+			}
+		},
+
+		// Uploads a single probe object instead of the buffer, to prove the
+		// uploader's request signing and the instance role's S3 access. Worth
+		// having as its own action because the uploader signs its own SigV4
+		// requests: a signing or IAM fault otherwise only shows up as a failed
+		// timer run that nobody is watching. Touches neither the buffer nor the
+		// upload stamp, so it's safe to run at any time.
+		async runSelftest() {
+			this.$validatePermissions(PERMISSIONS.instance.metrics.read);
+
+			if (!this.loaded) return;
+			if (this.loading.selftest) return;
+			this.loading.selftest = true;
+
+			// Cleared up front so a failed request can't leave the previous pass
+			// sitting on screen as though it described this run.
+			this.selftestResult = null;
+
+			try {
+				const response = await post(
+					`/instance/${this.selectedInstanceData.id}/metrics/upload?selftest=true`,
+					PERMISSIONS.instance.metrics.read
+				);
+
+				if (response?.actual) {
+					this.actual = response.actual;
+					this.installed = response.actual.installed;
+				}
+
+				this.selftestResult = {
+					ok: true,
+					message: "The instance signed and uploaded a probe object to S3 successfully.",
+					at: new Date().toLocaleString(),
+				};
+				this.$alert.success("Metrics upload selftest passed");
+			} catch (e) {
+				// The backend turns a failed probe into a 409 carrying the reason
+				// (SELFTEST_FAILED), so e.message is the diagnostic rather than a
+				// generic failure string.
+				this.selftestResult = {
+					ok: false,
+					message: e.message || "The selftest failed without reporting a reason.",
+					at: new Date().toLocaleString(),
+				};
+				this.$alert.error(`Metrics upload selftest failed: ${e.message || "no reason reported"}`);
+				console.error(e);
+			} finally {
+				this.loading.selftest = false;
 			}
 		},
 

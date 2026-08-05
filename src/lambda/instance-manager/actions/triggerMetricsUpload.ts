@@ -7,7 +7,7 @@ import { SsmDao, isInstanceNotReadyForSsm } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
-import { buildUploadCommand, parseMetricsStatus } from "../shared/utils/InstanceMetrics.js";
+import { buildUploadCommand, describeSelftestFailure, parseMetricsStatus } from "../shared/utils/InstanceMetrics.js";
 
 const EC2 = new Ec2Dao();
 const SSM = new SsmDao();
@@ -20,6 +20,11 @@ const SSM = new SsmDao();
  * here. Deliberately a read-tier permission — it refreshes data, it doesn't
  * change how the instance is configured.
  *
+ * `?selftest=true` uploads a single probe object instead of the buffer, to
+ * verify the uploader's SigV4 signing and the instance role's S3 access without
+ * waiting for a timer to fail silently. Same permission tier for the same
+ * reason: it changes no configuration and writes nothing but the probe.
+ *
  * A stopped instance needs no trigger; its shutdown flush already ran.
  */
 export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Context) => {
@@ -29,6 +34,8 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 	if (!instanceId) {
 		return ResponseUtil.ValidationError("Instance ID is required");
 	}
+
+	const selftest = event.queryStringParameters?.selftest === "true";
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
 
@@ -45,7 +52,7 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 	try {
 		// The uploader can take a few seconds when a manual-mode backlog has built
 		// up, so allow a longer poll window than the default before giving up.
-		const result = await SSM.ExecuteCommandGetResult(instanceId, buildUploadCommand(), 1000, 45);
+		const result = await SSM.ExecuteCommandGetResult(instanceId, buildUploadCommand(selftest), 1000, 45);
 		status = parseMetricsStatus(result);
 	} catch (error) {
 		if (isInstanceNotReadyForSsm(error)) {
@@ -55,6 +62,25 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 				"SSM_NOT_READY",
 			);
 		}
+
+		// A selftest that fails is a finding about the instance, not a fault in
+		// this function — reporting it as a 500 would bury the one piece of
+		// information the probe exists to produce. The uploader exits non-zero on a
+		// bad probe, which SSM surfaces as a command failure carrying its stderr.
+		if (selftest) {
+			const detail = describeSelftestFailure(error instanceof Error ? error.message : String(error));
+
+			await CWLogger.Action(FUNC_NAMES.INST_MGR, {
+				userId: Parsers.GetUserSub(event),
+				action: "metrics-upload-selftest",
+				status: "failed",
+				resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
+				details: { instanceId, detail },
+			});
+
+			return ResponseUtil.Error(detail, 409, "SELFTEST_FAILED");
+		}
+
 		throw error;
 	}
 
@@ -68,11 +94,11 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 
 	await CWLogger.Action(FUNC_NAMES.INST_MGR, {
 		userId: Parsers.GetUserSub(event),
-		action: "trigger-metrics-upload",
+		action: selftest ? "metrics-upload-selftest" : "trigger-metrics-upload",
 		status: "ok",
 		resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-		details: { instanceId, status },
+		details: { instanceId, selftest, status },
 	});
 
-	return ResponseUtil.Success({ instanceId, actual: status });
+	return ResponseUtil.Success({ instanceId, selftest, actual: status });
 };

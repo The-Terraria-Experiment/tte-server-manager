@@ -126,8 +126,54 @@ export function buildStatusCommand(): string[] {
 	return [`${METRICS_CTL} status`];
 }
 
-export function buildUploadCommand(): string[] {
-	return [`${METRICS_CTL} upload`];
+/**
+ * Builds the `upload` command.
+ *
+ * `selftest` swaps the real buffer upload for a single tiny probe object. The
+ * uploader signs its own SigV4 requests rather than shelling out to the AWS
+ * CLI, so a signing or IAM fault would otherwise only show up as a 403 on a
+ * timer that nobody is watching — this makes it checkable on demand, and it
+ * touches neither the buffer nor the upload stamp.
+ */
+export function buildUploadCommand(selftest = false): string[] {
+	return [`${METRICS_CTL} upload${selftest ? " --selftest" : ""}`];
+}
+
+/**
+ * Turns the uploader's stderr from a failed `--selftest` into one readable line.
+ *
+ * The three plausible causes are indistinguishable from the HTTP status alone
+ * but each carries a distinct S3 error code, and telling them apart is the
+ * entire value of the probe:
+ *   - `SignatureDoesNotMatch` — a bug in the SigV4 signing
+ *   - `AccessDenied`          — the instance role is missing s3:PutObject
+ *   - `RequestTimeTooSkewed`  — clock drift over 15 minutes (chrony not running)
+ *
+ * Falls back to a trimmed excerpt when nothing recognisable is in there, since a
+ * raw fragment still beats "Internal Server Error".
+ */
+export function describeSelftestFailure(raw: string): string {
+	const text = (raw || "").trim();
+	if (!text) return "The selftest failed without reporting a reason.";
+
+	const s3Code = /<Code>([^<]+)<\/Code>/.exec(text)?.[1];
+	const httpCode = /\(HTTP (\d{3})\)/.exec(text)?.[1];
+
+	const hints: Record<string, string> = {
+		SignatureDoesNotMatch: "the uploader's request signing is wrong",
+		AccessDenied: "the instance role is missing s3:PutObject on the metrics prefix",
+		RequestTimeTooSkewed: "the instance clock has drifted more than 15 minutes",
+		InvalidAccessKeyId: "the instance credentials were rejected",
+		NoSuchBucket: "the configured logs bucket does not exist",
+	};
+
+	if (s3Code) {
+		const hint = hints[s3Code];
+		const status = httpCode ? ` (HTTP ${httpCode})` : "";
+		return hint ? `S3 rejected the probe with ${s3Code}${status} — ${hint}.` : `S3 rejected the probe with ${s3Code}${status}.`;
+	}
+
+	return text.length > 400 ? `${text.slice(0, 400)}…` : text;
 }
 
 /**

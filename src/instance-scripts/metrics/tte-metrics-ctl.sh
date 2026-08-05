@@ -9,7 +9,12 @@
 #   tte-metrics-ctl status
 #   tte-metrics-ctl apply [--enabled=true|false] [--upload-mode=timer|manual]
 #                         [--collect=<sec>] [--upload=<sec>] [--retain=<days>]
-#   tte-metrics-ctl upload
+#   tte-metrics-ctl upload [--selftest]
+#
+# `upload --selftest` PUTs a tiny probe object instead of the buffer. The
+# uploader signs its own SigV4 requests, and a signing or IAM fault otherwise
+# surfaces as a 403 on a timer with nobody watching -- so this is the thing to
+# run first on a box that has never uploaded before.
 #
 # `apply` takes the whole desired state and is idempotent -- omitted flags keep
 # their current value, so flipping the collector off doesn't discard a tuned
@@ -271,17 +276,42 @@ cmd_apply() {
 cmd_upload() {
 	require_root
 
-	# Routed through systemd instead of exec'ing the uploader directly: the unit
-	# carries the Nice/idle scheduling and the filesystem sandboxing. SSM would
-	# otherwise run this as unrestricted root at normal priority -- exactly the
-	# CPU spike the manual-upload mode exists to avoid.
-	systemctl start --wait "$UPLOAD_SERVICE"
+	selftest=0
+	for arg in "$@"; do
+		case "$arg" in
+			--selftest) selftest=1 ;;
+			*) die "unknown argument: $arg" ;;
+		esac
+	done
+
+	if [ "$selftest" -eq 1 ]; then
+		load_config
+
+		# Run directly rather than through systemd: the unit takes no arguments.
+		# Safe to bypass here where it would not be for a real upload -- the probe
+		# is a single sub-100-byte PUT that touches neither the buffer nor the
+		# upload stamp, so there is no CPU spike for the idle scheduling to
+		# absorb. nice(1) covers what little there is.
+		nice -n 19 env \
+			TTE_METRICS_DIR="$CFG_DIR" \
+			TTE_METRICS_BUCKET="$CFG_BUCKET" \
+			TTE_METRICS_PREFIX="$CFG_PREFIX" \
+			TTE_METRICS_RETAIN_DAYS="$CFG_RETAIN" \
+			/usr/local/bin/tte-metrics-upload --selftest
+	else
+		# Routed through systemd instead of exec'ing the uploader directly: the
+		# unit carries the Nice/idle scheduling and the filesystem sandboxing. SSM
+		# would otherwise run this as unrestricted root at normal priority --
+		# exactly the CPU spike the manual-upload mode exists to avoid.
+		systemctl start --wait "$UPLOAD_SERVICE"
+	fi
+
 	cmd_status
 }
 
 case "${1:-}" in
 	status) cmd_status ;;
 	apply)  shift; cmd_apply "$@" ;;
-	upload) cmd_upload ;;
-	*) die "usage: tte-metrics-ctl {status|apply [--flags]|upload}" ;;
+	upload) shift; cmd_upload "$@" ;;
+	*) die "usage: tte-metrics-ctl {status|apply [--flags]|upload [--selftest]}" ;;
 esac

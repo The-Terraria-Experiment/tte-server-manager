@@ -49,11 +49,14 @@ touch, so it's left as a placeholder:
 }
 ```
 
-`s3:ListBucket` on the **logs** bucket is required by the metrics uploader: it
-uses `aws s3 sync`, which lists the destination prefix to decide what changed.
-The old per-file `aws s3 cp` never listed anything, so a policy predating that
-change will have `PutObject` but not `ListBucket` and the upload will fail with
-`AccessDenied` on the list — with the objects themselves perfectly writable.
+`s3:ListBucket` on the **logs** bucket is listed above for the TShock console
+log sync, not for metrics. The metrics uploader signs its own SigV4 `PUT`s and
+tracks what it has already sent in a local stamp file, so it never lists the
+destination and needs nothing beyond `s3:PutObject` on `metrics/*`.
+
+> If you are looking at an older revision of this file, it claimed the metrics
+> uploader required `s3:ListBucket` because it used `aws s3 sync`. That was true
+> only for the brief window in which it did. Granting it anyway is harmless.
 
 That last statement is for the `register` step (below) and is scoped to a single
 table, matching the blast radius of everything else here. Deliberately **not**
@@ -286,6 +289,7 @@ three (`register`'s guard only skips if the *new* instance's row already has
 
 ```bash
 tte-metrics-ctl status
+sudo tte-metrics-ctl upload --selftest   # proves SigV4 signing + S3 IAM
 systemctl list-timers 'tte-metrics-*'
 sqlite3 /home/ubuntu/terraria/tshock/tshock.sqlite "SELECT Username, Usergroup FROM Users;"
 jq '.Settings | {RestApiEnabled, RestApiPort, EnableTokenEndpointAuthentication}' \

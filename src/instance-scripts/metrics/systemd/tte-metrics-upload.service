@@ -5,19 +5,20 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-# Runs as ubuntu because that's the user whose environment has the AWS CLI
-# configured -- the TShock log sync shells out the same way (see
-# syncAndPruneTShockLogs in _shared/shared/utils/TShockConsoleLogs.ts).
+# Runs as ubuntu rather than root because nothing here needs privilege: the
+# uploader reads its own buffer and signs requests with the instance role's
+# credentials from IMDS, which any user on the box can reach.
 User=ubuntu
 Group=ubuntu
 EnvironmentFile=/etc/tte-metrics.env
 ExecStart=/usr/local/bin/tte-metrics-upload
 
-# The AWS CLI is Python: roughly a second of CPU and ~100MB RSS per run, which
-# is by far the most expensive thing in this collector. Some of the fleet is
-# single-core, where that second is a second TShock does not get. Idle
-# scheduling doesn't make the work cheaper, it makes it yield -- the upload runs
-# on cycles nothing else wants, so it stops mattering that it is expensive.
+# The uploader signs its own SigV4 requests instead of shelling out to the AWS
+# CLI, which took ~1s of CPU and ~100MB RSS per run and was by far the most
+# expensive thing in this collector. A run is now tens of milliseconds across a
+# few openssl forks. The idle scheduling is kept anyway: it costs nothing, and
+# some of the fleet is single-core, where even a short burst is better taken on
+# cycles TShock isn't using.
 Nice=19
 CPUSchedulingPolicy=idle
 IOSchedulingClass=idle
