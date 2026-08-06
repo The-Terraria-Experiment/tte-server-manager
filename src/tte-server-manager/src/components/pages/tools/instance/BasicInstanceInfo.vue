@@ -15,11 +15,11 @@
 			<template #summary>
 				<div class="flex items-center">
 					<p class="text-2xl text-teal-4">{{ displayState }}</p>
-					<Spinner v-if="loading.stateChange || isShuttingDown || statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK)" class="h-6 w-6 text-teal-3 ml-2"/>
+					<Spinner v-if="showSpinner" class="h-6 w-6 text-teal-3 ml-2"/>
 				</div>
-				<p v-if="isShuttingDown" class="text-sm text-gray-6 mt-1">{{ shutdownStepLabel }}</p>
 			</template>
 			<template #content>
+				<p v-if="isShuttingDown" class="text-sm text-gray-8 mx-4 mb-4 font-mono">{{ shutdownStepLabel }}</p>
 				<div v-if="selectedInstanceData.state === 'ONLINE'">
 					<FlexButton 
 						v-if="$checkPermissions(PERMISSIONS.instance.status.stop)"
@@ -137,7 +137,7 @@
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
 import { TASK_IDS } from '../../../../stores/statusStore';
-import { useStatusStore } from '../../../../stores/statusStore';
+import { shutdownTaskId, useStatusStore } from '../../../../stores/statusStore';
 import { post } from '../../../../util/api';
 import { BTN_VARIANT, INSTANCE_STATES } from '../../../../util/constants';
 import delay from '../../../../util/delay';
@@ -146,6 +146,12 @@ import { getDateOffset } from '../../../../util/timeutils';
 import ActiveDate from '../../../common/ActiveDate.vue';
 import Popup from '../../../common/Popup.vue';
 
+// EC2 states that resolve on their own, without anyone asking for another change.
+const TRANSITIONAL_STATES = [
+	INSTANCE_STATES.STARTING,
+	INSTANCE_STATES.STOPPING,
+	INSTANCE_STATES.SHUTTING_DOWN,
+];
 
 export default {
 	mixins: [],
@@ -184,6 +190,24 @@ export default {
 		},
 		isShuttingDown() {
 			return Boolean(this.selectedInstanceData.shutdown?.active);
+		},
+		/**
+		 * Every reason the state is mid-change, in one place — because the individual signals hand off
+		 * to each other rather than overlapping, and checking only some of them leaves gaps.
+		 *
+		 * The one that bit: `shutdown.active` drops as soon as the worker issues the EC2 stop, but the
+		 * box then sits in STOPPING for another minute, and the poller still watching it is the store's
+		 * per-instance shutdown task — not INSTANCE_STATUS_CHECK, which `stopInstance` never starts. So
+		 * at exactly that moment all of the old conditions went false together and the spinner vanished
+		 * while the instance was visibly still stopping. The transitional EC2 states are the backstop:
+		 * they hold regardless of which poller (if any) happens to own the instance at the time.
+		 */
+		showSpinner() {
+			return this.loading.stateChange ||
+				this.isShuttingDown ||
+				TRANSITIONAL_STATES.includes(this.selectedInstanceData.state) ||
+				this.statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK) ||
+				this.statusStore.isTaskRunning(shutdownTaskId(this.selectedInstanceData.id));
 		},
 		/**
 		 * The EC2 state still reads ONLINE for most of a shutdown — the box isn't asked to stop until
