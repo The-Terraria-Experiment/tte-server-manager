@@ -30,7 +30,7 @@
 				</div>
 
 				<template v-else>
-					<p v-if="!instanceOnline" class="font-main font-bold text-yellow-2 mb-4">
+					<p v-if="instanceStateKnown && !instanceOnline" class="font-main font-bold text-yellow-2 mb-4">
 						The instance is offline. Settings are shown as last applied and can't be changed until it starts.
 					</p>
 
@@ -242,6 +242,14 @@ export default {
 		instanceOnline() {
 			return this.selectedInstanceData.state === 'ONLINE';
 		},
+		// The parent serves a placeholder with state "UNKNOWN" until the status
+		// fetch lands, so for that window "not ONLINE" and "offline" are different
+		// claims. Asserting offline there is the same confident-but-wrong reporting
+		// the load guard exists to prevent — and unlike the config, this one
+		// resolves on its own a moment later.
+		instanceStateKnown() {
+			return Boolean(this.selectedInstanceData.state) && this.selectedInstanceData.state !== 'UNKNOWN';
+		},
 		isShuttingDown() {
 			return Boolean(this.selectedInstanceData.shutdown?.active);
 		},
@@ -323,6 +331,15 @@ export default {
 		// reserved for an explicit refresh.
 		async fetchConfig(verify = false) {
 			this.$validatePermissions(PERMISSIONS.instance.metrics.read);
+
+			// This tile is the only one that fetches on mount, so it is the only one
+			// that can run before the parent has an instance to describe. Without
+			// this the URL would interpolate "undefined" and come back as a confusing
+			// 404 that looks like a broken route.
+			if (!this.selectedInstanceData.id) {
+				this.invalidate("No instance is selected yet.");
+				return;
+			}
 
 			if (this.loading.fetch) return;
 			this.loading.fetch = true;

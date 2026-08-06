@@ -122,7 +122,14 @@ export default {
 	computed: {
 		selectedInstanceData() {
 			const rawData = this.serverStore.getInstanceData(this.selectedInstance);
+			// The status fetch lands after the instance list does, so tiles mount and
+			// render against this fallback first. `id` belongs here even though
+			// nothing else does: which instance this describes is known from the
+			// selection alone, and a tile that fetches on mount would otherwise
+			// request /instance/undefined/... and never retry, since the key doesn't
+			// change when the real data arrives.
 			if (!rawData) return {
+				id: this.selectedInstance,
 				state: "UNKNOWN",
 				publicIp: null,
 				timeOnline: null,
