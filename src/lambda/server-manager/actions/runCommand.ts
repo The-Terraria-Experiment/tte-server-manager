@@ -7,6 +7,7 @@ import { Parsers } from "../shared/utils/Parsers.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { TShockAPI } from "../shared/utils/TShockAPI.js";
 import { Assert } from "../shared/utils/Assert.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 export const runCommand = async (event: AuthorizedEvent) => {
 	const serverId = event.pathParameters?.id;
@@ -22,6 +23,9 @@ export const runCommand = async (event: AuthorizedEvent) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${serverId}`);
+
+	const blocked = await blockIfShutdownInProgress(serverId);
+	if (blocked) return blocked;
 
 	try {
 		const ec2 = new Ec2Dao();

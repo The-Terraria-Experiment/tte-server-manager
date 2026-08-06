@@ -126,7 +126,8 @@ export default {
 				state: "UNKNOWN",
 				publicIp: null,
 				timeOnline: null,
-				instanceType: null
+				instanceType: null,
+				shutdown: null
 			};
 
 			const stateMap = {
@@ -143,7 +144,11 @@ export default {
 				state: stateMap[rawData.state],
 				publicIp: rawData.publicIp,
 				timeOnline: (rawData.launchTime && rawData.state === 'running') ? new Date(rawData.launchTime) : null,
-				instanceType: rawData.instanceType
+				instanceType: rawData.instanceType,
+				// Passed through rather than mapped: the EC2 state reads ONLINE for most of a shutdown
+				// (the box only starts stopping once the tasks are done), so this is the only thing that
+				// can tell the tile a shutdown is underway.
+				shutdown: rawData.shutdown || null
 			};
 		},
 		filteredInstanceOptions() {

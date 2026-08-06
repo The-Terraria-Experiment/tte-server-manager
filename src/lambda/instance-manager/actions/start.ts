@@ -8,6 +8,7 @@ import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 const EC2 = new Ec2Dao();
 
@@ -20,6 +21,12 @@ export const start = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	// Starting a box that is mid-shutdown races the stop the worker is about to issue, and would
+	// leave the instance in whichever state won.
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
+
 	await EC2.StartInstance(instanceId);
 
 	const DB = new DynamoDao();

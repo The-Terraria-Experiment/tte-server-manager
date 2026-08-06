@@ -1,4 +1,5 @@
 import type { SystemWorldCreateEntry } from "../schema/SystemTable.js";
+import { isJobAbandoned, isJobBlocking, isJobTerminal, jobIdleForMs } from "./AsyncJob.js";
 
 /**
  * Shared read model for the single in-flight worldgen row (`worldgen#<instanceID>`).
@@ -8,10 +9,10 @@ import type { SystemWorldCreateEntry } from "../schema/SystemTable.js";
  * endpoint uses it to decide whether to keep the client polling, and the queue endpoint uses it to
  * decide whether to refuse a new request. Two different answers means either a permanently wedged
  * instance (queue says busy, status says finished) or two concurrent worldgen runs.
+ *
+ * The mechanics live in {@link AsyncJob}, shared with the instance-shutdown job; what stays here is
+ * the part that is specific to worldgen — its staleness threshold and the reasoning behind it.
  */
-
-/** Statuses the worker writes when it is done, successfully or not. */
-const TERMINAL_STATUSES = new Set(["completed", "failed"]);
 
 /**
  * How long a non-terminal job may go without a heartbeat before it's treated as abandoned.
@@ -34,7 +35,7 @@ export function worldgenStaleAfterMs(): number {
 }
 
 export function isWorldgenTerminal(job: SystemWorldCreateEntry | null): boolean {
-	return Boolean(job?.status && TERMINAL_STATUSES.has(job.status));
+	return isJobTerminal(job);
 }
 
 /**
@@ -42,13 +43,7 @@ export function isWorldgenTerminal(job: SystemWorldCreateEntry | null): boolean 
  * (an unparseable or missing `updatedAt`/`createdAt` — treated as "can't tell", never as "fresh").
  */
 export function worldgenIdleForMs(job: SystemWorldCreateEntry | null): number | null {
-	const stamp = job?.updatedAt || job?.createdAt;
-	if (!stamp) return null;
-
-	const at = Date.parse(stamp);
-	if (!Number.isFinite(at)) return null;
-
-	return Math.max(0, Date.now() - at);
+	return jobIdleForMs(job);
 }
 
 /**
@@ -57,12 +52,7 @@ export function worldgenIdleForMs(job: SystemWorldCreateEntry | null): number | 
  * A job with no readable timestamp counts as abandoned — an unreadable row can't be waited on.
  */
 export function isWorldgenAbandoned(job: SystemWorldCreateEntry | null): boolean {
-	if (!job || isWorldgenTerminal(job)) return false;
-
-	const idleFor = worldgenIdleForMs(job);
-	if (idleFor === null) return true;
-
-	return idleFor > worldgenStaleAfterMs();
+	return isJobAbandoned(job, worldgenStaleAfterMs());
 }
 
 /**
@@ -70,7 +60,5 @@ export function isWorldgenAbandoned(job: SystemWorldCreateEntry | null): boolean
  * Terminal and abandoned rows are leftovers, not competition, and get overwritten by the new job.
  */
 export function isWorldgenBlocking(job: SystemWorldCreateEntry | null): boolean {
-	if (!job) return false;
-
-	return !isWorldgenTerminal(job) && !isWorldgenAbandoned(job);
+	return isJobBlocking(job, worldgenStaleAfterMs());
 }

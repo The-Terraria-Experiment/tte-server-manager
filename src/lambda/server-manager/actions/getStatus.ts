@@ -12,6 +12,7 @@ import { Assert } from "../shared/utils/Assert.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import type { AutoShutoffStateEntry, SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
+import { readShutdownState } from "../shared/utils/ShutdownJob.js";
 
 export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 	void context;
@@ -26,9 +27,15 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 
 	try {
 		const ec2 = new Ec2Dao();
-		const instance = await ec2.GetInstanceStatus(serverId);
-		const ip = instance.publicIp;
+		const ec2Instance = await ec2.GetInstanceStatus(serverId);
+		const ip = ec2Instance.publicIp;
 		const DB = new DynamoDao();
+
+		// The shutdown block has to ride this endpoint too, not just instance-manager's: serverStore
+		// overwrites its whole `instanceStatusData[id]` entry from this response, so if only the other
+		// endpoint carried it, simply visiting the Server page would wipe the flag out from under the
+		// tracker and the guards.
+		const instance = { ...ec2Instance, shutdown: await readShutdownState(serverId) };
 		const autoShutoffState = await DB.GetItem(SYSTEM_TABLE, `autoshutoff#${serverId}`) as AutoShutoffStateEntry | null;
 		const autoShutoff = autoShutoffState
 			? {
@@ -42,7 +49,7 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
-		if (instance.state !== InstanceState.RUNNING) {
+		if (ec2Instance.state !== InstanceState.RUNNING) {
 			return ResponseUtil.Success({ server: { status: false }, instance, autoShutoff });
 		}
 		const createWorldStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${serverId}`) as SystemWorldCreateEntry;

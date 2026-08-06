@@ -7,6 +7,7 @@ import { SsmDao, isInstanceNotReadyForSsm, isSsmPollTimeout } from "../shared/aw
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 import {
 	METRICS_SSM_POLL,
 	buildUploadCommand,
@@ -43,6 +44,9 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 	const selftest = event.queryStringParameters?.selftest === "true";
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
 
 	const { state } = await EC2.GetInstanceStatus(instanceId);
 	if (state !== InstanceState.RUNNING) {

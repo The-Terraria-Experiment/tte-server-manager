@@ -7,6 +7,7 @@ import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 type EditPathsBody = {
 	paths?: Record<string, string>;
@@ -87,6 +88,9 @@ export const editPaths = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
 
 	const tableName = process.env.INSTANCE_TABLE_NAME;
 	if (!tableName) {

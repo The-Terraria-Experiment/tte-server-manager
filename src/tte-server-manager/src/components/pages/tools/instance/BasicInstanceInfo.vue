@@ -14,16 +14,17 @@
 			</template>
 			<template #summary>
 				<div class="flex items-center">
-					<p class="text-2xl text-teal-4">{{ selectedInstanceData.state }}</p>
-					<Spinner v-if="loading.stateChange || statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK)" class="h-6 w-6 text-teal-3 ml-2"/>
+					<p class="text-2xl text-teal-4">{{ displayState }}</p>
+					<Spinner v-if="loading.stateChange || isShuttingDown || statusStore.isTaskRunning(TASK_IDS.INSTANCE_STATUS_CHECK)" class="h-6 w-6 text-teal-3 ml-2"/>
 				</div>
+				<p v-if="isShuttingDown" class="text-sm text-gray-6 mt-1">{{ shutdownStepLabel }}</p>
 			</template>
 			<template #content>
 				<div v-if="selectedInstanceData.state === 'ONLINE'">
 					<FlexButton 
 						v-if="$checkPermissions(PERMISSIONS.instance.status.stop)"
 						class="mx-4 mb-4" 
-						:disabled="loading.stateChange || !showStateChangeButtons"
+						:disabled="loading.stateChange || isShuttingDown || !showStateChangeButtons"
 						:variant="BTN_VARIANT.DANGER"
 						@input="openConfirmStopPopup"
 					>
@@ -32,7 +33,7 @@
 					<FlexButton 
 						v-if="$checkPermissions(PERMISSIONS.instance.status.restart)"
 						class="mx-4 mb-4" 
-						:disabled="loading.stateChange || !showStateChangeButtons"
+						:disabled="loading.stateChange || isShuttingDown || !showStateChangeButtons"
 						:variant="BTN_VARIANT.DANGER"
 						@input="openConfirmRestartPopup"
 					>
@@ -43,7 +44,7 @@
 					<FlexButton 
 						v-if="$checkPermissions(PERMISSIONS.instance.status.start)"
 						class="mx-4 mb-4" 
-						:disabled="loading.stateChange || !showStateChangeButtons"
+						:disabled="loading.stateChange || isShuttingDown || !showStateChangeButtons"
 						:variant="BTN_VARIANT.PRIMARY"
 						@input="startInstance"
 					>
@@ -180,6 +181,33 @@ export default {
 		showStatusOptions() {
 			return ['ONLINE', 'OFFLINE'].includes(this.selectedInstanceData.state) &&
 				this.$checkPermissions([PERMISSIONS.instance.status.stop, PERMISSIONS.instance.status.restart], false);
+		},
+		isShuttingDown() {
+			return Boolean(this.selectedInstanceData.shutdown?.active);
+		},
+		/**
+		 * The EC2 state still reads ONLINE for most of a shutdown — the box isn't asked to stop until
+		 * the archive and sync tasks are done — so it can't be shown as-is without looking like
+		 * nothing happened when STOP was pressed.
+		 */
+		displayState() {
+			return this.isShuttingDown ? INSTANCE_STATES.SHUTTING_DOWN : this.selectedInstanceData.state;
+		},
+		shutdownStepLabel() {
+			const shutdown = this.selectedInstanceData.shutdown;
+			if (!shutdown) return "";
+
+			const labels = {
+				"queued": "Queued",
+				"archiving-logs": "Archiving console logs",
+				"syncing-files": "Syncing instance files",
+				"stopping-instance": "Stopping instance",
+				"completed": "Shutdown complete",
+			};
+
+			// Falls back to the step's own label from the backend, so a task added to the registry
+			// still reads sensibly here before this map catches up.
+			return labels[shutdown.step] || shutdown.detail || "Shutting down";
 		}
 	},
 	methods: {
@@ -199,12 +227,24 @@ export default {
 			try {
 				const instanceName = this.serverStore.instanceOptions.find(o => o.id === this.selectedInstanceData.id).text;
 				const response = await post(`/instance/${this.selectedInstanceData.id}/stop`, PERMISSIONS.instance.status.stop);
-				await delay(2000);
-				this.$alert.success(`Initiated shutdown of instance '${instanceName}'`);
-				this.pollInstanceState([INSTANCE_STATES.ONLINE, INSTANCE_STATES.OFFLINE]);
+
+				// No job is queued when the instance was already on its way down, so there is nothing
+				// to track — seeding one anyway would leave the tile claiming a shutdown that no
+				// worker is running.
+				if (response?.alreadyStopped) {
+					this.$alert.info(`Instance '${instanceName}' is already stopping`);
+				} else {
+					this.$alert.success(`Initiated shutdown of instance '${instanceName}'`);
+
+					// The stop only queues a job now — the archive, sync and EC2 stop run on a worker
+					// that outlives this request. The store owns the polling from here so it survives
+					// leaving this page, and reports how it ended.
+					this.serverStore.markShutdownQueued(this.selectedInstanceData.id, response?.jobID);
+				}
+
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
-				this.$alert.error("Error initiating instance shutdown");
+				this.$alert.error(e?.message || "Error initiating instance shutdown");
 				console.error(e);
 			} finally {
 				this.loading.stateChange = false;
@@ -221,7 +261,10 @@ export default {
 				const response = await post(`/instance/${this.selectedInstanceData.id}/start`, PERMISSIONS.instance.status.start);
 				await delay(2000);
 				this.$alert.success(`Initiated startup of instance '${instanceName}'`);
-				this.pollInstanceState([INSTANCE_STATES.ONLINE, INSTANCE_STATES.OFFLINE]);
+				// ONLINE only. Listing OFFLINE too made this a no-op: the stop condition is evaluated
+				// before the first tick, and the instance is of course still OFFLINE at that point, so
+				// the poller cancelled itself immediately every time.
+				this.pollInstanceState([INSTANCE_STATES.ONLINE]);
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance startup");
@@ -242,6 +285,7 @@ export default {
 				const response = await post(`/instance/${this.selectedInstanceData.id}/restart`, PERMISSIONS.instance.status.restart);
 				await delay(2000);
 				this.$alert.success(`Initiated restart of instance '${instanceName}'`);
+				this.pollInstanceState([INSTANCE_STATES.ONLINE]);
 				this.fetchInstanceStatus(this.selectedInstanceData.id);
 			} catch (e) {
 				this.$alert.error("Error initiating instance restart");

@@ -6,6 +6,7 @@ import { S3Dao } from "../shared/aws/S3.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 const S3 = new S3Dao();
 
@@ -72,6 +73,9 @@ export const fileSync = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
 
 	try {
 		const baseLocalPath = process.env.BASE_ROOT;

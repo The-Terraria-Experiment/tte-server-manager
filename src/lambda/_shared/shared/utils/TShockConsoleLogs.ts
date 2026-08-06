@@ -9,14 +9,13 @@ import { pollsUntilDeadline } from "./SyncBudget.js";
 const LOCAL_RETENTION_DAYS = 30;
 
 /**
- * Archiving two small log files is quick, so this keeps its own modest ceiling. It also never claims
- * more than {@link LOG_SYNC_BUDGET_SHARE} of the shared shutdown budget: the instance file sync runs
- * after this one and carries the world saves, so a slow archive must not leave it nothing. Whatever
- * this doesn't use rolls over to it.
+ * The caller's `deadline` is the only ceiling. This used to also cap itself at a fixed poll count and
+ * at half of the shared shutdown budget, because every task drew from one pot sized by API Gateway's
+ * 29s timeout and a slow archive would leave the file sync — which carries the world saves — with
+ * nothing. The shutdown now runs on a worker where each task gets its own budget, so there is no
+ * shared pot left to starve.
  */
 const LOG_SYNC_POLL_INTERVAL_MS = 1000;
-const LOG_SYNC_MAX_POLLS = 8;
-const LOG_SYNC_BUDGET_SHARE = 0.5;
 
 /**
  * Helpers for the TShock/TerrariaServer process's own stdout+stderr stream — NOT a generic
@@ -68,7 +67,7 @@ const shellEscapeDq = (value: string): string => value.replace(/"/g, "\\\"");
  * Combining upload + prune into one command keeps it to a single round trip on the shutdown path;
  * the two concerns don't overlap (prune only touches files far older than what we upload).
  *
- * @param deadline Absolute epoch-ms to stop waiting, from {@link shutdownSyncDeadline}.
+ * @param deadline Absolute epoch-ms to stop waiting, from the shutdown worker's per-task budget (see ShutdownTasks).
  */
 export async function syncAndPruneTShockLogs(instanceId: string, deadline: number): Promise<void> {
 	const bucket = process.env.S3_LOGS_BUCKET_NAME;
@@ -136,8 +135,7 @@ export async function syncAndPruneTShockLogs(instanceId: string, deadline: numbe
 		const SSM = new SsmDao();
 		const { commandId } = await SSM.ExecuteCommand(instanceId, commands);
 
-		const share = Math.floor(pollsUntilDeadline(deadline, LOG_SYNC_POLL_INTERVAL_MS) * LOG_SYNC_BUDGET_SHARE);
-		const maxPolls = Math.min(LOG_SYNC_MAX_POLLS, share);
+		const maxPolls = pollsUntilDeadline(deadline, LOG_SYNC_POLL_INTERVAL_MS);
 		if (maxPolls === 0) {
 			// Out of budget: leave the archive in flight rather than delay the stop any further.
 			return;

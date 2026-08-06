@@ -82,7 +82,7 @@
 						v-if="!serverStore.loading.worldLaunch[selectedInstance]"
 						:variant="BTN_VARIANT.PRIMARY"
 						@input="startServer"
-						:disabled="!(selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !serverStore.loading.worldLaunch[selectedInstance] && !selectedServerData.state)"
+						:disabled="isShuttingDown || !(selectWorld.selectedWorld && selectWorld.maxplayers && selectWorld.port && !serverStore.loading.worldLaunch[selectedInstance] && !selectedServerData.state)"
 					>
 						<p class="font-main font-bold py-2 px-4 md:px-10">START SERVER</p>
 					</FlexButton>
@@ -155,6 +155,9 @@ export default {
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
+		},
+		isShuttingDown() {
+			return this.serverStore.isShuttingDown(this.selectedInstance);
 		},
 		selectedServerData() {
 			return this.serverStore.selectedServerData;

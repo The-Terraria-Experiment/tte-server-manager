@@ -134,7 +134,7 @@
 					<FlexButton
 						v-if="loaded && instanceOnline && $checkPermissions(PERMISSIONS.instance.metrics.read)"
 						:variant="BTN_VARIANT.SECONDARY"
-						:disabled="loading.selftest"
+						:disabled="loading.selftest || isShuttingDown"
 						@input="runSelftest"
 					>
 						<p class="font-main font-bold py-2 px-8 md:px-12">SELF-TEST</p>
@@ -142,7 +142,7 @@
 					<FlexButton
 						v-if="loaded && instanceOnline && $checkPermissions(PERMISSIONS.instance.metrics.read)"
 						:variant="BTN_VARIANT.SECONDARY"
-						:disabled="loading.upload"
+						:disabled="loading.upload || isShuttingDown"
 						@input="uploadNow"
 					>
 						<p class="font-main font-bold py-2 px-8 md:px-12">UPLOAD NOW</p>
@@ -242,8 +242,14 @@ export default {
 		instanceOnline() {
 			return this.selectedInstanceData.state === 'ONLINE';
 		},
+		isShuttingDown() {
+			return Boolean(this.selectedInstanceData.shutdown?.active);
+		},
 		canEdit() {
-			return this.loaded && this.instanceOnline && this.$checkPermissions(PERMISSIONS.instance.metrics.write);
+			// Same reasoning as the stopped-instance case this already covers: an apply has to reach
+			// the box over SSM, and one that "succeeded" against a machine that is seconds from losing
+			// power would leave the stored config describing a state nothing is running.
+			return this.loaded && this.instanceOnline && !this.isShuttingDown && this.$checkPermissions(PERMISSIONS.instance.metrics.write);
 		},
 		lastUploadText() {
 			// The script reports epoch seconds, and 0 for "the uploader has never run

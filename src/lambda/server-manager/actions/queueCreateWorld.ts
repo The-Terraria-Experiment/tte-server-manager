@@ -15,6 +15,7 @@ import type { UserDataEntry } from "../../_shared/shared/schema/UserTable.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { isWorldgenBlocking, worldgenIdleForMs } from "../shared/utils/WorldgenJob.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	const { worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName } = body;
@@ -69,14 +70,15 @@ const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 };
 
 export const queueCreateWorld = async (event: AuthorizedEvent, context: Context) => {
-	void context;
-
 	const instanceID = event.pathParameters?.id;
 	if (!instanceID) {
 		return ResponseUtil.ValidationError("Instance ID is required");
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${instanceID}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceID);
+	if (blocked) return blocked;
 
 	try {
 		validateCreateWorldInput(event.parsedBody || {});
@@ -216,7 +218,11 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 				password
 			}
 		};
-		await Lambda.InvokeFunction(workerPayload);
+		// Targeted at the alias this request arrived on. Left to default, the invoke resolves through
+		// AWS_LAMBDA_FUNCTION_NAME, which is unqualified — the worker would run on $LATEST, whose
+		// ACTIVE_ENV is whichever branch deployed most recently. That decides which Dynamo table the
+		// job row is written to and which instance gets a world generated on it.
+		await Lambda.InvokeFunction(workerPayload, context.invokedFunctionArn);
 	} catch (e: any) {
 		await failJob(e?.message ?? "World creation could not be started");
 		throw e;

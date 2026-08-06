@@ -31,7 +31,7 @@ const SSM = new SsmDao();
  * so the caller's shutdown is never blocked or failed. Requires the S3_FILESTORE_NAME and BASE_ROOT
  * env vars; if either is missing the sync is logged and skipped.
  *
- * @param deadline Absolute epoch-ms to stop waiting, from {@link shutdownSyncDeadline}.
+ * @param deadline Absolute epoch-ms to stop waiting, from the shutdown worker's per-task budget (see ShutdownTasks).
  */
 export async function syncInstanceFilesToS3(instanceId: string, deadline: number): Promise<void> {
 	const bucket = process.env.S3_FILESTORE_NAME;

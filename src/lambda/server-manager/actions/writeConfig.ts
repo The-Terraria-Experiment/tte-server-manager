@@ -7,6 +7,7 @@ import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { Assert } from "../shared/utils/Assert.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 const syncConfigToInstance = async (instanceId: string, s3Bucket: string, baseLocalPath: string) => {
 	const commands: string[] = [];
@@ -48,6 +49,9 @@ export const writeConfig = async (event: AuthorizedEvent) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${serverId}`);
+
+	const blocked = await blockIfShutdownInProgress(serverId);
+	if (blocked) return blocked;
 
 	let configBody: Record<string, unknown>;
 	try {

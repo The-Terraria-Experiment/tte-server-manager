@@ -104,3 +104,13 @@ export const TASK_IDS = {
 	SERVER_STATUS_CHECK: "server_status_check",
 	CREATE_WORLD_CHECK: "create_world_check",
 };
+
+/**
+ * Task ID for tracking one instance's shutdown.
+ *
+ * Per-instance rather than a fixed entry in TASK_IDS because `startRepeatingTask` allows exactly one
+ * poller per ID and silently ignores any attempt to start a second: a shared ID would mean the first
+ * instance to start shutting down is the only one anyone can watch, and the others would sit with a
+ * stale tile until something else happened to refresh them.
+ */
+export const shutdownTaskId = (instanceID) => `instance_shutdown_check:${instanceID}`;

@@ -21,6 +21,7 @@
 						v-if="$checkPermissions(PERMISSIONS.server.status.stop) && showStopButton"
 						class="mx-4 mb-4 mt-4"
 						:variant="BTN_VARIANT.DANGER"
+						:disabled="isShuttingDown"
 						@input="openConfirmStopPopup"
 					>
 						<p class="py-2 px-12">STOP</p>
@@ -82,6 +83,9 @@ export default {
 	computed: {
 		selectedServerData() {
 			return this.serverStore.selectedServerData;
+		},
+		isShuttingDown() {
+			return this.serverStore.isShuttingDown(this.selectedInstance);
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;

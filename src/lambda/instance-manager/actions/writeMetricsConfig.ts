@@ -8,6 +8,7 @@ import { SsmDao, isInstanceNotReadyForSsm } from "../shared/aws/SSM.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 import {
 	METRICS_SSM_POLL,
 	buildApplyCommand,
@@ -37,6 +38,9 @@ export const writeMetricsConfig = async (event: AuthorizedEvent, context: Contex
 	}
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
 
 	const tableName = process.env.INSTANCE_TABLE_NAME;
 	if (!tableName) {

@@ -26,6 +26,8 @@ import { downloadFile } from "./actions/downloadFile.js";
 import { readMetricsConfig } from "./actions/readMetricsConfig.js";
 import { writeMetricsConfig } from "./actions/writeMetricsConfig.js";
 import { triggerMetricsUpload } from "./actions/triggerMetricsUpload.js";
+import { shutdownWorker } from "./actions/shutdownWorker.js";
+import type { ShutdownRequestData } from "./shared/utils/ShutdownJob.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
@@ -112,9 +114,9 @@ const endpoints: EndpointList = {
 	},
 }
 
-const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
+const hNormal = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	CWLogger.Action(FUNC_NAMES.INST_MGR, {
-		userId: Parsers.GetUserSub(event), 
+		userId: Parsers.GetUserSub(event),
 		action: "invoke",
 	});
 
@@ -135,7 +137,28 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 		details: { context, event }
 	});
 
-	const result = endpointDetails.action(event, context);
+	return endpointDetails.action(event, context);
+}
+
+const hWorker = async (event: ShutdownRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+	CWLogger.Action(FUNC_NAMES.INST_MGR, {
+		userId: event.requestedBy,
+		action: "invoke-worker",
+		resource: event.instanceID,
+		details: { event }
+	});
+
+	return shutdownWorker(event, context);
+}
+
+const h = async (event: AuthorizedEvent | ShutdownRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+	let result: APIGatewayProxyResult;
+
+	if ("requestType" in event && event.requestType === "shutdown-request") {
+		result = await hWorker(event as ShutdownRequestData, context);
+	} else {
+		result = await hNormal(event as AuthorizedEvent, context);
+	}
 
 	await CWLogger.FlushAll();
 

@@ -113,7 +113,7 @@
 						v-if="!serverStore.loading.worldLaunch[selectedInstance]"
 						:variant="BTN_VARIANT.PRIMARY"
 						@input="createWorld"
-						:disabled="!(newWorldData.name && newWorldData.maxPlayers && newWorldData.worldFileLocation)"
+						:disabled="isShuttingDown || !(newWorldData.name && newWorldData.maxPlayers && newWorldData.worldFileLocation)"
 					>
 						<p class="font-main font-bold py-2 px-4 md:px-10">CREATE & LAUNCH WORLD</p>
 					</FlexButton>
@@ -262,6 +262,9 @@ export default {
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
+		},
+		isShuttingDown() {
+			return this.serverStore.isShuttingDown(this.selectedInstance);
 		}
 	},
 	methods: {

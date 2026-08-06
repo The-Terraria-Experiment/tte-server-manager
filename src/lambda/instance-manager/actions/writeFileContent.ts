@@ -9,6 +9,7 @@ import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Permissions } from "../shared/utils/Perms.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { Assert } from "../shared/utils/Assert.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 type WriteFileContentBody = {
 	rootName?: string;
@@ -56,6 +57,9 @@ export const writeFileContent = async (event: AuthorizedEvent, context: Context)
 	}
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
 
 	const bucketName = process.env.S3_FILESTORE_NAME;
 	if (!bucketName) {

@@ -15,6 +15,7 @@ import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 import { ensureLogDirsCommand, joinLaunchSteps } from "../shared/utils/TShockLaunch.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
@@ -109,6 +110,9 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${instanceID}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceID);
+	if (blocked) return blocked;
 
 	try {
 		validateLaunchParams(event.parsedBody || {});

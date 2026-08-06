@@ -8,6 +8,13 @@ export const USER_ARCHIVE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-use
 // data was ever observed, e.g. a pre-join disconnect) are dropped rather than stored.
 export const IGNORE_UNKNOWN_SOURCE_LOGS = process.env.IGNORE_UNKNOWN_SOURCE_LOGS === "true";
 export const WORLD_CREATE_KEY = "worldgen";
+export const SHUTDOWN_KEY = "shutdown";
+// Alias-qualified ARN of instance-manager, so a cross-lambda async invoke lands on the same
+// environment's alias rather than $LATEST (whose ACTIVE_ENV is whichever branch deployed last).
+export const INSTANCE_MANAGER_FUNCTION_ARN =
+	process.env.ACTIVE_ENV === "prod"
+		? (process.env.INSTANCE_MANAGER_FUNCTION_ARN + ":prod")
+		: (process.env.INSTANCE_MANAGER_FUNCTION_ARN + ":stage");
 export const ROLE_KEY_PREFIX = "role#";
 export const PATREON_TIERMAP_KEY_PREFIX = "patreontier#";
 export const PATREON_CODE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-patreon-oidc-codes" : "ttesm-patreon-oidc-codes-stage";

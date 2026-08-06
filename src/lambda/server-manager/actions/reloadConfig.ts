@@ -7,6 +7,7 @@ import { Parsers } from "../shared/utils/Parsers.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { TShockAPI } from "../shared/utils/TShockAPI.js";
 import { Assert } from "../shared/utils/Assert.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 export const reloadConfig = async (event: AuthorizedEvent) => {
 	const serverId = event.pathParameters?.id;
@@ -16,6 +17,9 @@ export const reloadConfig = async (event: AuthorizedEvent) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${serverId}`);
+
+	const blocked = await blockIfShutdownInProgress(serverId);
+	if (blocked) return blocked;
 
 	await CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 		userId: Parsers.GetUserSub(event),

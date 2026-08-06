@@ -6,6 +6,7 @@ import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { ResponseUtil } from "../shared/utils/APIResponse.js";
 import { Parsers } from "../shared/utils/Parsers.js";
+import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 type UploadFilesBody = {
 	pathRoot?: string;
@@ -29,6 +30,11 @@ export const uploadFiles = async (event: AuthorizedEvent, context: Context) => {
 	if (!bucketName) {
 		return ResponseUtil.ValidationError("S3 bucket not configured");
 	}
+
+	// An upload lands in the filestore, which the shutdown's file sync is in the middle of writing
+	// back to from the box — and anything that lands there stays tracked.
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
 
 	const instanceData = await DB.GetItem(process.env.INSTANCE_TABLE_NAME as string, `inst#${instanceId}`);
 	const allowedPaths = new Set(Object.values(instanceData?.validRoots || {}));
