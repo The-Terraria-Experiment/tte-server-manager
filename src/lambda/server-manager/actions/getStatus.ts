@@ -45,7 +45,11 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			}
 			: null;
 
-		if (!ip || ip === "PENDING") {
+		if (ip === "PENDING") {
+			return ResponseUtil.Success({ server: { status: false }, instance, autoShutoff });
+		}
+		
+		if (!ip) {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 

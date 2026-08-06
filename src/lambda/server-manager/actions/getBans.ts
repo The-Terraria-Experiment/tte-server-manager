@@ -25,7 +25,11 @@ export const getBans = async (event: AuthorizedEvent, context: Context) => {
 		const instance = await EC2.GetInstanceStatus(serverID);
 		const instanceIP = instance.publicIp;
 
-		if (!instanceIP || instanceIP === "PENDING") {
+		if (instanceIP === "PENDING") {
+			return ResponseUtil.Success({ server: { status: false } });
+		}
+
+		if (!instanceIP) {
 			return ResponseUtil.Error(`Instance ${serverID} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
