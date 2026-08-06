@@ -10,7 +10,7 @@
 		<div :class="[
 			floatingExpand ? 'rounded-xl overflow-hidden h-max transition-200 transition-all relative' : 'contents',
 			{ 'scale-x-[1.01] -translate-y-2 w-full shadow-2xl shadow-black': floatingExpand && !collapsed },
-			{'bg-gray-3 z-20': !collapsed || transitioning}]"
+			{'bg-gray-3 z-float': !collapsed || transitioning}]"
 		>
 			<div :class="[{ 'flex w-full items-stretch': collapsible }]" @click="toggle">
 				<div class="flex flex-col grow font-main font-bold min-w-0">
@@ -210,14 +210,6 @@ export default {
 .floating-enter-active,
 .floating-leave-active {
 	transition: height 200ms ease;
-}
-
-.floating-shell-open {
-	z-index: 30;
-}
-
-.floating-shell-closed {
-	z-index: 20;
 }
 
 .not-allowed-tile {

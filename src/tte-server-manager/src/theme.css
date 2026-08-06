@@ -103,3 +103,28 @@ These add height and width classes from 4 to 20 with step of 2, not worrying abo
 	--font-main: "Inter", system-ui, sans-serif;
 	--font-mono: "JetBrains Mono", "Consolas", monospace, system-ui, sans-serif;
 }
+
+/*
+Z-index scale
+
+Everything that stacks against something outside its own component uses one of
+these tokens (z-content, z-float, z-chrome, ...) instead of a bare z-10/z-20, so
+the global ordering is readable in one place. Bands, bottom to top:
+
+	1-9    page content — in-flow decoration and whatever has to sit over it
+	10     floating tiles — StatusTile with floatingExpand, while expanded
+	20     app chrome — StickyHeader, DesktopNav, MobileNav
+	30-69  popups — see Popup.vue; layer N is 30 + 10N (backdrop) / +1 (dialog)
+	100    alerts — AlertStack, above everything
+
+Purely local stacking (children of an element that already makes a stacking
+context, e.g. the header's own bevel pieces) can keep bare values; those never
+compete with anything on this scale.
+*/
+@theme {
+	--z-index-content:		1;
+	--z-index-content-top:	2;
+	--z-index-float:		10;
+	--z-index-chrome:		20;
+	--z-index-alert:		100;
+}

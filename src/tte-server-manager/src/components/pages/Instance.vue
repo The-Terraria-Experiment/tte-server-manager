@@ -4,9 +4,9 @@
 			<!-- <div class="title-bg-gradient"></div> -->
 			<div class="flex items-center">
 				<Icon icon="server" size="6" color="text-white-1 sm:text-teal-4" />
-				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0 ml-3">MANAGE INSTANCE</h1>
+				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-content-top sm:z-auto ml-3">MANAGE INSTANCE</h1>
 			</div>
-			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View machine status and manage files</p>
+			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-content-top sm:z-auto">View machine status and manage files</p>
 		</div>
 		
 		<div
@@ -260,6 +260,6 @@ export default {
 }
 
 .server-bg .title-bg-gradient {
-	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-10;
+	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-content;
 }
 </style>

@@ -4,9 +4,9 @@
 			<!-- <div class="title-bg-gradient"></div> -->
 			<div class="flex items-center">
 				<Icon icon="gamepad" size="8" color="text-white-1 sm:text-teal-4" />
-				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0 ml-3">MANAGE GAME SERVER</h1>
+				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-content-top sm:z-auto ml-3">MANAGE GAME SERVER</h1>
 			</div>
-			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View and manage game server status</p>
+			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-content-top sm:z-auto">View and manage game server status</p>
 		</div>
 		<div
 			v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
@@ -300,6 +300,6 @@ export default {
 }
 
 .terraria-bg .title-bg-gradient {
-	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-10;
+	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-content;
 }
 </style>
