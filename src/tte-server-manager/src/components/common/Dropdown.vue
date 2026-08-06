@@ -1,7 +1,7 @@
 <template>
 	<div class="relative inline-block w-full font-main font-bold">
 		<select
-			:class="['appearance-none pr-9 w-full rounded-lg px-4 py-2 outline-none cursor-pointer font-main font-bold', inputClass]"
+			:class="['appearance-none pr-9 w-full rounded-lg px-4 py-2 outline-none font-main font-bold', { 'cursor-pointer': !disabled }, inputClass]"
 			@change="emitInput"
 			:disabled="disabled"
 			:value="normalizedValue"

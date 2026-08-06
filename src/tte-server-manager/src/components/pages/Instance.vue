@@ -61,16 +61,16 @@
 		:selected-instance-data="selectedInstanceData" 
 	/>
 
-	<InstanceMetrics
-		v-if="selectedInstance"
-		:key="selectedInstance"
-		:selected-instance-data="selectedInstanceData"
-	/>
-
 	<InstanceFiles
 		v-if="selectedInstance"
 		:selected-instance-data="selectedInstanceData"
 		:loading="loading"
+	/>
+
+	<InstanceMetrics
+		v-if="selectedInstance"
+		:key="selectedInstance"
+		:selected-instance-data="selectedInstanceData"
 	/>
 	
 </template>

@@ -7,8 +7,8 @@
 		:loading="loading.fetch || loading.save || loading.upload || loading.selftest"
 	>
 		<template #header>
-			<Icon icon="gauge" color="text-gray-6" size="5" />
-			<p class="text-gray-6 ml-2 text-lg">Metrics Collector</p>
+			<Icon icon="gauge" color="text-gray-6" size="4" />
+			<p class="text-gray-6 ml-2 text-lg">Metrics</p>
 		</template>
 		<template #summary>
 			<p class="text-2xl text-teal-4">{{ summaryText }}</p>
@@ -21,85 +21,111 @@
 					collector whose real state was never read.
 				-->
 				<div v-if="!loaded">
-					<p class="font-main font-bold text-yellow-2">
-						{{ loading.fetch ? "Reading the metrics configuration..." : "The metrics configuration couldn't be read, so none of it is shown." }}
-					</p>
 					<p v-if="loadError && !loading.fetch" class="font-main font-semibold text-gray-7 mt-2">
 						{{ loadError }}
 					</p>
+					<p v-else>There was an error</p>
 				</div>
 
 				<template v-else>
-					<p v-if="instanceStateKnown && !instanceOnline" class="font-main font-bold text-yellow-2 mb-4">
-						The instance is offline. Settings are shown as last applied and can't be changed until it starts.
-					</p>
-
 					<p v-if="drift" class="font-main font-bold text-yellow-2 mb-4">
 						The instance isn't running the saved configuration. Save again to re-apply it.
 					</p>
 
-					<div class="grid metrics-config-grid w-max max-w-full gap-x-4 gap-y-3 items-center">
-						<p class="font-main font-bold text-teal-5">Collection</p>
-						<div class="flex items-center">
-							<Checkbox
-								class="h-5 w-5"
-								:value="form.enabled"
-								:disabled="!canEdit"
-								@input="form.enabled = !form.enabled"
-							/>
-							<p class="font-main font-semibold text-white-0 ml-2">
-								{{ form.enabled ? "Enabled" : "Disabled" }}
-							</p>
+					<div class="bg-gray-2 p-4 rounded-lg border border-gray-5">
+						<div class="flex justify-between items-start">
+							<div class="flex items-center gap-2">
+								<Checkbox
+									class="h-4 w-4"
+									:value="form.enabled"
+									:disabled="!canEdit"
+									@input="form.enabled = !form.enabled"
+								/>
+								<p :class="['font-main font-bold text-gray-8', { 'cursor-pointer': canEdit }]" @click="form.enabled = !form.enabled">Enabled</p>
+							</div>
+							<div>
+								<RefreshButton
+									v-if="$checkPermissions(PERMISSIONS.instance.metrics.read)"
+									:variant="BTN_VARIANT.SECONDARY"
+									:disabled="loading.fetch"
+									@input="refresh"
+								/>
+							</div>
 						</div>
+						<div class="flex justify-between flex-wrap gap-y-6">
+							<div class="flex mt-2 gap-4 flex-wrap">
+								<div class="flex flex-col gap-y-2 border-gray-6 rounded">
+									<p class="font-main font-bold text-gray-8">Sample interval (sec)</p>
+									<ValueInput
+										type="number"
+										v-model="form.collectSec"
+										:disabled="!canEdit || !form.enabled"
+										class="w-56"
+									/>
+								</div>
+								<div class="flex flex-col gap-y-2 border-gray-6 rounded">
+									<p class="font-main font-bold text-gray-8">Upload mode</p>
+									<Dropdown
+										:options="uploadModeOptions"
+										v-model="form.uploadMode"
+										:disabled="!canEdit || !form.enabled"
+										inputClass="bg-gray-5 text-white-0"
+										class="max-w-80 min-w-58"
+									/>
+								</div>
+								<div class="flex flex-col gap-y-2 border-gray-6 rounded" v-if="form.uploadMode === 'timer'">
+									<p class="font-main font-bold text-gray-8">Upload interval (sec)</p>
+									<ValueInput
+										type="number"
+										v-model="form.uploadSec"
+										:disabled="!canEdit || !form.enabled"
+										class="w-56"
+									/>
+								</div>
+								<div class="flex flex-col gap-y-2 border-gray-6 rounded">
+									<p class="font-main font-bold text-gray-8">Persistence (days)</p>
+									<ValueInput
+										type="number"
+										v-model="form.retainDays"
+										:disabled="!canEdit || !form.enabled"
+										class="w-56"
+									/>
+								</div>
+							</div>
 
-						<p class="font-main font-bold text-teal-5">Sample every</p>
-						<div class="flex items-center">
-							<ValueInput
-								type="number"
-								v-model="form.collectSec"
-								:disabled="!canEdit || !form.enabled"
-								class="w-28"
-							/>
-							<p class="font-main font-semibold text-gray-7 ml-2">seconds</p>
-						</div>
-
-						<p class="font-main font-bold text-teal-5">Upload</p>
-						<div class="flex items-center">
-							<Dropdown
-								:options="uploadModeOptions"
-								v-model="form.uploadMode"
-								:disabled="!canEdit || !form.enabled"
-								inputClass="bg-gray-5 text-white-0 w-56"
-							/>
-						</div>
-
-						<p v-if="form.uploadMode === 'timer'" class="font-main font-bold text-teal-5">Upload every</p>
-						<div v-if="form.uploadMode === 'timer'" class="flex items-center">
-							<ValueInput
-								type="number"
-								v-model="form.uploadSec"
-								:disabled="!canEdit || !form.enabled"
-								class="w-28"
-							/>
-							<p class="font-main font-semibold text-gray-7 ml-2">seconds</p>
-						</div>
-
-						<p class="font-main font-bold text-teal-5">Keep locally</p>
-						<div class="flex items-center">
-							<ValueInput
-								type="number"
-								v-model="form.retainDays"
-								:disabled="!canEdit || !form.enabled"
-								class="w-28"
-							/>
-							<p class="font-main font-semibold text-gray-7 ml-2">days</p>
+							<div class="flex gap-4">
+								<FlexButton
+									v-if="canEdit && hasChanges"
+									:variant="BTN_VARIANT.DANGER"
+									:disabled="loading.save"
+									@input="resetForm"
+									class="max-h-max self-end"
+								>
+									<p class="font-main font-bold py-2 px-8 md:px-12">DISCARD</p>
+								</FlexButton>
+								<!--
+									Also shown on drift with an unchanged form: the banner above tells
+									the user to save again to re-apply the stored config, which needs a
+									button to press.
+								-->
+								<FlexButton
+									v-if="canEdit && (hasChanges || drift)"
+									:variant="BTN_VARIANT.PRIMARY"
+									:disabled="loading.save"
+									@input="save"
+									class="max-h-max self-end"
+								>
+									<p class="font-main font-bold py-2 px-8 md:px-12">SAVE</p>
+								</FlexButton>
+							</div>
 						</div>
 					</div>
+					
 
-					<p v-if="form.uploadMode === 'manual'" class="font-main font-semibold text-gray-7 mt-4 max-w-2xl">
+					<!-- <p v-if="form.uploadMode === 'manual'" class="font-main font-semibold text-gray-7 mt-4 max-w-2xl">
 						In manual mode nothing is uploaded on a schedule. Samples reach S3 when the instance shuts down, or
 						when you upload now. Between those points they exist only on the instance's disk.
-					</p>
+					</p> -->
 
 					<div v-if="actual" class="flex flex-wrap gap-x-8 gap-y-2 mt-4 font-main font-semibold text-gray-7">
 						<p>Buffered hours: <span class="text-teal-4">{{ actual.pendingFiles }}</span></p>
@@ -124,20 +150,12 @@
 
 				<div class="flex flex-wrap justify-end w-full mt-6 gap-4">
 					<FlexButton
-						v-if="$checkPermissions(PERMISSIONS.instance.metrics.read)"
-						:variant="BTN_VARIANT.SECONDARY"
-						:disabled="loading.fetch"
-						@input="refresh"
-					>
-						<p class="font-main font-bold py-2 px-8 md:px-12">{{ loaded ? "REFRESH" : "RETRY" }}</p>
-					</FlexButton>
-					<FlexButton
 						v-if="loaded && instanceOnline && $checkPermissions(PERMISSIONS.instance.metrics.read)"
 						:variant="BTN_VARIANT.SECONDARY"
 						:disabled="loading.selftest || isShuttingDown"
 						@input="runSelftest"
 					>
-						<p class="font-main font-bold py-2 px-8 md:px-12">SELF-TEST</p>
+						SELF-TEST
 					</FlexButton>
 					<FlexButton
 						v-if="loaded && instanceOnline && $checkPermissions(PERMISSIONS.instance.metrics.read)"
@@ -145,23 +163,7 @@
 						:disabled="loading.upload || isShuttingDown"
 						@input="uploadNow"
 					>
-						<p class="font-main font-bold py-2 px-8 md:px-12">UPLOAD NOW</p>
-					</FlexButton>
-					<FlexButton
-						v-if="canEdit"
-						:variant="BTN_VARIANT.DANGER"
-						:disabled="loading.save"
-						@input="resetForm"
-					>
-						<p class="font-main font-bold py-2 px-8 md:px-12">DISCARD</p>
-					</FlexButton>
-					<FlexButton
-						v-if="canEdit"
-						:variant="BTN_VARIANT.PRIMARY"
-						:disabled="loading.save"
-						@input="save"
-					>
-						<p class="font-main font-bold py-2 px-8 md:px-12">SAVE</p>
+						UPLOAD NOW
 					</FlexButton>
 				</div>
 			</div>
@@ -170,6 +172,7 @@
 </template>
 
 <script>
+import RefreshButton from '@/components/common/RefreshButton.vue';
 import { get, post, put } from '../../../../util/api';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -200,6 +203,7 @@ export default {
 		Checkbox,
 		Dropdown,
 		ValueInput,
+		RefreshButton,
 	},
 	props: {
 		selectedInstanceData: {
@@ -234,7 +238,7 @@ export default {
 			},
 			uploadModeOptions: [
 				{ id: "timer", text: "On a schedule" },
-				{ id: "manual", text: "Only when triggered" },
+				{ id: "manual", text: "When triggered" },
 			],
 		}
 	},
@@ -259,6 +263,18 @@ export default {
 			// power would leave the stored config describing a state nothing is running.
 			return this.loaded && this.instanceOnline && !this.isShuttingDown && this.$checkPermissions(PERMISSIONS.instance.metrics.write);
 		},
+		// Whether the form differs from the last known-applied config, i.e. whether
+		// there is anything to save or discard. The numeric fields come back off
+		// ValueInput as strings, so a plain deep-compare would report a change as
+		// soon as one is touched — compare them the same way `save` sends them.
+		hasChanges() {
+			if (!this.loaded) return false;
+			if (Boolean(this.form.enabled) !== Boolean(this.saved.enabled)) return true;
+			if (this.form.uploadMode !== this.saved.uploadMode) return true;
+			return ["collectSec", "uploadSec", "retainDays"].some(
+				(key) => Number(this.form[key]) !== Number(this.saved[key])
+			);
+		},
 		lastUploadText() {
 			// The script reports epoch seconds, and 0 for "the uploader has never run
 			// on this boot" — which is the normal state on a freshly started box.
@@ -266,15 +282,15 @@ export default {
 			return new Date(this.actual.lastUploadAt * 1000).toLocaleString();
 		},
 		summaryText() {
-			if (!this.loaded) return this.loading.fetch ? "CHECKING..." : "UNKNOWN";
-			if (this.installed === false) return "NOT INSTALLED";
-			if (!this.saved.enabled) return "OFF";
+			if (!this.loaded) return "Unknown";
+			if (this.installed === false) return "Not installed";
+			if (!this.saved.enabled) return "Off";
 
 			const upload = this.saved.uploadMode === 'manual'
 				? "manual uploads"
-				: `uploads every ${this.saved.uploadSec}s`;
+				: `${this.saved.uploadSec}s auto uploads`;
 
-			return `ON — every ${this.saved.collectSec}s, ${upload}`;
+			return `Enabled (${this.saved.collectSec}s sampling, ${upload})`;
 		}
 	},
 	methods: {
