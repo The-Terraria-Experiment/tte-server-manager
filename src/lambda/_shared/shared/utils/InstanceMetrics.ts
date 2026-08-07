@@ -31,6 +31,13 @@ export type MetricsStatus = MetricsConfig & {
 	installed: boolean;
 	/** The collect timer is currently running, not merely enabled for next boot. */
 	active: boolean;
+	/**
+	 * The collect timer has a future elapse point. Not implied by `active`: a
+	 * timer whose monotonic list yields no next elapse stays "active" forever in
+	 * SubState=elapsed while never once running its service. That shipped, and
+	 * enabled+active reported a healthy collector that had taken zero samples.
+	 */
+	scheduled: boolean;
 	flushEnabled: boolean;
 	/** Buffer files not yet pruned. In manual mode this is the visible backlog. */
 	pendingFiles: number;
@@ -249,6 +256,10 @@ export function parseMetricsStatus(result: SsmCommandResult): MetricsStatus | nu
 		installed: parsed.installed,
 		enabled: parsed.enabled === true,
 		active: parsed.active === true,
+		// Absent on a box running a collector older than this field. Defaulting to
+		// the optimistic value keeps those boxes from showing a false alarm; they
+		// report the truth as soon as the script is updated.
+		scheduled: parsed.scheduled !== false,
 		flushEnabled: parsed.flushEnabled === true,
 		uploadMode: parsed.uploadMode === "manual" ? "manual" : "timer",
 		collectSec: isInt(parsed.collectSec) ? parsed.collectSec : DEFAULT_METRICS_CONFIG.collectSec,

@@ -42,6 +42,12 @@ COLLECT_MIN=15;  COLLECT_MAX=3600
 UPLOAD_MIN=60;   UPLOAD_MAX=3600
 RETAIN_MIN=1;    RETAIN_MAX=30
 
+# First elapse after boot, mirroring the shipped .timer units. Duplicated here
+# because the drop-in has to restate them -- see write_timer_dropin, and do not
+# "clean up" that duplication without reading why it exists.
+COLLECT_BOOT_SEC=60
+UPLOAD_BOOT_SEC=120
+
 die() { echo "tte-metrics-ctl: $*" >&2; exit 1; }
 
 require_root() {
@@ -117,17 +123,31 @@ check_bool() {
 unit_enabled() { systemctl is-enabled "$1" 2>/dev/null || echo missing; }
 unit_active()  { systemctl is-active  "$1" 2>/dev/null || echo inactive; }
 
-# `OnUnitActiveSec` is a LIST in systemd, so a drop-in that just sets it ADDS a
-# second trigger instead of replacing the shipped one -- the timer would then
-# fire at both the old and new interval. The empty assignment resets the list
-# first; that idiom is required, not stylistic.
+# The monotonic timer settings (OnActiveSec, OnBootSec, OnStartupSec,
+# OnUnitActiveSec, OnUnitInactiveSec) all populate ONE list in systemd. Two
+# consequences, and getting either wrong is silent:
+#
+#   1. A drop-in that just assigns OnUnitActiveSec ADDS a trigger rather than
+#      replacing the shipped one, and the timer fires at both intervals. So the
+#      empty assignment that resets the list is required.
+#   2. That reset clears the WHOLE list -- including OnBootSec from the base
+#      unit, which is not the option being reset. Anything the unit relied on
+#      has to be restated here or it is simply gone.
+#
+# (2) is not hypothetical: omitting OnBootSec left each timer with nothing but
+# OnUnitActiveSec, which is measured from the last activation of its SERVICE. A
+# service that has never run has no such anchor, so the timer computed no elapse
+# point at all and parked in SubState=elapsed forever. `systemctl is-enabled`
+# and `is-active` both still said the collector was on while it had never taken
+# a single sample. Check `systemctl show <timer> -p TimersMonotonic` -- that is
+# the effective list, and the only place this is visible.
 #
 # AccuracySec scales with the interval rather than staying at the shipped
 # constant: systemd coalesces timer wakeups within that window, so a loose
 # accuracy on a slow timer lets the kernel batch it with other work instead of
 # forcing a dedicated wakeup. On a single-core box that is a real saving.
 write_timer_dropin() {
-	unit=$1; interval=$2
+	unit=$1; interval=$2; boot_sec=$3
 
 	accuracy=$((interval / 10))
 	if [ "$accuracy" -lt 1 ]; then accuracy=1; fi
@@ -139,6 +159,7 @@ write_timer_dropin() {
 # Managed by tte-metrics-ctl -- hand edits are overwritten on the next apply.
 [Timer]
 OnUnitActiveSec=
+OnBootSec=$boot_sec
 OnUnitActiveSec=$interval
 AccuracySec=${accuracy}s
 EOF
@@ -173,6 +194,23 @@ cmd_status() {
 		mode=$CFG_UPLOAD_MODE
 	fi
 
+	# Whether the collect timer has a future elapse point, which is NOT implied by
+	# enabled+active: a timer whose monotonic list computes no next elapse stays
+	# "active" in SubState=elapsed indefinitely while never running its service.
+	# That exact state shipped once and was invisible from every other field here,
+	# so it gets reported rather than inferred.
+	next_elapse=$(systemctl show "$COLLECT_TIMER" -p NextElapseUSecMonotonic --value 2>/dev/null || echo "")
+	collect_sub=$(systemctl show "$COLLECT_TIMER" -p SubState --value 2>/dev/null || echo "")
+	if [ "$collect_sub" = "running" ]; then
+		# Mid-trigger: no next elapse is computed while the service runs, which is
+		# healthy rather than stuck.
+		scheduled=true
+	elif [ -n "$next_elapse" ] && [ "$next_elapse" != "infinity" ] && [ "$next_elapse" != "0" ]; then
+		scheduled=true
+	else
+		scheduled=false
+	fi
+
 	pending=$(find "$CFG_DIR" -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ')
 
 	last_raw=$(systemctl show "$UPLOAD_SERVICE" -p ExecMainExitTimestamp --value 2>/dev/null || echo "")
@@ -182,8 +220,8 @@ cmd_status() {
 		last=0
 	fi
 
-	printf '{"installed":%s,"enabled":%s,"active":%s,"uploadMode":"%s","collectSec":%s,"uploadSec":%s,"retainDays":%s,"pendingFiles":%s,"lastUploadAt":%s,"flushEnabled":%s}\n' \
-		"$installed" "$enabled" "$active" "$mode" \
+	printf '{"installed":%s,"enabled":%s,"active":%s,"scheduled":%s,"uploadMode":"%s","collectSec":%s,"uploadSec":%s,"retainDays":%s,"pendingFiles":%s,"lastUploadAt":%s,"flushEnabled":%s}\n' \
+		"$installed" "$enabled" "$active" "$scheduled" "$mode" \
 		"$CFG_COLLECT" "$CFG_UPLOAD" "$CFG_RETAIN" \
 		"$pending" "$last" \
 		"$([ "$flush_enabled" = "enabled" ] && echo true || echo false)"
@@ -234,8 +272,8 @@ cmd_apply() {
 	CFG_RETAIN=$want_retain
 	save_config
 
-	write_timer_dropin "$COLLECT_TIMER" "$CFG_COLLECT"
-	write_timer_dropin "$UPLOAD_TIMER" "$CFG_UPLOAD"
+	write_timer_dropin "$COLLECT_TIMER" "$CFG_COLLECT" "$COLLECT_BOOT_SEC"
+	write_timer_dropin "$UPLOAD_TIMER" "$CFG_UPLOAD" "$UPLOAD_BOOT_SEC"
 
 	systemctl daemon-reload
 

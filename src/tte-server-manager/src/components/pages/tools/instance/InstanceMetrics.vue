@@ -38,6 +38,16 @@
 						what it's running — refresh to ask the instance, or save to apply them.
 					</p>
 
+					<!--
+						Distinct from drift: the stored config and the box agree here, and
+						the box still isn't sampling. Only a verified read can say this, so
+						it only ever appears after a refresh.
+					-->
+					<p v-if="stalled" class="font-main font-bold text-yellow-2 mb-4">
+						The collector is enabled but its timer has no next run scheduled, so it isn't sampling.
+						Save to re-apply the configuration and restart it.
+					</p>
+
 					<p v-if="drift" class="font-main font-bold text-yellow-2 mb-4">
 						The instance isn't running the saved configuration. Save again to re-apply it.
 					</p>
@@ -267,6 +277,12 @@ export default {
 		// resolves on its own a moment later.
 		instanceStateKnown() {
 			return Boolean(this.selectedInstanceData.state) && this.selectedInstanceData.state !== 'UNKNOWN';
+		},
+		// Enabled on the box, but systemd has no future elapse for the collect
+		// timer — it will never run again without an apply. `enabled` and `active`
+		// are both true in this state, which is what let it go unnoticed.
+		stalled() {
+			return Boolean(this.actual) && this.actual.enabled && this.actual.scheduled === false;
 		},
 		isShuttingDown() {
 			return Boolean(this.selectedInstanceData.shutdown?.active);

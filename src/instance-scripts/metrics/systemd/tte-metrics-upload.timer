@@ -2,6 +2,8 @@
 Description=Push TTE metrics to S3 every 5 minutes
 
 [Timer]
+# Defaults only -- see the note in tte-metrics-collect.timer. tte-metrics-ctl's
+# drop-in restates both, and UPLOAD_BOOT_SEC must match OnBootSec below.
 OnBootSec=120
 OnUnitActiveSec=5min
 AccuracySec=30s

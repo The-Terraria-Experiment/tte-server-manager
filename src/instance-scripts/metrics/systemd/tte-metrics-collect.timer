@@ -2,6 +2,10 @@
 Description=Sample CPU/memory every minute
 
 [Timer]
+# Defaults only. tte-metrics-ctl's drop-in resets the monotonic timer list and
+# restates BOTH of these -- the reset clears the whole list, not just the option
+# being reset, so a value left only here is silently dropped. Keep the drop-in's
+# COLLECT_BOOT_SEC in step with OnBootSec below.
 OnBootSec=60
 OnUnitActiveSec=60
 AccuracySec=5s
