@@ -4,7 +4,7 @@ import { getConfiguredServerIds } from "./state.js";
 import { runCheck } from "./runCheck.js";
 
 export async function handleTick(message: AutoShutoffMessage, context: Context): Promise<CheckResult[]> {
-	const serverIds = message.serverId ? [message.serverId] : getConfiguredServerIds();
+	const serverIds = message.serverId ? [message.serverId] : await getConfiguredServerIds();
 	if (serverIds.length === 0) {
 		return [{ action: "skip", reason: "no-servers" }];
 	}

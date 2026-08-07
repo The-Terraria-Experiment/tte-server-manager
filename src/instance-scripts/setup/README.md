@@ -60,8 +60,9 @@ destination and needs nothing beyond `s3:PutObject` on `metrics/*`.
 
 That last statement is for the `register` step (below) and is scoped to a single
 table, matching the blast radius of everything else here. Deliberately **not**
-included: anything under `lambda:*`. `EC2_INSTANCE_IDS` stays a manual step for
-that reason — see "After it finishes."
+included: anything under `lambda:*` — nothing in provisioning touches Lambda
+configuration. Registering the instance happens in the web UI afterwards; see
+"After it finishes."
 
 ```bash
 aws ec2 associate-iam-instance-profile \
@@ -240,33 +241,34 @@ uses. It's guarded: if the row already has `validRoots` (e.g. you later
 customized paths through the Users page's path editor), the step leaves it
 alone rather than overwriting your changes on a re-run.
 
-**`EC2_INSTANCE_IDS` is deliberately *not* automated.** It's tempting to treat
-this the same way as the Dynamo row, but it isn't the same kind of change:
+**Registering the instance is done in the web UI**, on the Overview page under
+*Instance Registry* → ADD INSTANCE. Paste the instance ID, tick the
+environments it should serve (prod, stage, or both), and save. It needs the
+`system.instances.list.write` permission, and takes effect on both
+environments within a minute.
 
-- It's a Lambda environment variable, not a database row.
-  `update-function-configuration` **replaces the entire variable map** rather
-  than merging — passing just `EC2_INSTANCE_IDS` would silently wipe every
-  other hand-set var on that function, including things (Cognito pool/client
-  IDs, secret names) that live nowhere else in this repo.
-- Updating `$LATEST` doesn't make it live. Per the deploy workflow, a new
-  version only gets published — and an alias only repointed — on a push to
-  `stage`/`main`. Making the change effective immediately means also running
-  `publish-version` and `update-alias` yourself, i.e. performing a deploy
-  outside the normal CI path.
-- Doing it from the box would mean granting the instance role
-  `lambda:UpdateFunctionConfiguration` (and probably `PublishVersion`/
-  `UpdateAlias`). That's a much bigger blast radius than the scoped S3/Dynamo
-  access above — the difference between a compromised box being able to
-  corrupt its own file prefix versus being able to rewrite live Lambda config
-  or repoint the prod alias. Given this same box already has a REST port open
-  to the internet by design, that's not a permission worth adding for
-  convenience.
+Seeding the row and registering it are two separate things, on purpose. The
+`inst#<id>` row this script writes carries the instance's *configuration* —
+file paths, world paths, metrics settings. The `envs` array the UI writes onto
+that same row is its *registration*: which sites list it. A box that has been
+provisioned but not yet registered is a normal, expected state — it keeps
+everything `setup.sh` gave it and simply isn't shown anywhere yet. Registering
+uses `UpdateItem`, so it can never clobber what this script wrote.
 
-So this stays a manual step, run from your own machine with your own
-credentials — never from the instance. `setup.sh` prints the exact commands at
-the end, including a reminder to fetch the current `Environment.Variables` map
-in full before editing it (see the printed `env.json` step) rather than
-setting `EC2_INSTANCE_IDS` in isolation.
+> This used to be a hand-edited `EC2_INSTANCE_IDS` Lambda environment variable
+> (plus a matching `AUTO_SHUTOFF_SERVER_IDS_PROD`/`_STAGE` pair on
+> auto-shutoff, and a third dead copy on logs-manager). That was genuinely
+> unpleasant: `update-function-configuration` replaces the entire variable map
+> rather than merging, so each edit meant fetching the whole map, hand-editing
+> one key, and writing it back without dropping anything; and editing
+> `$LATEST` didn't make it live, since a version is only published and an
+> alias repointed on a push to `stage`/`main`. It also could never be
+> automated from the box, which would have needed
+> `lambda:UpdateFunctionConfiguration` on the instance role — a far larger
+> blast radius than the scoped S3/Dynamo access above, on a box that already
+> has a REST port open to the internet by design. Moving the list into
+> DynamoDB removes all of that: the instance role never gained a permission,
+> and nothing needs a deploy.
 
 Finally: **confirm the Secrets Manager password matches** what you passed as
 `TTE_REST_PASSWORD` — the script can't check this itself, and a mismatch

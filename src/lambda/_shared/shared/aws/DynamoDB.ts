@@ -37,6 +37,11 @@ export interface QueryResult {
 	lastKey: Record<string, unknown> | null;
 }
 
+export interface ScanConfig {
+	/** Return only items whose `uid` begins with this string. */
+	prefix?: string;
+}
+
 export class DynamoDao {
 	private static instance: DynamoDao | null = null;
 	private readonly docClient!: DynamoDBDocumentClient;
@@ -285,23 +290,51 @@ export class DynamoDao {
 		}
 	}
 
-	public async ScanTable(tableName: string): Promise<Record<string, unknown>[]> {
+	/**
+	 * Scans a whole table, following `LastEvaluatedKey` to completion. A single ScanCommand caps out
+	 * at 1MB of items and silently returns a partial result, so paginating is a correctness
+	 * requirement rather than an optimisation — a truncated scan looks exactly like a table that has
+	 * fewer rows than it does.
+	 *
+	 * @param tableName - Table to scan
+	 * @param config - Optional `prefix` to return only items whose `uid` begins with it. Applied as a
+	 *   Dynamo FilterExpression, which runs *after* the read — it trims the payload, not the RCUs.
+	 *   These tables mix record types under one bare `uid` partition key, so a `begins_with` on a
+	 *   Query is not available as an alternative.
+	 */
+	public async ScanTable(tableName: string, config: ScanConfig = {}): Promise<Record<string, unknown>[]> {
 		Assert.IsTruthyString(tableName, "Table name required for scan");
-
-		const cmd = new ScanCommand({
-			TableName: tableName,
-		});
 
 		await CWLogger.CAction(3, CW_LOG_GENERAL, {
 			userId: null,
 			action: "shared-dynamo-scan-table",
 			resource: null,
-			details: { tableName },
+			details: { tableName, prefix: config.prefix ?? null },
 		});
 
+		const items: Record<string, unknown>[] = [];
+		let exclusiveStartKey: Record<string, unknown> | undefined = undefined;
+
 		try {
-			const response = await this.docClient.send(cmd);
-			return (response.Items as Record<string, unknown>[]) || [];
+			do {
+				const cmd: ScanCommand = new ScanCommand({
+					TableName: tableName,
+					...(config.prefix
+						? {
+								FilterExpression: "begins_with(#uid, :prefix)",
+								ExpressionAttributeNames: { "#uid": "uid" },
+								ExpressionAttributeValues: { ":prefix": config.prefix },
+							}
+						: {}),
+					...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
+				});
+
+				const response = await this.docClient.send(cmd);
+				items.push(...((response.Items as Record<string, unknown>[]) || []));
+				exclusiveStartKey = response.LastEvaluatedKey as Record<string, unknown> | undefined;
+			} while (exclusiveStartKey);
+
+			return items;
 		} catch (error) {
 			await CWLogger.Error(CW_LOG_GENERAL, {
 				error: error instanceof Error ? error.message : String(error),

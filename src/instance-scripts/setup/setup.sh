@@ -643,27 +643,21 @@ step_summary() {
 	echo "  ssm         $(systemctl is-active snap.amazon-ssm-agent.amazon-ssm-agent.service 2>/dev/null || systemctl is-active amazon-ssm-agent 2>/dev/null || echo inactive)"
 	echo "  inst# row   $([ -n "$INSTANCE_TABLE" ] && echo "seeded/checked in $INSTANCE_TABLE" || echo "SKIPPED (TTE_INSTANCE_TABLE unset)")"
 	echo
-	echo "  Still to do BY HAND, from your own machine (never from this box --"
-	echo "  see README 'Registering the instance' for why):"
+	echo "  Still to do BY HAND:"
 	echo
 	echo "    1) confirm TSHOCK_PASSWORD in Secrets Manager matches what was set here"
 	echo
-	echo "    2) add $INSTANCE_ID to EC2_INSTANCE_IDS on ttesm-instance-manager:"
+	echo "    2) register $INSTANCE_ID in the web UI:"
 	echo
-	echo "         aws lambda get-function-configuration --function-name ttesm-instance-manager \\"
-	echo "           --query 'Environment.Variables' --output json > env.json"
+	echo "         Overview page -> Instance Registry -> ADD INSTANCE"
 	echo
-	echo "       Edit env.json by hand: find EC2_INSTANCE_IDS and append ',$INSTANCE_ID'"
-	echo "       to its existing value (skip if already present). Do not touch any"
-	echo "       other key -- update-function-configuration REPLACES the whole map,"
-	echo "       so anything dropped from env.json is gone from \$LATEST. Then:"
+	echo "       Paste the instance ID and tick the environments it should serve"
+	echo "       (prod, stage, or both). Requires the system.instances.list.write"
+	echo "       permission. Until this is done the instance is provisioned but"
+	echo "       invisible -- the inst# row seeded above carries its file paths and"
+	echo "       metrics config, but no environment lists it yet."
 	echo
-	echo "         aws lambda update-function-configuration --function-name ttesm-instance-manager \\"
-	echo "           --environment \"Variables=\$(cat env.json)\""
-	echo
-	echo "       This only updates \$LATEST -- it won't reach the live stage/prod"
-	echo "       alias until the next push to stage/main publishes a new version,"
-	echo "       unless you also run publish-version + update-alias yourself."
+	echo "       Takes effect within a minute, on both environments, with no deploy."
 	echo
 }
 

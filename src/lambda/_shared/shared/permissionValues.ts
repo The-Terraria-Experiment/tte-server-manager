@@ -84,6 +84,12 @@ export const PERMISSIONS = {
 			clear: "system.notice.clear",
 			bypass: "system.notice.bypass",
 		},
+		instances: {
+			list: {
+				read: "system.instances.list.read",
+				write: "system.instances.list.write",
+			},
+		},
 	},
 } as const;
 

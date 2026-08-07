@@ -27,12 +27,35 @@ import { readMetricsConfig } from "./actions/readMetricsConfig.js";
 import { writeMetricsConfig } from "./actions/writeMetricsConfig.js";
 import { triggerMetricsUpload } from "./actions/triggerMetricsUpload.js";
 import { shutdownWorker } from "./actions/shutdownWorker.js";
+import { readInstanceRegistry } from "./actions/readInstanceRegistry.js";
+import { createInstanceRegistration, updateInstanceRegistration } from "./actions/writeInstanceRegistry.js";
+import { deleteInstanceRegistration } from "./actions/deleteInstanceRegistration.js";
 import type { ShutdownRequestData } from "./shared/utils/ShutdownJob.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
 		action: list,
 		permRequired: PERMISSIONS.instance.list,
+	},
+	// The registry — which instances exist and which environments they belong to. Replaces the
+	// EC2_INSTANCE_IDS / AUTO_SHUTOFF_SERVER_IDS_* env vars. Hosted here rather than in
+	// system-manager because this function already holds INSTANCE_TABLE_NAME, Dynamo access to that
+	// table, and ec2:DescribeInstances.
+	"GET /instances/registry": {
+		action: readInstanceRegistry,
+		permRequired: PERMISSIONS.system.instances.list.read,
+	},
+	"POST /instances/registry": {
+		action: createInstanceRegistration,
+		permRequired: PERMISSIONS.system.instances.list.write,
+	},
+	"PUT /instances/registry/{id}": {
+		action: updateInstanceRegistration,
+		permRequired: PERMISSIONS.system.instances.list.write,
+	},
+	"POST /instances/registry/{id}/delete": {
+		action: deleteInstanceRegistration,
+		permRequired: PERMISSIONS.system.instances.list.write,
 	},
 	"GET /instance/{id}/status": {
 		action: getStatus,

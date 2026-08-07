@@ -85,6 +85,12 @@ export const PermissionsMeta = {
 			clear: {value: "system.notice.clear", description: pfx + "remove site-wide notifications"},
 			bypass: {value: "system.notice.bypass", description: pfx + "bypass the lockdown imposed by notifications that disable the site"},
 		},
+		instances: {
+			list: {
+				read: {value: "system.instances.list.read", description: pfx + "view which EC2 instances are registered and which environments they serve"},
+				write: {value: "system.instances.list.write", description: pfx + "register, move between environments, and remove EC2 instances"},
+			},
+		},
 	},
 };
 /**

@@ -14,6 +14,20 @@ export type InstanceMetricsConfigEntry = MetricsConfig & {
 export type InstanceDataEntry = {
 	uid?: string,
 	updatedAt?: string,
+	/**
+	 * Which environments this instance is registered in — the replacement for the old
+	 * `EC2_INSTANCE_IDS` / `AUTO_SHUTOFF_SERVER_IDS_*` env vars. An array rather than a single
+	 * value because the EC2 fleet is physically shared, so an instance may legitimately serve both.
+	 *
+	 * Absent or empty means "registered nowhere": the row can exist without a registration, because
+	 * setup.sh's register step seeds validRoots/metricsConfig on a fresh box before any admin has
+	 * chosen which environments it belongs to.
+	 */
+	envs?: string[],
+	/** EC2 Name tag captured at registration. Display fallback for when DescribeInstances can't see the instance. */
+	name?: string,
+	registeredAt?: string,
+	registeredBy?: string,
 	validRoots?: Record<string, string>,
 	worldPaths?: string[],
 	metricsConfig?: InstanceMetricsConfigEntry

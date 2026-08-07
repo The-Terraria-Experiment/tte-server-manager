@@ -1,7 +1,22 @@
 /// <reference types="node" />
 
 export const PERM_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-user-perms" : "ttesm-user-perms-stage";
-export const SYSTEM_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-system" : "ttesm-system-stage";
+export const SYSTEM_TABLE_PROD = "ttesm-system";
+export const SYSTEM_TABLE_STAGE = "ttesm-system-stage";
+export const SYSTEM_TABLE = process.env.ACTIVE_ENV === "prod" ? SYSTEM_TABLE_PROD : SYSTEM_TABLE_STAGE;
+/**
+ * Every environment name a registry entry's `envs` may contain, and the system table each maps to.
+ * Deregistering an instance has to clean up per-env rows (`autoshutoff#<id>`) in environments other
+ * than the invoking one, since the instance table those registrations live in is shared.
+ */
+export const ENVIRONMENTS = ["prod", "stage"] as const;
+export type EnvironmentName = (typeof ENVIRONMENTS)[number];
+export const SYSTEM_TABLE_BY_ENV: Record<EnvironmentName, string> = {
+	prod: SYSTEM_TABLE_PROD,
+	stage: SYSTEM_TABLE_STAGE,
+};
+/** The environment this lambda invocation is running as. `stage` is the safe default — dev uses it too. */
+export const CURRENT_ENV: EnvironmentName = process.env.ACTIVE_ENV === "prod" ? "prod" : "stage";
 export const LOGS_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-player-logs" : "ttesm-player-logs-stage";
 export const USER_ARCHIVE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-user-archive" : "ttesm-user-archive-stage";
 // When "true", incoming logs whose player data provenance is "unknown" (no player

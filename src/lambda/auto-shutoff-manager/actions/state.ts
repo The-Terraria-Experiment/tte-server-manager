@@ -1,5 +1,6 @@
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
+import { InstanceRegistry } from "../shared/utils/InstanceRegistry.js";
 import type { AutoShutoffStateEntry } from "../shared/schema/SystemTable.js";
 
 const STATE_PREFIX = "autoshutoff#";
@@ -8,21 +9,16 @@ export function buildStateKey(serverId: string): string {
 	return `${STATE_PREFIX}${serverId}`;
 }
 
-export function getConfiguredServerIds(): string[] {
-	const envKey = resolveAllowlistKey();
-	const raw = (envKey ? process.env[envKey] : undefined) || process.env.AUTO_SHUTOFF_SERVER_IDS || "";
-	return raw
-		.split(",")
-		.map((value) => value.trim())
-		.filter((value) => value.length > 0);
-}
-
-function resolveAllowlistKey(): string | null {
-	const env = (process.env.ACTIVE_ENV || "").trim();
-	if (!env) {
-		return null;
-	}
-	return `AUTO_SHUTOFF_SERVER_IDS_${env.toUpperCase()}`;
+/**
+ * The servers this environment auto-shuts-off, read from the instance registry.
+ *
+ * Replaces the `AUTO_SHUTOFF_SERVER_IDS_PROD`/`_STAGE` env vars, which were a second hand-maintained
+ * copy of the instance list and could silently drift from `EC2_INSTANCE_IDS`. The registry's per-row
+ * `envs` carries the same prod/stage split those two vars encoded, so the set of servers checked is
+ * unchanged — it just has one source now.
+ */
+export async function getConfiguredServerIds(): Promise<string[]> {
+	return InstanceRegistry.GetRegisteredInstanceIds();
 }
 
 export async function getAutoShutoffState(serverId: string): Promise<AutoShutoffStateEntry | null> {
