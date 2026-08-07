@@ -28,6 +28,16 @@
 				</div>
 
 				<template v-else>
+					<!--
+						The values below are real defaults, not a reading of this instance —
+						the cheap read has no `actual` to contradict them, so without saying
+						so the tile would describe a collector that may never have run.
+					-->
+					<p v-if="configured === false" class="font-main font-bold text-yellow-2 mb-4">
+						No saved configuration for this instance. The values below are defaults, not a reading of
+						what it's running — refresh to ask the instance, or save to apply them.
+					</p>
+
 					<p v-if="drift" class="font-main font-bold text-yellow-2 mb-4">
 						The instance isn't running the saved configuration. Save again to re-apply it.
 					</p>
@@ -226,6 +236,10 @@ export default {
 			actual: null,
 			drift: false,
 			installed: null,
+			// Whether a config has ever been saved for this instance, as opposed to
+			// the API handing back defaults so there is something to edit. Null until
+			// a read succeeds, for the same reason `installed` is.
+			configured: null,
 			// Result of the most recent upload selftest, or null if it hasn't been
 			// run this session. Never seeded — an untested collector and a passing
 			// one must not look alike.
@@ -284,6 +298,10 @@ export default {
 		summaryText() {
 			if (!this.loaded) return "Unknown";
 			if (this.installed === false) return "Not installed";
+			// Below `installed`: a verified "not installed" is the stronger, more
+			// specific fact. This one only says nothing was ever saved, which on the
+			// cheap read is all that can be known.
+			if (this.configured === false) return "Not configured";
 			if (!this.saved.enabled) return "Off";
 
 			const upload = this.saved.uploadMode === 'manual'
@@ -307,13 +325,23 @@ export default {
 			this.loaded = true;
 			this.loadError = null;
 
+			if (response.configured !== undefined) {
+				this.configured = response.configured === true;
+			}
+
 			if (response.actual !== undefined) {
 				this.actual = response.actual;
 				this.drift = response.drift === true;
 				// `unreachable` covers offline/warming-up boxes, which say nothing
 				// about whether the collector is installed — only a status that came
-				// back and reported false does. Null means "still unknown".
-				this.installed = response.actual ? response.actual.installed : null;
+				// back and reported false does. Null means "still unknown". The one
+				// exception is the reason that IS an answer: a box that exits 127
+				// before printing a status line has no collector on it.
+				if (response.actual) {
+					this.installed = response.actual.installed;
+				} else {
+					this.installed = response.unreachable === "collector-not-installed" ? false : null;
+				}
 			}
 		},
 
@@ -325,6 +353,7 @@ export default {
 			this.actual = null;
 			this.drift = false;
 			this.installed = null;
+			this.configured = null;
 		},
 
 		resetForm() {
@@ -449,6 +478,14 @@ export default {
 				// The backend turns a failed probe into a 409 carrying the reason
 				// (SELFTEST_FAILED), so e.message is the diagnostic rather than a
 				// generic failure string.
+				// Not a probe result: there was nothing on the box to run it. Recording
+				// it as a failed selftest would read as "signing is broken".
+				if (e.code === "COLLECTOR_NOT_INSTALLED") {
+					this.installed = false;
+					this.$alert.error(e.message);
+					return;
+				}
+
 				this.selftestResult = {
 					ok: false,
 					message: e.message || "The selftest failed without reporting a reason.",
@@ -488,6 +525,10 @@ export default {
 				if (e.code === "UPLOAD_STILL_RUNNING") {
 					this.$alert.warning(e.message);
 					return;
+				}
+
+				if (e.code === "COLLECTOR_NOT_INSTALLED") {
+					this.installed = false;
 				}
 
 				this.$alert.error(e.message || "Error uploading metrics");

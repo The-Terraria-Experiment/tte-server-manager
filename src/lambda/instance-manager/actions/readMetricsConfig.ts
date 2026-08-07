@@ -12,6 +12,7 @@ import {
 	METRICS_SSM_POLL,
 	buildStatusCommand,
 	hasMetricsDrift,
+	isCollectorNotInstalled,
 	parseMetricsStatus,
 	toMetricsConfig,
 	type MetricsStatus,
@@ -46,6 +47,13 @@ export const readMetricsConfig = async (event: AuthorizedEvent, context: Context
 	const stored = instanceData?.metricsConfig as Record<string, unknown> | undefined;
 	const config = toMetricsConfig(stored);
 
+	// `config` is never absent -- an unconfigured instance gets the defaults, so
+	// the UI has something to edit. That makes it indistinguishable from a real
+	// saved config unless we say so, and on the default (non-verify) read there is
+	// no `actual` to contradict it either. Without this flag a box that has never
+	// run the collector renders as a confident "Enabled, 60s sampling".
+	const configured = Boolean(stored);
+
 	const verify = event.queryStringParameters?.verify === "true";
 
 	let actual: MetricsStatus | null = null;
@@ -73,6 +81,11 @@ export const readMetricsConfig = async (event: AuthorizedEvent, context: Context
 			} catch (error) {
 				if (isInstanceNotReadyForSsm(error)) {
 					unreachable = "ssm-not-ready";
+				} else if (isCollectorNotInstalled(error)) {
+					// Same conclusion as a status line that came back reporting
+					// installed:false, reached by a different route — the box exits 127
+					// before it can print one.
+					unreachable = "collector-not-installed";
 				} else {
 					throw error;
 				}
@@ -85,12 +98,13 @@ export const readMetricsConfig = async (event: AuthorizedEvent, context: Context
 		action: "read-metrics-config",
 		status: "ok",
 		resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-		details: { instanceId, verify, unreachable, config },
+		details: { instanceId, verify, unreachable, configured, config },
 	});
 
 	return ResponseUtil.Success({
 		instanceId,
 		config,
+		configured,
 		appliedAt: (stored?.appliedAt as string) ?? null,
 		appliedBy: (stored?.appliedBy as string) ?? null,
 		actual,

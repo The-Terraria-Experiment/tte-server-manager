@@ -161,6 +161,28 @@ export function buildUploadCommand(selftest = false): string[] {
 }
 
 /**
+ * True when an SSM failure means `tte-metrics-ctl` isn't on the box at all.
+ *
+ * `parseMetricsStatus` returning null only covers a command that RAN and printed
+ * nothing. A box that never had the collector installed fails earlier than that:
+ * the shell exits 127 before anything can be parsed, `PollForCommandCompletion`
+ * throws, and without this the caller reports a 500 — so the one state the UI
+ * most needs to distinguish arrives as "Internal Server Error", diagnosable only
+ * from CloudWatch.
+ *
+ * Matched against the full path rather than a bare "not found" so an unrelated
+ * missing binary inside the script (systemctl, curl) isn't misreported as the
+ * collector being absent.
+ */
+export function isCollectorNotInstalled(error: unknown): boolean {
+	const message = (error as { message?: string } | null)?.message ?? "";
+	// Substring rather than a regex: METRICS_CTL is a path, and building a pattern
+	// out of one is a standing invitation to forget the escaping the day it gains
+	// a character that means something to a regex engine.
+	return message.includes(`${METRICS_CTL}: not found`) || message.includes(`${METRICS_CTL}: No such file`);
+}
+
+/**
  * Turns the uploader's stderr from a failed `--selftest` into one readable line.
  *
  * The three plausible causes are indistinguishable from the HTTP status alone

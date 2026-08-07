@@ -12,6 +12,7 @@ import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 import {
 	METRICS_SSM_POLL,
 	buildApplyCommand,
+	isCollectorNotInstalled,
 	parseMetricsStatus,
 	validateMetricsConfig,
 } from "../shared/utils/InstanceMetrics.js";
@@ -86,6 +87,18 @@ export const writeMetricsConfig = async (event: AuthorizedEvent, context: Contex
 				"SSM_NOT_READY",
 			);
 		}
+
+		// Reached when the box exits 127 rather than printing a status line, which
+		// is the same finding as the !status branch below and deserves the same
+		// answer instead of a 500.
+		if (isCollectorNotInstalled(error)) {
+			return ResponseUtil.Error(
+				"The metrics collector is not installed on this instance.",
+				409,
+				"COLLECTOR_NOT_INSTALLED",
+			);
+		}
+
 		throw error;
 	}
 
@@ -118,6 +131,10 @@ export const writeMetricsConfig = async (event: AuthorizedEvent, context: Contex
 	return ResponseUtil.Success({
 		instanceId,
 		config,
+		// Matches the read response's shape. True by construction here: this is the
+		// call that creates the stored config, and it only gets this far once the
+		// apply came back clean.
+		configured: true,
 		appliedAt,
 		appliedBy,
 		actual: status,

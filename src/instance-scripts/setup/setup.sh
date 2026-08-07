@@ -77,6 +77,11 @@ SKIP=""
 # fire, orphaning a TShock process holding the setup world open.
 ACCOUNT_SERVER_PID=""
 ACCOUNT_HOLDER_PID=""
+
+# `tte-metrics-ctl status` output from step_metrics, consumed by step_register.
+# Empty when metrics was skipped via --only/--skip, which is exactly when the
+# row should not claim a metrics config.
+METRICS_STATUS_JSON=""
 cleanup_account() {
 	[ -n "$ACCOUNT_HOLDER_PID" ] && kill "$ACCOUNT_HOLDER_PID" 2>/dev/null
 	[ -n "$ACCOUNT_SERVER_PID" ] && kill "$ACCOUNT_SERVER_PID" 2>/dev/null
@@ -324,6 +329,15 @@ read_metrics_cfg() {
 	return 0
 }
 
+# Pulls one field out of the JSON status line tte-metrics-ctl prints. That line
+# is a flat object of booleans, integers and two fixed enum strings, so no value
+# can contain a comma, colon or brace -- which is what makes this three
+# substitutions rather than a JSON parser the box may not have.
+metrics_status_field() {
+	printf '%s' "$METRICS_STATUS_JSON" | tr -d '{}"' | tr ',' '\n' \
+		| awk -F: -v k="$1" '$1 == k { print $2; exit }'
+}
+
 step_metrics() {
 	log "metrics collector"
 
@@ -359,6 +373,12 @@ step_metrics() {
 	fi
 
 	env "${envs[@]}" bash "$installer"
+
+	# Captured for step_register to record on the inst# row. Read back from the
+	# box rather than reassembled from the values above so it reflects what was
+	# actually applied -- the installer owns the defaults for anything not passed
+	# in, and duplicating them here would be a third place to keep in sync.
+	METRICS_STATUS_JSON=$(/usr/local/bin/tte-metrics-ctl status 2>/dev/null || true)
 
 	ok "metrics installed"
 }
@@ -563,12 +583,42 @@ step_register() {
 	done
 	worldpaths_json+="]"
 
+	# Recording what step_metrics applied is the only thing that makes a later
+	# rebuild able to restore these settings -- nothing re-applies stored config at
+	# boot, so step_metrics reading this row back is the entire reconciliation
+	# story. It also keeps the web UI from reporting a provisioned instance as
+	# never configured, which it otherwise would: the API hands back defaults when
+	# the attribute is absent and flags them as unsaved.
+	#
+	# Same ordering rule the lambda follows (see writeMetricsConfig): this is
+	# written only after the apply on the box succeeded, so the row can never claim
+	# a setting the instance is not running.
+	local metrics_json=""
+	if [ -n "$METRICS_STATUS_JSON" ]; then
+		local m_enabled m_mode m_collect m_upload m_retain
+		m_enabled=$(metrics_status_field enabled)
+		m_mode=$(metrics_status_field uploadMode)
+		m_collect=$(metrics_status_field collectSec)
+		m_upload=$(metrics_status_field uploadSec)
+		m_retain=$(metrics_status_field retainDays)
+
+		if [ -n "$m_enabled" ] && [ -n "$m_mode" ] && [ -n "$m_collect" ] \
+			&& [ -n "$m_upload" ] && [ -n "$m_retain" ]; then
+			metrics_json=$(printf '"metricsConfig": {"M": {"enabled":{"BOOL":%s},"uploadMode":{"S":"%s"},"collectSec":{"N":"%s"},"uploadSec":{"N":"%s"},"retainDays":{"N":"%s"},"appliedAt":{"S":"%s"},"appliedBy":{"S":"setup.sh"}}},' \
+				"$m_enabled" "$m_mode" "$m_collect" "$m_upload" "$m_retain" \
+				"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)")
+		else
+			warn "could not parse tte-metrics-ctl status -- inst#${INSTANCE_ID} will have no metricsConfig, so the UI shows it as unconfigured and a rebuild won't restore these settings"
+		fi
+	fi
+
 	local item
 	item=$(cat <<-EOF
 		{
 			"uid": {"S": "inst#${INSTANCE_ID}"},
 			"validRoots": {"M": ${roots_json}},
 			"worldPaths": {"L": ${worldpaths_json}},
+			${metrics_json}
 			"updatedAt": {"S": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"}
 		}
 	EOF

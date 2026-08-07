@@ -12,6 +12,7 @@ import {
 	METRICS_SSM_POLL,
 	buildUploadCommand,
 	describeSelftestFailure,
+	isCollectorNotInstalled,
 	parseMetricsStatus,
 } from "../shared/utils/InstanceMetrics.js";
 
@@ -72,6 +73,17 @@ export const triggerMetricsUpload = async (event: AuthorizedEvent, context: Cont
 				"The instance is still starting up. Please wait a moment and try again.",
 				409,
 				"SSM_NOT_READY",
+			);
+		}
+
+		// Checked before the selftest branch: a box with no collector on it says
+		// nothing about whether request signing works, so reporting that as a failed
+		// probe would blame the uploader for something it was never asked to do.
+		if (isCollectorNotInstalled(error)) {
+			return ResponseUtil.Error(
+				"The metrics collector is not installed on this instance.",
+				409,
+				"COLLECTOR_NOT_INSTALLED",
 			);
 		}
 
