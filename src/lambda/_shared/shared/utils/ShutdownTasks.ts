@@ -1,5 +1,6 @@
 import { syncAndPruneTShockLogs } from "./TShockConsoleLogs.js";
 import { syncInstanceFilesToS3 } from "./InstanceFileSync.js";
+import { stopTShockServer } from "./TShockServerStop.js";
 
 /**
  * The ordered work an instance does on its way down, while it is still online and reachable over SSM.
@@ -30,7 +31,19 @@ export type ShutdownTask = {
 	run: (instanceId: string, deadline: number) => Promise<void>;
 };
 
+/**
+ * Order is load-bearing, not cosmetic. The graceful server stop has to come first: Terraria keeps the
+ * world in memory and only writes it on save, so archiving or syncing ahead of it captures the state
+ * as of the last autosave and then overwrites the good copy in S3 with it. Everything after the stop
+ * is reading files nothing is still writing.
+ */
 export const SHUTDOWN_TASKS: ShutdownTask[] = [
+	{
+		id: "stopping-server",
+		label: "Stopping the game server",
+		maxMs: 60000,
+		run: stopTShockServer,
+	},
 	{
 		id: "archiving-logs",
 		label: "Archiving TShock console logs",

@@ -113,7 +113,6 @@
 	>
 		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
 			<p class="text-white-0 py-2">Are you sure you want to stop this instance?</p>
-			<p class="text-red-5">If there is a server currently running on this instance, any unsaved progress will be lost!</p>
 		</div>
 	</Popup>
 
@@ -129,7 +128,7 @@
 	>
 		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
 			<p class="text-white-0 py-2">Are you sure you want to restart this instance?</p>
-			<p class="text-red-5">If there is a server currently running on this instance, any unsaved progress will be lost!</p>
+			<p class="text-red-5">The shutdown pipeline will be skipped, and any running processes will be force-terminated.</p>
 		</div>
 	</Popup>
 </template>
@@ -223,6 +222,7 @@ export default {
 
 			const labels = {
 				"queued": "Queued",
+				"stopping-server": "Stopping game server",
 				"archiving-logs": "Archiving console logs",
 				"syncing-files": "Syncing instance files",
 				"stopping-instance": "Stopping instance",

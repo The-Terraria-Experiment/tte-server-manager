@@ -13,7 +13,7 @@ import { SsmDao } from "../shared/aws/SSM.js";
 import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
-import { ensureLogDirsCommand, joinLaunchSteps } from "../shared/utils/TShockLaunch.js";
+import { ensureLogDirsCommand, joinLaunchSteps, tshockProcessPattern } from "../shared/utils/TShockLaunch.js";
 import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
@@ -92,9 +92,7 @@ const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlaye
 const buildPreLaunchGuardPath = (): string => {
 	const tshockPath = process.env.TSHOCK_PATH;
 	Assert.IsTruthyString(tshockPath, "TShock executable path not configured (TSHOCK_PATH env var missing)");
-	const normalizedPath = String(tshockPath || "").trim();
-	const binaryName = path.posix.basename(normalizedPath).replace(/[^a-zA-Z0-9._-]/g, "");
-	const searchPattern = ["TerrariaServer", "TShock", binaryName].filter(Boolean).join("|");
+	const searchPattern = tshockProcessPattern();
 
 	return `if pgrep -af '${searchPattern}' >/dev/null 2>&1; then echo 'TSHOCK_ALREADY_RUNNING'; else echo 'TSHOCK_CLEAR_TO_START'; fi`;
 };

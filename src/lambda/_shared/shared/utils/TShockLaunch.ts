@@ -1,8 +1,29 @@
+import path from "path";
+
 /**
  * Shared pieces of the shell command that launches TShock, used by both the worldgen (`-autocreate`)
  * and the plain world-launch paths. They build slightly different commands but redirect their output
  * exactly the same way, and the redirect is the fragile part.
  */
+
+/**
+ * `pgrep -f` pattern that matches a running TShock/TerrariaServer process.
+ *
+ * Shared because the two places that ask "is the server up on this box?" — the pre-launch guard and
+ * the shutdown-time graceful stop — have to agree on the answer. If the stop's pattern is narrower
+ * than the launch guard's, it declares the server gone while it is still writing the world, and the
+ * file sync behind it uploads a stale copy.
+ *
+ * `TSHOCK_PATH` is optional here: not every function that needs the pattern carries it, and the
+ * generic names alone are what the pattern has always fallen back to.
+ */
+export function tshockProcessPattern(): string {
+	const binaryName = path.posix
+		.basename(String(process.env.TSHOCK_PATH || "").trim())
+		.replace(/[^a-zA-Z0-9._-]/g, "");
+
+	return ["TerrariaServer", "TShock", binaryName].filter(Boolean).join("|");
+}
 
 /** Roots configured for TShock's stdout/stderr daily logs; empty when logging isn't configured. */
 function configuredLogRoots(): string[] {
