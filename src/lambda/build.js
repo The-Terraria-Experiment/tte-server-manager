@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 const ROOT_DIR = path.resolve(__dirname, "..", "..");
 const LAMBDA_TSCONFIG = path.join(ROOT_DIR, "tsconfig.lambda.json");
 
-const FUNCTIONS = ["instance-manager", "server-manager", "user-manager", "logs-manager", "cognito-user-link", "system-manager", "api-authorizer", "auto-shutoff-manager", "patreon-oidc"];
+const FUNCTIONS = ["instance-manager", "server-manager", "user-manager", "logs-manager", "cognito-user-link", "system-manager", "api-authorizer", "auto-shutoff-manager", "patreon-oidc", "tshock-proxy"];
 const BUILD_DIR = path.join(__dirname, "dist");
 const COMPILED_DIR = path.join(ROOT_DIR, "tsbuild", "lambda");
 const WORKSPACE_DIR = path.join(ROOT_DIR, "tsbuild", "lambda-workspace");
@@ -77,10 +77,25 @@ try {
 		const fnPackage = JSON.parse(fs.readFileSync(path.join(fnPackageSourceDir, "package.json"), "utf8"));
 		const sharedPackage = JSON.parse(fs.readFileSync(path.join(sharedPackageSourceDir, "package.json"), "utf8"));
 
-		fnPackage.dependencies = {
-			...sharedPackage.dependencies,
-			...fnPackage.dependencies,
-		};
+		// Every function gets the shared dependency set by default, because the whole compiled
+		// `shared/` tree is copied into each bundle and most functions reach into some part of it.
+		// A function can opt out with `"bundleSharedDependencies": false` when its own import graph
+		// touches none of them — the unused `shared/` modules are still copied, but Node never
+		// resolves an import it doesn't load, so their dependencies don't need to be present.
+		// This is worth doing only where bundle size actually costs something: `tshock-proxy` sits in
+		// the synchronous path of every TShock call, and the shared set is ~10MB of AWS SDK it never
+		// touches. Turning this off for a function that *does* use the SDK fails at runtime with
+		// ERR_MODULE_NOT_FOUND on its first call, not at build time.
+		const bundleShared = fnPackage.bundleSharedDependencies !== false;
+		delete fnPackage.bundleSharedDependencies;
+
+		fnPackage.dependencies = bundleShared
+			? { ...sharedPackage.dependencies, ...fnPackage.dependencies }
+			: { ...fnPackage.dependencies };
+
+		if (!bundleShared) {
+			console.log(`  Skipping shared dependencies (bundleSharedDependencies: false)`);
+		}
 
 		fs.writeFileSync(path.join(buildFnDir, "package.json"), JSON.stringify(fnPackage, null, 2));
 

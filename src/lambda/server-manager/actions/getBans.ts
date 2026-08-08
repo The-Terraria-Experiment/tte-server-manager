@@ -23,7 +23,7 @@ export const getBans = async (event: AuthorizedEvent, context: Context) => {
 	try {
 		const EC2 = new Ec2Dao();
 		const instance = await EC2.GetInstanceStatus(serverID);
-		const instanceIP = instance.publicIp;
+		const instanceIP = instance.privateIp;
 
 		if (instanceIP === "PENDING") {
 			return ResponseUtil.Success({ server: { status: false } });

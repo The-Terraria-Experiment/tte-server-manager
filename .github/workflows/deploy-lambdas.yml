@@ -48,7 +48,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        lambda: [instance-manager, server-manager, user-manager, logs-manager, "auto-shutoff-manager", cognito-user-link, system-manager, api-authorizer, patreon-oidc]
+        lambda: [instance-manager, server-manager, user-manager, logs-manager, "auto-shutoff-manager", cognito-user-link, system-manager, api-authorizer, patreon-oidc, tshock-proxy]
     steps:
       - uses: actions/checkout@v5
 

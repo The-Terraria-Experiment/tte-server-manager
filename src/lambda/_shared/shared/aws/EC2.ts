@@ -42,6 +42,14 @@ function toInstanceState(awsStateValue: string | undefined): InstanceState {
 export interface InstanceStatus {
 	state: InstanceState;
 	publicIp: string;
+	/**
+	 * Both addresses are carried because they serve different consumers. `publicIp` is what players
+	 * connect to and what the UI displays; `privateIp` is what the TShock REST path dials, and it has
+	 * to be the private one — traffic sent to an instance's *public* address from inside the VPC
+	 * hairpins out through the internet gateway and arrives with a public source address, which will
+	 * not match the source-security-group rule that keeps port 3891 closed to the internet.
+	 */
+	privateIp: string;
 	launchTime: Date | undefined;
 	instanceType: string | undefined;
 	name: string;
@@ -90,6 +98,7 @@ export class Ec2Dao {
 		return {
 			state: toInstanceState(instance.State?.Name ?? "unknown"),
 			publicIp: instance.PublicIpAddress || "PENDING",
+			privateIp: instance.PrivateIpAddress || "PENDING",
 			launchTime: instance.LaunchTime,
 			instanceType: instance.InstanceType,
 			name: nameTag?.Value || "(Unnamed)",
@@ -164,6 +173,7 @@ export class Ec2Dao {
 					id,
 					state: InstanceState.MISSING,
 					publicIp: "UNKNOWN",
+					privateIp: "UNKNOWN",
 					launchTime: undefined,
 					instanceType: undefined,
 					name: "(Not found in EC2)",
@@ -185,6 +195,7 @@ export class Ec2Dao {
 					id: instance.InstanceId,
 					state: toInstanceState(instance.State?.Name ?? "unknown"),
 					publicIp: instance.PublicIpAddress || "PENDING",
+					privateIp: instance.PrivateIpAddress || "PENDING",
 					launchTime: instance.LaunchTime,
 					instanceType: instance.InstanceType,
 					name: nameTag?.Value || "(Unnamed)",

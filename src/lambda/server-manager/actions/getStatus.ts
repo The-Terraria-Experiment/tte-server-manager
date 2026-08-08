@@ -28,14 +28,17 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 	try {
 		const ec2 = new Ec2Dao();
 		const ec2Instance = await ec2.GetInstanceStatus(serverId);
-		const ip = ec2Instance.publicIp;
+		const ip = ec2Instance.privateIp;
 		const DB = new DynamoDao();
 
 		// The shutdown block has to ride this endpoint too, not just instance-manager's: serverStore
 		// overwrites its whole `instanceStatusData[id]` entry from this response, so if only the other
 		// endpoint carried it, simply visiting the Server page would wipe the flag out from under the
 		// tracker and the guards.
-		const instance = { ...ec2Instance, shutdown: await readShutdownState(serverId) };
+		// privateIp is destructured off rather than spread through: it's only ever an input to the
+		// TShock REST path, the client has no use for it, and this response goes to the browser.
+		const { privateIp: _privateIp, ...clientInstance } = ec2Instance;
+		const instance = { ...clientInstance, shutdown: await readShutdownState(serverId) };
 		const autoShutoffState = await DB.GetItem(SYSTEM_TABLE, `autoshutoff#${serverId}`) as AutoShutoffStateEntry | null;
 		const autoShutoff = autoShutoffState
 			? {
@@ -50,7 +53,7 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 		}
 		
 		if (!ip) {
-			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
+			return ResponseUtil.Error(`Instance ${serverId} has no reachable private IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
 		if (ec2Instance.state !== InstanceState.RUNNING) {

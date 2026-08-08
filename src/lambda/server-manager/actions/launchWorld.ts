@@ -10,7 +10,6 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Parsers } from "../shared/utils/Parsers.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
 import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
@@ -220,9 +219,6 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 				port
 			}
 		});
-
-		// Clear out stale tokens
-		TShockAPI.DropTokenCache();
 
 		await DB.UpdateItem(SYSTEM_TABLE, `autoshutoff#${instanceID}`, {
 			updates: {

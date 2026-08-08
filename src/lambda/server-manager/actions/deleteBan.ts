@@ -35,7 +35,7 @@ export const deleteBan = async (event: AuthorizedEvent, context: Context) => {
 	try {
 		const EC2 = new Ec2Dao();
 		const instance = await EC2.GetInstanceStatus(serverID);
-		const instanceIP = instance.publicIp;
+		const instanceIP = instance.privateIp;
 
 		if (!instanceIP || instanceIP === "PENDING") {
 			return ResponseUtil.Error(`Instance ${serverID} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");

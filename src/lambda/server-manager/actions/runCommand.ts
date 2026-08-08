@@ -30,7 +30,7 @@ export const runCommand = async (event: AuthorizedEvent) => {
 	try {
 		const ec2 = new Ec2Dao();
 		const instance = await ec2.GetInstanceStatus(serverId);
-		const ip = instance.publicIp;
+		const ip = instance.privateIp;
 
 		if (!ip || ip === "PENDING") {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");

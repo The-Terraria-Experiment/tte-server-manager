@@ -31,7 +31,7 @@
 					leftIconSize="5"
 					@input="dropTshockTokenCache"
 				>
-					DROP TOKEN CACHE
+					DROP CRED CACHE
 				</FlexButton>
 			</div>
 		</div>

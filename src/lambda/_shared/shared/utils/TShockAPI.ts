@@ -1,38 +1,35 @@
 import { CWLogger } from "../aws/CloudWatch.js";
+import { LambdaDao } from "../aws/Lambda.js";
 import { SecretsManagerDao } from "../aws/SecretsManager.js";
 import { FUNC_NAMES } from "../constants.js";
+import { TSHOCK_PROXY_FUNCTION_ARN } from "../vars.js";
 import { Assert } from "./Assert.js";
 import { ResponseUtil } from "./APIResponse.js";
-import { HttpMethod, Network, type RequestResponse } from "./Network.js";
+import { HttpMethod } from "./Network.js";
 import { Parsers } from "./Parsers.js";
+import { TSHOCK_PROXY_REQUEST_TYPE, type TShockCredential, type TShockProxyRequest, type TShockProxyResponse } from "./TShockProxy.js";
 
-type TempToken = {
-	token: string,
-	expiresAtMs: number
-};
-
-type TokenData = TempToken & {
-	source: string,
-	cacheHit: boolean
-}
 
 /**
- * Note:
- * Perms required:
- * - tshock.rest.maintenance
- * - tshock.rest.useapi
- * - tshock.rest.cfg
- * - tshock.rest.mute
- * - tshock.rest.kill
- * - tshock.rest.kick
- * - tshock.rest.bans.*
- * - tshock.rest.users.info
- * - playerinfo.* (custom plugin)
- * - tshock.rest.broadcast
+ * Caller-side client for TShock's REST API.
+ *
+ * This does not speak HTTP. TShock's REST port is closed to everything except the `tshock-proxy`
+ * lambda's security group, so the call is handed to that function over a synchronous invoke and it
+ * makes the request from inside the VPC. Previously this class dialled the instance's *public* IP
+ * over plain HTTP across the internet, which meant the REST account password (query-string only, on
+ * `/v2/token/create`) and every subsequent token crossed the open internet, and port 3891 had to be
+ * reachable from anywhere.
+ *
+ * The split is: everything needing AWS APIs — the Secrets Manager read, CloudWatch logging — stays
+ * here, outside the VPC. The proxy gets the credential in its payload and therefore needs no IAM,
+ * no NAT gateway and no interface endpoints. See `TShockDirect` for the other half.
  */
-
 export class TShockAPI {
-	private static readonly tokenCache = new Map<string, TempToken>();
+	/**
+	 * Cached across invocations of the same container, like the token cache this class used to hold.
+	 * The secret is one value for the whole fleet, so this is keyed by nothing.
+	 */
+	private static credential: TShockCredential | null = null;
 
 	private readonly ip!: string
 
@@ -43,6 +40,7 @@ export class TShockAPI {
 	public async APIRequest(userID: string, endpoint: string, params: Record<string, any> | undefined = undefined, method: HttpMethod = HttpMethod.GET): Promise<Record<string, any>>
 	{
 		Assert.IsTruthyString(endpoint, "Missing endpoint for TShock API call");
+		Assert.IsTruthy(process.env.TSHOCK_API_PORT, "TShock API port is not set");
 
 		CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 			userId: userID,
@@ -52,216 +50,143 @@ export class TShockAPI {
 			details: { apiIP: this.ip, endpoint, method }
 		});
 
-		let token: TokenData;
-		try {
-			token = await this.getAuthToken();
-
-			CWLogger.CAction(5, FUNC_NAMES.SERV_MGR, {
-				userId: userID,
-				action: "tshock-token-retrieved",
-				status: "ok",
-				details: {
-					apiIP: this.ip,
-					apiPort: process.env.TSHOCK_API_PORT,
-					endpoint,
-					tokenSource: token.source || "unknown",
-					cacheHit: token.cacheHit,
-					tokenExpiresAt: token.expiresAtMs,
-					tokenExpiresIn: token.expiresAtMs - Date.now()
-				}
-			});
-		} catch (e: any) {
-			if (e?.message?.includes("ECONNREFUSED")) {
-				CWLogger.CAction(5, FUNC_NAMES.SERV_MGR, {
-					userId: userID,
-					action: "tshock-conn-refused",
-					status: 'token-request-refused',
-					resource: null,
-					details: {
-						phase: 'token-acquire',
-						fullMessage: e.message,
-						target: {
-							apiIP: this.ip,
-							apiPort: process.env.TSHOCK_API_PORT,
-							endpoint,
-						},
-					}
-				});
-
-				return ResponseUtil.Success({ server: { status: false } });
-			} else {
-				CWLogger.Error(FUNC_NAMES.SERV_MGR, {
-					userId: userID,
-					action: "tshock-get-token",
-					error: e.message ?? "unknown",
-					details: {
-						target: {
-							apiIP: this.ip,
-							apiPort: process.env.TSHOCK_API_PORT,
-							endpoint,
-							method
-						},
-					}
-				});
-				throw e;
-			}
+		// Concatenated from env in vars.ts, so an unset variable arrives as the literal
+		// "undefined:stage" rather than a falsy value — check the raw var, not the derived constant.
+		if (!process.env.TSHOCK_PROXY_FUNCTION_ARN) {
+			throw new Error("No tshock-proxy function ARN configured");
 		}
 
-		const baseURL = `http://${this.ip}:${process.env.TSHOCK_API_PORT}`;
+		const credential = await this.getCredential(userID, endpoint, method);
 
-		const urlParams = new URLSearchParams();
-		urlParams.set("token", token.token);
+		const request: TShockProxyRequest = {
+			requestType: TSHOCK_PROXY_REQUEST_TYPE,
+			address: this.ip,
+			port: process.env.TSHOCK_API_PORT!,
+			endpoint,
+			method,
+			credential,
+			userID,
+		};
 		if (params) {
-			for (const [key, value] of Object.entries(params)) {
-				if (value === undefined) {
-					continue;
-				}
-				urlParams.set(key, value);
-			}
+			request.params = params;
 		}
 
-		const url = `${baseURL}${endpoint}?${urlParams.toString()}`;
 		const requestStartAt = Date.now();
 
-		const headers = {
-			"Content-Type": "application/json",
-			"Accept": "application/json",
-		};
-
-		let response: RequestResponse;
+		let result: TShockProxyResponse;
 		try {
-			response = await Network.HTTPJsonRequest(url, { method, headers, timeout: 5000 }, null);
+			const Lambda = new LambdaDao();
+			result = await Lambda.InvokeFunctionSync<TShockProxyResponse>(request, TSHOCK_PROXY_FUNCTION_ARN);
 		} catch (e: any) {
-			// If the token cache includes a token, but the server has been shut down, it will fail here instead
-			if (e?.message?.includes("ECONNREFUSED")) {
-				CWLogger.CAction(5, FUNC_NAMES.SERV_MGR, {
-					userId: userID,
-					action: "tshock-conn-refused",
-					status: 'call-refused',
-					resource: null,
-					details: {
-						phase: 'api-call',
-						fullMessage: e.message,
-						target: {
-							apiIP: this.ip,
-							apiPort: process.env.TSHOCK_API_PORT,
-							endpoint,
-							method
-						},
-					}
-				});
-
-				return ResponseUtil.Success({ server: { status: false } });
-			} else {
-				CWLogger.Error(FUNC_NAMES.SERV_MGR, {
-					userId: userID,
-					action: "tshock-call-failed",
-					error: e.message ?? "unknown",
-					details: {
-						target: {
-							apiIP: this.ip,
-							apiPort: process.env.TSHOCK_API_PORT,
-							endpoint,
-							method
-						},
-					}
-				});
-				throw e;
-			}
+			CWLogger.Error(FUNC_NAMES.SERV_MGR, {
+				userId: userID,
+				action: "tshock-proxy-invoke-failed",
+				error: e.message ?? "unknown",
+				details: {
+					target: { apiIP: this.ip, apiPort: process.env.TSHOCK_API_PORT, endpoint, method },
+				}
+			});
+			throw e;
 		}
 
 		CWLogger.CAction(5, FUNC_NAMES.SERV_MGR, {
 			userId: userID,
 			action: "tshock-response",
-			status: response.statusCode < 200 || response.statusCode >= 300 ? 'non-2xx' : 'ok',
+			status: result.ok ? "ok" : result.reason,
 			resource: null,
 			details: {
-				target: {
-					apiIP: this.ip,
-					apiPort: process.env.TSHOCK_API_PORT,
-					endpoint,
-					method,
-				},
+				target: { apiIP: this.ip, apiPort: process.env.TSHOCK_API_PORT, endpoint, method },
 				requestDurationMs: Date.now() - requestStartAt,
-				statusCode: response.statusCode,
-				responseKeys: response.json ? Object.keys(response.json).slice(0, 20) : [],
-				responseMessage: Parsers.Truncate(response.json?.message || response.json?.error || ""),
+				statusCode: result.ok ? result.statusCode : null,
+				responseKeys: result.ok ? Object.keys(result.json).slice(0, 20) : [],
+				responseMessage: result.ok ? Parsers.Truncate(result.json?.message || result.json?.error || "") : "",
 			}
 		});
 
-		if (response.statusCode < 200 || response.statusCode >= 300) {
-			const message = response.json?.message || "TShock API error";
-			throw new Error(`TShock HTTP ${response.statusCode}: ${message}`);
+		if (!result.ok) {
+			if (result.reason === "connection-refused") {
+				CWLogger.CAction(5, FUNC_NAMES.SERV_MGR, {
+					userId: userID,
+					action: "tshock-conn-refused",
+					status: "call-refused",
+					resource: null,
+					details: {
+						target: { apiIP: this.ip, apiPort: process.env.TSHOCK_API_PORT, endpoint, method },
+					}
+				});
+
+				// Returns an APIGatewayProxyResult from a method typed as returning TShock JSON. That
+				// is odd, but it is the long-standing contract every "is the server up?" caller reads,
+				// so it is preserved exactly rather than tidied here.
+				return ResponseUtil.Success({ server: { status: false } });
+			}
+
+			CWLogger.Error(FUNC_NAMES.SERV_MGR, {
+				userId: userID,
+				action: "tshock-call-failed",
+				error: result.message,
+				details: {
+					target: { apiIP: this.ip, apiPort: process.env.TSHOCK_API_PORT, endpoint, method },
+				}
+			});
+			throw new Error(result.message);
 		}
 
-		return response.json;
+		return result.json;
 	}
 
-	public static DropTokenCache(): void
+	/**
+	 * Forces the next call to re-read the REST credential from Secrets Manager. Useful after rotating
+	 * the secret, which is the only thing that invalidates it.
+	 *
+	 * Deliberately **not** called after a world launch or server restart. It used to be, back when it
+	 * was `DropTokenCache` and this class cached TShock *tokens* — those a restart really does
+	 * invalidate. Tokens now live in `tshock-proxy` containers that this process cannot reach, and
+	 * the 403-triggered re-mint in `TShockDirect.Request` recovers from a restart on its own. Calling
+	 * this on a restart would only buy a pointless Secrets Manager read on the next TShock call,
+	 * which is the hot path.
+	 */
+	public static DropCredentialCache(): void
 	{
-		this.tokenCache.clear();
+		TShockAPI.credential = null;
 	}
 
-	private async getAuthToken(): Promise<TokenData>
+	private async getCredential(userID: string, endpoint: string, method: HttpMethod): Promise<TShockCredential>
 	{
-		const cachedToken = TShockAPI.tokenCache.get(this.ip);
-		if (cachedToken && cachedToken.expiresAtMs && cachedToken.expiresAtMs > Date.now()) {
-			return {
-				token: cachedToken.token,
-				expiresAtMs: cachedToken.expiresAtMs,
-				source: "cache",
-				cacheHit: true
-			};
+		if (TShockAPI.credential) {
+			return TShockAPI.credential;
 		}
 
-		const SM = new SecretsManagerDao();
-
-		const secretName = process.env.TSHOCK_SECRET_NAME;
-		Assert.IsTruthyString(secretName, "TSHOCK_SECRET_NAME is not set");
-		const rawSecret = await SM.GetSecret(secretName!);
-		Assert.IsTruthy(rawSecret, "Failed to get TShock secret");
-		let secret: { TSHOCK_USER?: string, TSHOCK_PASSWORD?: string } = {};
 		try {
-			secret = JSON.parse(rawSecret!);
-		} catch { }
-		
-		Assert.ObjectHasTruthyKeys(secret, ["TSHOCK_USER", "TSHOCK_PASSWORD"], "Secret is missing data");
+			const SM = new SecretsManagerDao();
 
-		const newToken = await this.createNewToken(secret.TSHOCK_USER!, secret.TSHOCK_PASSWORD!);
-		TShockAPI.tokenCache.set(this.ip, newToken);
+			const secretName = process.env.TSHOCK_SECRET_NAME;
+			Assert.IsTruthyString(secretName, "TSHOCK_SECRET_NAME is not set");
+			const rawSecret = await SM.GetSecret(secretName!);
+			Assert.IsTruthy(rawSecret, "Failed to get TShock secret");
+			let secret: { TSHOCK_USER?: string, TSHOCK_PASSWORD?: string } = {};
+			try {
+				secret = JSON.parse(rawSecret!);
+			} catch { }
 
-		return {
-			...newToken,
-			source: "new-token",
-			cacheHit: false
-		};
-	}
+			Assert.ObjectHasTruthyKeys(secret, ["TSHOCK_USER", "TSHOCK_PASSWORD"], "Secret is missing data");
 
-	private async createNewToken(username: string, password: string): Promise<TempToken>
-	{
-		Assert.IsTruthy(process.env.TSHOCK_API_PORT, "TShock API port is not set");
-		const base = `http://${this.ip}:${process.env.TSHOCK_API_PORT}`;
-		const endpoint = '/v2/token/create';
+			TShockAPI.credential = {
+				username: secret.TSHOCK_USER!,
+				password: secret.TSHOCK_PASSWORD!,
+			};
 
-		// TShock's token endpoint only accepts the login pair as query parameters, so this URL
-		// carries a live credential. It must never be logged or put in an error message
-		// un-redacted — see `redactCredentials`, which `Network` applies to anything it names.
-		const params = `?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`;
-		// Same explicit timeout as APIRequest. Token acquisition sits in front of every other TShock
-		// call, so an unbounded wait here stalls whatever the caller was actually trying to do.
-		const { statusCode, json } = await Network.HTTPJsonRequest(`${base}${endpoint}${params}`, { method: HttpMethod.GET, headers: { 'Accept': 'application/json' }, timeout: 5000 });
-
-		if (statusCode >= 200 && statusCode < 300) {
-			const tokenExpiry = Date.now() + 5 * 60 * 1000; // Expire in 5 minutes
-			return { token: json.token, expiresAtMs: tokenExpiry };
+			return TShockAPI.credential;
+		} catch (e: any) {
+			CWLogger.Error(FUNC_NAMES.SERV_MGR, {
+				userId: userID,
+				action: "tshock-get-credential",
+				error: e.message ?? "unknown",
+				details: {
+					target: { apiIP: this.ip, apiPort: process.env.TSHOCK_API_PORT, endpoint, method },
+				}
+			});
+			throw e;
 		}
-
-		CWLogger.Error(FUNC_NAMES.SERV_MGR, {
-			action: "tshock-create-token",
-			error: `HTTP ${statusCode} - ${json.error || json.message || "[ unknown ]"}`,
-			details: { json }
-		});
-
-		throw new Error("Failed to create TShock token");
 	}
 }

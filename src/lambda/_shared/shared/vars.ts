@@ -30,6 +30,13 @@ export const INSTANCE_MANAGER_FUNCTION_ARN =
 	process.env.ACTIVE_ENV === "prod"
 		? (process.env.INSTANCE_MANAGER_FUNCTION_ARN + ":prod")
 		: (process.env.INSTANCE_MANAGER_FUNCTION_ARN + ":stage");
+// Alias-qualified ARN of tshock-proxy, the VPC-attached lambda that performs TShock REST calls.
+// Same qualification reasoning as above. Callers must check for the unset case themselves — an
+// absent env var concatenates to the literal "undefined:stage" rather than failing here.
+export const TSHOCK_PROXY_FUNCTION_ARN =
+	process.env.ACTIVE_ENV === "prod"
+		? (process.env.TSHOCK_PROXY_FUNCTION_ARN + ":prod")
+		: (process.env.TSHOCK_PROXY_FUNCTION_ARN + ":stage");
 export const ROLE_KEY_PREFIX = "role#";
 export const PATREON_TIERMAP_KEY_PREFIX = "patreontier#";
 export const PATREON_CODE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-patreon-oidc-codes" : "ttesm-patreon-oidc-codes-stage";

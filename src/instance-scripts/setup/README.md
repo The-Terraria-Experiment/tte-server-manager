@@ -79,17 +79,31 @@ aws ec2 modify-instance-attribute \
 ```
 
 The group needs inbound `7777` (Terraria) from anywhere, `22` from your IP for
-the duration of setup, and `3891` (TShock REST).
+the duration of setup, and `3891` (TShock REST) **from the `tshock-proxy` lambda's
+security group only** — not from a CIDR:
 
-> **Read this before opening 3891.** The lambdas connect to
-> `http://<publicIp>:3891` — the **public** IP, over **plain HTTP**, with the
-> REST token in the query string. That means the port has to be reachable from
-> the internet, and the credentials cross it unencrypted. This is the existing
-> design, not something this script introduces, but provisioning a new box is
-> the moment to decide whether you want to keep it. The tighter options are
-> putting the lambdas in the VPC and switching to private IPs, or fronting REST
-> with TLS. If you're leaving it as-is, at minimum don't reuse the REST password
-> anywhere else.
+```bash
+aws ec2 authorize-security-group-ingress --group-id <sg-id> \
+  --ip-permissions IpProtocol=tcp,FromPort=3891,ToPort=3891,UserIdGroupPairs="[{GroupId=<tshock-proxy-sg>}]"
+```
+
+> **Two things about 3891 that will bite you if you get them wrong.**
+>
+> It used to be open to `0.0.0.0/0`, because the lambdas dialled the instance's
+> **public** IP over plain HTTP with the REST credentials in the query string.
+> That is no longer the case: `tshock-proxy` sits in the VPC and is the only
+> thing that talks to this port, so it stays closed to the internet.
+>
+> 1. **The instance must be in the same VPC as `tshock-proxy`'s ENIs.** Nothing
+>    checks this. An instance in another VPC registers fine, shows healthy in the
+>    UI, and fails every REST call.
+> 2. **The lambdas dial the private IP**, and that is what makes the source-group
+>    rule above work. Traffic sent to a *public* address from inside the VPC
+>    hairpins out through the internet gateway and comes back with a public
+>    source address, which will not match a `UserIdGroupPairs` rule.
+>
+> Port `7777` is unaffected and stays open to the world — that is how players
+> connect. Setup still runs over SSH on `22`.
 
 ## The TShock artifact
 

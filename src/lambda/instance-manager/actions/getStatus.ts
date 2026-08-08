@@ -35,5 +35,9 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 		details: { status },
 	});
 
-	return ResponseUtil.Success({ instance: { ...status, shutdown } });
+	// privateIp is destructured off rather than spread through: it's only ever an input to the
+	// TShock REST path, the client has no use for it, and this response goes to the browser.
+	const { privateIp: _privateIp, ...clientStatus } = status;
+
+	return ResponseUtil.Success({ instance: { ...clientStatus, shutdown } });
 };
