@@ -1,13 +1,13 @@
 <template>
 	<div class="flex rounded-b-2xl md:rounded-none overflow-hidden sm:fixed sm:w-full z-chrome shadow-lg shadow-gray-1">
-		<div class="h-14 md:h-16 grow bg-gray-3 md:bg-linear-to-r from-gray-3 to-gray-5 from-50%  flex items-center">
+		<div class="h-14 md:h-16 grow bg-gray-3  flex items-center">
 			<p v-if="isMobile" class="font-main font-semibold text-cream ml-4 text-lg">SERVER MANAGER</p>
 			<p v-else class="font-main font-semibold text-cream text-xl ml-4">SERVER MANAGEMENT DASHBOARD</p>
 		</div>
 
-		<div v-if="!isMobile" class="h-16 w-6 bg-gray-5 z-10 rounded-br-3xl"></div>
+		<div v-if="!isMobile" class="h-16 w-6 bg-gray-3 z-10 rounded-br-3xl"></div>
 
-		<BevelCurve v-if="!isMobile" color="text-gray-5" size="6" class="z-10" />
+		<BevelCurve v-if="!isMobile" color="text-gray-3" size="6" class="z-10" />
 
 		<div class="bg-gray-3 md:bg-gray-1 md:-ml-12 md:pl-12 flex items-center md:items-start" title="Profile">
 			<FlexButton 

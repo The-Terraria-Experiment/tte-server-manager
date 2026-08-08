@@ -1,6 +1,6 @@
 <template>
 	<div class="sm:grid sm:grid-cols-2 gap-2">
-		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full w-full p-4 mb-4 sm:mb-8 flex flex-col items-center justify-center']">
+		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full w-full p-4 mb-4 sm:mb-8 flex flex-col items-center justify-center border border-gray-3']">
 			<!-- <div class="title-bg-gradient"></div> -->
 			<div class="flex items-center">
 				<Icon icon="gamepad" size="8" color="text-white-1 sm:text-teal-4" />
@@ -10,7 +10,7 @@
 		</div>
 		<div
 			v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
-			class="bg-gray-1 p-4 rounded-xl"
+			class="bg-gray-1 p-4 rounded-xl border border-gray-3"
 		>
 			<p class="font-main font-bold text-gray-7 mb-2">PICK HOST INSTANCE</p>
 			<Dropdown
