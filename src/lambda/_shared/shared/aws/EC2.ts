@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { CWLogger } from "./CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
-import { Delay } from "../utils/Delay.js";
+import { Delay } from "../utils/core/Delay.js";
 
 export const InstanceState = {
 	PENDING: "pending",

@@ -1,8 +1,8 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { PERMISSIONS } from "../shared/permissionValues.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { PlayerEvent, ServerEvent } from "../shared/schema/LogsTable.js";
 import { LOGS_TABLE } from "../shared/vars.js";

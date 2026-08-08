@@ -1,9 +1,9 @@
 import type { APIGatewayProxyResult } from "aws-lambda";
-import type { SystemShutdownEntry } from "../schema/SystemTable.js";
-import { DynamoDao } from "../aws/DynamoDB.js";
-import { LambdaDao } from "../aws/Lambda.js";
-import { SHUTDOWN_KEY, SYSTEM_TABLE } from "../vars.js";
-import { ResponseUtil } from "./APIResponse.js";
+import type { SystemShutdownEntry } from "../../schema/SystemTable.js";
+import { DynamoDao } from "../../aws/DynamoDB.js";
+import { LambdaDao } from "../../aws/Lambda.js";
+import { SHUTDOWN_KEY, SYSTEM_TABLE } from "../../vars.js";
+import { ResponseUtil } from "../core/APIResponse.js";
 import { isJobAbandoned, isJobBlocking, isJobTerminal, jobIdleForMs } from "./AsyncJob.js";
 
 /**

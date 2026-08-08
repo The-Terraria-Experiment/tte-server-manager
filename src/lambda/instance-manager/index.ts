@@ -2,12 +2,12 @@ import type { APIGatewayProxyResult, Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../shared/types/APIGatewayTypes.js";
 import type { EndpointList } from "../../shared/types/LambdaTypes.js";
 import { createHandler } from "./shared/middleware/createHandler.js";
-import { Parsers } from "./shared/utils/Parsers.js";
+import { Parsers } from "./shared/utils/core/Parsers.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { FUNC_NAMES } from "./shared/constants.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
-import { Permissions } from "./shared/utils/Perms.js";
-import { ResponseUtil } from "./shared/utils/APIResponse.js";
+import { Permissions } from "./shared/utils/core/Perms.js";
+import { ResponseUtil } from "./shared/utils/core/APIResponse.js";
 import { list } from "./actions/list.js";
 import { getStatus } from "./actions/getStatus.js";
 import { start } from "./actions/start.js";
@@ -30,7 +30,7 @@ import { shutdownWorker } from "./actions/shutdownWorker.js";
 import { readInstanceRegistry } from "./actions/readInstanceRegistry.js";
 import { createInstanceRegistration, updateInstanceRegistration } from "./actions/writeInstanceRegistry.js";
 import { deleteInstanceRegistration } from "./actions/deleteInstanceRegistration.js";
-import type { ShutdownRequestData } from "./shared/utils/ShutdownJob.js";
+import type { ShutdownRequestData } from "./shared/utils/jobs/ShutdownJob.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {

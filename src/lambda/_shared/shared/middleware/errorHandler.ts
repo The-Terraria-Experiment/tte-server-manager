@@ -1,8 +1,8 @@
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
-import { ResponseUtil } from "../utils/APIResponse.js";
+import { ResponseUtil } from "../utils/core/APIResponse.js";
 import { CWLogger } from "../aws/CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
-import { redactCredentials, redactToJson } from "../utils/Redact.js";
+import { redactCredentials, redactToJson } from "../utils/core/Redact.js";
 import type { LambdaHandler } from "../../../../shared/types/LambdaTypes.js";
 
 /**

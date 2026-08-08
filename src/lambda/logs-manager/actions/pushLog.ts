@@ -1,7 +1,7 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { IGNORE_UNKNOWN_SOURCE_LOGS, LOGS_TABLE, SYSTEM_TABLE } from "../shared/vars.js";
 import { PlayerEvent, type LogDataEntry, type PayloadSchemaV1 } from "../shared/schema/LogsTable.js";
 import type { AutoShutoffStateEntry } from "../shared/schema/SystemTable.js";

@@ -1,4 +1,4 @@
-import type { HttpMethod } from "./Network.js";
+import type { HttpMethod } from "../core/Network.js";
 
 /**
  * Wire contract between `TShockAPI` (caller side, outside the VPC) and the `tshock-proxy` lambda

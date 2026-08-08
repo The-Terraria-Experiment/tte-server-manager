@@ -1,20 +1,20 @@
 import type { Context } from "aws-lambda";
 import type { SystemShutdownEntry } from "../shared/schema/SystemTable.js";
-import type { ShutdownRequestData } from "../shared/utils/ShutdownJob.js";
+import type { ShutdownRequestData } from "../shared/utils/jobs/ShutdownJob.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { CleanupUtil } from "../shared/utils/Cleanup.js";
-import { boundedWaitDeadline } from "../shared/utils/SyncBudget.js";
-import { shutdownJobKey } from "../shared/utils/ShutdownJob.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { CleanupUtil } from "../shared/utils/jobs/Cleanup.js";
+import { boundedWaitDeadline } from "../shared/utils/jobs/SyncBudget.js";
+import { shutdownJobKey } from "../shared/utils/jobs/ShutdownJob.js";
 import {
 	SHUTDOWN_STEP_COMPLETED,
 	SHUTDOWN_STEP_STOPPING,
 	SHUTDOWN_TASKS,
 	taskProgress,
-} from "../shared/utils/ShutdownTasks.js";
+} from "../shared/utils/jobs/ShutdownTasks.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 
 /**

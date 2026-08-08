@@ -1,5 +1,5 @@
-import { HttpMethod, Network, type RequestResponse } from "./Network.js";
-import { redactCredentials } from "./Redact.js";
+import { HttpMethod, Network, type RequestResponse } from "../core/Network.js";
+import { redactCredentials } from "../core/Redact.js";
 import type { TShockCredential, TShockProxyRequest, TShockProxyResponse } from "./TShockProxy.js";
 
 /**

@@ -1,7 +1,7 @@
-import { DynamoDao } from "../aws/DynamoDB.js";
-import { Assert } from "./Assert.js";
-import { CURRENT_ENV, ENVIRONMENTS, type EnvironmentName } from "../vars.js";
-import type { InstanceDataEntry } from "../schema/InstanceTable.js";
+import { DynamoDao } from "../../aws/DynamoDB.js";
+import { Assert } from "../core/Assert.js";
+import { CURRENT_ENV, ENVIRONMENTS, type EnvironmentName } from "../../vars.js";
+import type { InstanceDataEntry } from "../../schema/InstanceTable.js";
 
 export const INSTANCE_KEY_PREFIX = "inst#";
 

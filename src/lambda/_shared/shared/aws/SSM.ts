@@ -1,7 +1,7 @@
 import { GetCommandInvocationCommand, SSMClient, SendCommandCommand } from "@aws-sdk/client-ssm";
 import { CWLogger } from "./CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
-import { Delay } from "../utils/Delay.js";
+import { Delay } from "../utils/core/Delay.js";
 
 export interface SsmCommandResult {
 	status: string;

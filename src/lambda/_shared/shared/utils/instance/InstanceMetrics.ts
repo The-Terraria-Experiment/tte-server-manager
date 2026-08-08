@@ -9,7 +9,7 @@
  * parses the JSON that comes back.
  */
 
-import type { SsmCommandResult } from "../aws/SSM.js";
+import type { SsmCommandResult } from "../../aws/SSM.js";
 
 export const METRICS_CTL = "/usr/local/bin/tte-metrics-ctl";
 

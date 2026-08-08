@@ -2,7 +2,7 @@ import { timingSafeEqual } from "node:crypto";
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 import { PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { consumeCode } from "../lib/ephemeralCode.js";
 import { toPatreonSub } from "../lib/patreonClient.js";
 import { signAccessToken, signIdToken } from "../lib/signing.js";

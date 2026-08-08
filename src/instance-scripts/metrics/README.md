@@ -75,7 +75,7 @@ all, and so a rebuilt box picks its settings back up during `setup.sh`.
 | Local retention | `--retain` | 1–30 days |
 
 Bounds are enforced in three places — this script, `METRICS_BOUNDS` in
-`_shared/shared/utils/InstanceMetrics.ts`, and the frontend tile. Change one,
+`_shared/shared/utils/instance/InstanceMetrics.ts`, and the frontend tile. Change one,
 change all three.
 
 ## Cost of an upload

@@ -1,6 +1,6 @@
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
-import { InstanceRegistry } from "../shared/utils/InstanceRegistry.js";
+import { InstanceRegistry } from "../shared/utils/instance/InstanceRegistry.js";
 import type { AutoShutoffStateEntry } from "../shared/schema/SystemTable.js";
 
 const STATE_PREFIX = "autoshutoff#";

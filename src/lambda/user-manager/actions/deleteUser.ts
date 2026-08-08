@@ -5,9 +5,9 @@ import { CognitoDao } from "../shared/aws/Cognito.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { USER_ARCHIVE_TABLE, COGNITO_USER_POOL_ID, PERM_TABLE } from "../shared/vars.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
 
 type DeleteUserBody = {
 	userID?: string;

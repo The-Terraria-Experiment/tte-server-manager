@@ -1,6 +1,6 @@
-import { S3Dao } from "../aws/S3.js";
-import { SsmDao } from "../aws/SSM.js";
-import { Assert } from "./Assert.js";
+import { S3Dao } from "../../aws/S3.js";
+import { SsmDao } from "../../aws/SSM.js";
+import { Assert } from "../core/Assert.js";
 
 /**
  * Writes a server password into the instance's tshock/config.json before a world is launched or

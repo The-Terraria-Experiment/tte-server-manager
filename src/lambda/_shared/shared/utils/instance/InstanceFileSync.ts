@@ -1,8 +1,8 @@
-import { S3Dao } from "../aws/S3.js";
-import { SsmDao } from "../aws/SSM.js";
-import { CWLogger } from "../aws/CloudWatch.js";
-import { CW_LOG_GENERAL } from "../constants.js";
-import { pollsUntilDeadline } from "./SyncBudget.js";
+import { S3Dao } from "../../aws/S3.js";
+import { SsmDao } from "../../aws/SSM.js";
+import { CWLogger } from "../../aws/CloudWatch.js";
+import { CW_LOG_GENERAL } from "../../constants.js";
+import { pollsUntilDeadline } from "../jobs/SyncBudget.js";
 
 /**
  * Bounded wait for the shutdown-time file sync. The SSM upload must finish before the instance

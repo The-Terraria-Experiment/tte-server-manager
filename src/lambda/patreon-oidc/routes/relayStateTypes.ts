@@ -1,4 +1,4 @@
-import type { HmacTokenPayload } from "../shared/utils/HmacToken.js";
+import type { HmacTokenPayload } from "../shared/utils/core/HmacToken.js";
 
 export interface FederationRelayState extends HmacTokenPayload {
 	mode: "federation";

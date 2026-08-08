@@ -1,9 +1,9 @@
 import path from "path";
-import { SsmDao } from "../aws/SSM.js";
-import { CWLogger } from "../aws/CloudWatch.js";
-import { CW_LOG_GENERAL } from "../constants.js";
-import { getRecentDates } from "./LogDateRanges.js";
-import { pollsUntilDeadline } from "./SyncBudget.js";
+import { SsmDao } from "../../aws/SSM.js";
+import { CWLogger } from "../../aws/CloudWatch.js";
+import { CW_LOG_GENERAL } from "../../constants.js";
+import { getRecentDates } from "../core/LogDateRanges.js";
+import { pollsUntilDeadline } from "../jobs/SyncBudget.js";
 
 /** Local TShock log files older than this many days are pruned from the instance on shutdown. */
 const LOCAL_RETENTION_DAYS = 30;

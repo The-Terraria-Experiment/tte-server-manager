@@ -1,7 +1,7 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
-import type { LambdaHandler } from "../../../../shared/types/LambdaTypes.js";
-import { logError } from "../middleware/errorHandler.js";
-import type { AuthorizedEvent } from "../../../../shared/types/APIGatewayTypes.js";
+import type { LambdaHandler } from "../../../../../shared/types/LambdaTypes.js";
+import { logError } from "../../middleware/errorHandler.js";
+import type { AuthorizedEvent } from "../../../../../shared/types/APIGatewayTypes.js";
 
 export class Parsers {
 	/**

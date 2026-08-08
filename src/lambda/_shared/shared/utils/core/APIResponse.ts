@@ -1,6 +1,6 @@
 import type { APIGatewayProxyResult } from "aws-lambda";
-import { CWLogger } from "../aws/CloudWatch.js";
-import { CW_LOG_GENERAL } from "../constants.js";
+import { CWLogger } from "../../aws/CloudWatch.js";
+import { CW_LOG_GENERAL } from "../../constants.js";
 import { redact, redactCredentials } from "./Redact.js";
 
 const ALLOWED_ORIGINS: Set<string> = new Set(

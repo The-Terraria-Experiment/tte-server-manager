@@ -1,18 +1,18 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { InstanceState } from "../shared/aws/EC2.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import type { AutoShutoffStateEntry, SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
-import { readShutdownState } from "../shared/utils/ShutdownJob.js";
+import { readShutdownState } from "../shared/utils/jobs/ShutdownJob.js";
 
 export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 	void context;

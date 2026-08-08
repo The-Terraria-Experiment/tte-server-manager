@@ -227,7 +227,7 @@ On failure it dumps the full transcript. A successful run also saves it to
 `$ROOT/logs/setup-console.log`.
 
 The permission list lives in `REST_PERMS` at the top of `setup.sh` and mirrors
-the docstring on `_shared/shared/utils/TShockAPI.ts`. **If you add a REST call
+the docstring on `_shared/shared/utils/tshock/TShockAPI.ts`. **If you add a REST call
 there that needs a new permission, add it in both places** — existing instances
 won't pick it up, and the symptom is a 403 on one specific feature.
 

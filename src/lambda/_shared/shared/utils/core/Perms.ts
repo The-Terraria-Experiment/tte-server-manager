@@ -1,10 +1,10 @@
 import type { APIGatewayProxyEvent } from "aws-lambda";
-import { DynamoDao } from "../aws/DynamoDB.js";
-import { CWLogger } from "../aws/CloudWatch.js";
+import { DynamoDao } from "../../aws/DynamoDB.js";
+import { CWLogger } from "../../aws/CloudWatch.js";
 import { Parsers } from "./Parsers.js";
 import { Assert } from "./Assert.js";
-import { CW_LOG_GENERAL } from "../constants.js";
-import { PERM_TABLE, SYSTEM_TABLE } from "../vars.js";
+import { CW_LOG_GENERAL } from "../../constants.js";
+import { PERM_TABLE, SYSTEM_TABLE } from "../../vars.js";
 
 export interface UserPermissionData {
 	uid?: string;

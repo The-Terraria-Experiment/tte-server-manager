@@ -6,10 +6,10 @@ import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { S3Dao, MISSING_LOCAL_FILE_MARKER } from "../shared/aws/S3.js";
 import { SsmDao, isInstanceNotReadyForSsm } from "../shared/aws/SSM.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 
 type DownloadFileBody = {
 	pathRoot?: string;

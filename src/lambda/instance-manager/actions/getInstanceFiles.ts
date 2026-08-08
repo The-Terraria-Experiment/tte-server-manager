@@ -4,10 +4,10 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 
 type GetInstanceFilesBody = {
 	rootName?: string;

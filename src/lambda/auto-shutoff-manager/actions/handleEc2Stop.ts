@@ -3,7 +3,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import type { AutoShutoffMessage, CheckResult } from "./types.js";
 import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
-import { isShutdownBlocking, queueShutdownJob, readShutdownJob } from "../shared/utils/ShutdownJob.js";
+import { isShutdownBlocking, queueShutdownJob, readShutdownJob } from "../shared/utils/jobs/ShutdownJob.js";
 import { INSTANCE_MANAGER_FUNCTION_ARN } from "../shared/vars.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";

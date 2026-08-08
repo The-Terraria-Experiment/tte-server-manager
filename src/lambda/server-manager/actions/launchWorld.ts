@@ -1,20 +1,20 @@
 import type { Context } from "vm";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import type { InstanceDataEntry } from "../shared/schema/InstanceTable.js";
 import path from "path";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
+import { applyServerPasswordToConfig } from "../shared/utils/tshock/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
-import { ensureLogDirsCommand, joinLaunchSteps, tshockProcessPattern } from "../shared/utils/TShockLaunch.js";
-import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
+import { ensureLogDirsCommand, joinLaunchSteps, tshockProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
+import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;

@@ -5,9 +5,9 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SsmDao, isInstanceNotReadyForSsm } from "../shared/aws/SSM.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
 import {
 	METRICS_SSM_POLL,
 	buildStatusCommand,
@@ -16,7 +16,7 @@ import {
 	parseMetricsStatus,
 	toMetricsConfig,
 	type MetricsStatus,
-} from "../shared/utils/InstanceMetrics.js";
+} from "../shared/utils/instance/InstanceMetrics.js";
 
 const DB = new DynamoDao();
 const EC2 = new Ec2Dao();

@@ -1,4 +1,4 @@
-import type { MetricsConfig } from "../utils/InstanceMetrics.js";
+import type { MetricsConfig } from "../utils/instance/InstanceMetrics.js";
 
 /**
  * Desired state for the on-instance metrics collector, plus who applied it.

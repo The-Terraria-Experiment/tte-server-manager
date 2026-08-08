@@ -2,7 +2,7 @@ import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 
 type NoticeRecord = {
 	message?: string;

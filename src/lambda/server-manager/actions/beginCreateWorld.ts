@@ -1,20 +1,20 @@
 import type { Context } from "aws-lambda";
 import type { InstanceDataEntry } from "../shared/schema/InstanceTable.js";
 import type { NewWorldRequestData, NewWorldRequestParams } from "../index.js";
-import { boundedWaitDeadline } from "../shared/utils/SyncBudget.js";
-import { ensureLogDirsCommand, joinLaunchSteps } from "../shared/utils/TShockLaunch.js";
+import { boundedWaitDeadline } from "../shared/utils/jobs/SyncBudget.js";
+import { ensureLogDirsCommand, joinLaunchSteps } from "../shared/utils/tshock/TShockLaunch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import path from "path";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { Delay } from "../shared/utils/Delay.js";
+import { Delay } from "../shared/utils/core/Delay.js";
 import { S3Dao } from "../shared/aws/S3.js";
-import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
+import { applyServerPasswordToConfig } from "../shared/utils/tshock/TShockConfig.js";
 
 /**
  * Resolves the daily TShock stdout log path (BASE-agnostic; matches the redirect target used when

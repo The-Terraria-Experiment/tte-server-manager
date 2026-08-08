@@ -1,12 +1,12 @@
-import { CWLogger } from "../aws/CloudWatch.js";
-import { LambdaDao } from "../aws/Lambda.js";
-import { SecretsManagerDao } from "../aws/SecretsManager.js";
-import { FUNC_NAMES } from "../constants.js";
-import { TSHOCK_PROXY_FUNCTION_ARN } from "../vars.js";
-import { Assert } from "./Assert.js";
-import { ResponseUtil } from "./APIResponse.js";
-import { HttpMethod } from "./Network.js";
-import { Parsers } from "./Parsers.js";
+import { CWLogger } from "../../aws/CloudWatch.js";
+import { LambdaDao } from "../../aws/Lambda.js";
+import { SecretsManagerDao } from "../../aws/SecretsManager.js";
+import { FUNC_NAMES } from "../../constants.js";
+import { TSHOCK_PROXY_FUNCTION_ARN } from "../../vars.js";
+import { Assert } from "../core/Assert.js";
+import { ResponseUtil } from "../core/APIResponse.js";
+import { HttpMethod } from "../core/Network.js";
+import { Parsers } from "../core/Parsers.js";
 import { TSHOCK_PROXY_REQUEST_TYPE, type TShockCredential, type TShockProxyRequest, type TShockProxyResponse } from "./TShockProxy.js";
 
 

@@ -1,21 +1,21 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { PERM_TABLE, SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { LambdaDao } from "../shared/aws/Lambda.js";
 import type { NewWorldRequestData } from "../index.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 import type { UserDataEntry } from "../../_shared/shared/schema/UserTable.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { isWorldgenBlocking, worldgenIdleForMs } from "../shared/utils/WorldgenJob.js";
-import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
+import { isWorldgenBlocking, worldgenIdleForMs } from "../shared/utils/jobs/WorldgenJob.js";
+import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 
 const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	const { worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName } = body;

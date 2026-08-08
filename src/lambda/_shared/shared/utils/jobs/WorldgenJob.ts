@@ -1,4 +1,4 @@
-import type { SystemWorldCreateEntry } from "../schema/SystemTable.js";
+import type { SystemWorldCreateEntry } from "../../schema/SystemTable.js";
 import { isJobAbandoned, isJobBlocking, isJobTerminal, jobIdleForMs } from "./AsyncJob.js";
 
 /**

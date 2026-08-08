@@ -1,6 +1,6 @@
 import type { Context } from "aws-lambda";
-import { TShockDirect } from "./shared/utils/TShockDirect.js";
-import { TSHOCK_PROXY_REQUEST_TYPE, type TShockProxyRequest, type TShockProxyResponse } from "./shared/utils/TShockProxy.js";
+import { TShockDirect } from "./shared/utils/tshock/TShockDirect.js";
+import { TSHOCK_PROXY_REQUEST_TYPE, type TShockProxyRequest, type TShockProxyResponse } from "./shared/utils/tshock/TShockProxy.js";
 
 /**
  * Performs TShock REST calls on behalf of the other lambdas.

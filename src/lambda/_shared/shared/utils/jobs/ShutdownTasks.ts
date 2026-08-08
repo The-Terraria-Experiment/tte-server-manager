@@ -1,6 +1,6 @@
-import { syncAndPruneTShockLogs } from "./TShockConsoleLogs.js";
-import { syncInstanceFilesToS3 } from "./InstanceFileSync.js";
-import { stopTShockServer } from "./TShockServerStop.js";
+import { syncAndPruneTShockLogs } from "../tshock/TShockConsoleLogs.js";
+import { syncInstanceFilesToS3 } from "../instance/InstanceFileSync.js";
+import { stopTShockServer } from "../tshock/TShockServerStop.js";
 
 /**
  * The ordered work an instance does on its way down, while it is still online and reachable over SSM.

@@ -4,10 +4,10 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { InstanceRegistry, INSTANCE_KEY_PREFIX } from "../shared/utils/InstanceRegistry.js";
-import { blockIfShutdownInProgress } from "../shared/utils/ShutdownJob.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { InstanceRegistry, INSTANCE_KEY_PREFIX } from "../shared/utils/instance/InstanceRegistry.js";
+import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 import { ENVIRONMENTS, SYSTEM_TABLE_BY_ENV } from "../shared/vars.js";
 import type { InstanceDataEntry } from "../shared/schema/InstanceTable.js";
 

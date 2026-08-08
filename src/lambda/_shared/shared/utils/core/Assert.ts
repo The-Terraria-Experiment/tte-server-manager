@@ -1,5 +1,5 @@
-import { CWLogger } from "../aws/CloudWatch.js";
-import { CW_LOG_GENERAL } from "../constants.js";
+import { CWLogger } from "../../aws/CloudWatch.js";
+import { CW_LOG_GENERAL } from "../../constants.js";
 
 export class Assert
 {

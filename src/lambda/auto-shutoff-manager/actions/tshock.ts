@@ -2,7 +2,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
+import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 

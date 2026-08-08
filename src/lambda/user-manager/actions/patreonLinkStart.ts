@@ -1,12 +1,12 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { HmacToken, type HmacTokenPayload } from "../shared/utils/HmacToken.js";
+import { HmacToken, type HmacTokenPayload } from "../shared/utils/core/HmacToken.js";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { PATREON_SHIM_BASE_URL } from "../shared/vars.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 
 interface LinkIntentPayload extends HmacTokenPayload {
 	username: string;

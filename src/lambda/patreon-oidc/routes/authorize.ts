@@ -1,9 +1,9 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
-import { HmacToken } from "../shared/utils/HmacToken.js";
+import { HmacToken } from "../shared/utils/core/HmacToken.js";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { loadPatreonCreds } from "../lib/patreonCreds.js";
 import { PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
 import type { FederationRelayState, LinkIntentPayload, LinkRelayState } from "./relayStateTypes.js";

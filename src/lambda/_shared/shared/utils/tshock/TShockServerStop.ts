@@ -1,8 +1,8 @@
-import { CWLogger } from "../aws/CloudWatch.js";
-import { Ec2Dao, InstanceState } from "../aws/EC2.js";
-import { SsmDao, isSsmPollTimeout } from "../aws/SSM.js";
-import { CW_LOG_GENERAL } from "../constants.js";
-import { pollsUntilDeadline } from "./SyncBudget.js";
+import { CWLogger } from "../../aws/CloudWatch.js";
+import { Ec2Dao, InstanceState } from "../../aws/EC2.js";
+import { SsmDao, isSsmPollTimeout } from "../../aws/SSM.js";
+import { CW_LOG_GENERAL } from "../../constants.js";
+import { pollsUntilDeadline } from "../jobs/SyncBudget.js";
 import { TShockAPI } from "./TShockAPI.js";
 import { tshockProcessPattern } from "./TShockLaunch.js";
 
