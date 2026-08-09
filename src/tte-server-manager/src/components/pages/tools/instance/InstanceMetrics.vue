@@ -4,7 +4,7 @@
 		match-any-permission
 		collapsible
 		class="mt-2"
-		:loading="loading.fetch || loading.save || loading.upload || loading.selftest"
+		:loading="loading.fetch || loading.save || loading.upload || loading.selftest || loading.metrics"
 	>
 		<template #header>
 			<Icon icon="gauge" color="text-gray-6" size="4" />
@@ -167,34 +167,124 @@
 						</p>
 					</div>
 
-					<div class="grid grid-cols-2 gap-4 mt-10">
+				</template>
+
+				<!--
+					Outside the config load guard on purpose: the samples live in S3, so
+					they are readable whether or not the collector's configuration could
+					be read, and whether or not the instance is running.
+
+					One range for the whole section — every graph below plots the same
+					window so they can be read against each other.
+				-->
+				<div class="mt-10">
+					<div class="flex flex-wrap items-end justify-between gap-4">
+						<div class="flex flex-wrap items-end gap-4">
+							<div class="flex flex-col gap-y-2">
+								<p class="font-main font-bold text-gray-8">Time range</p>
+								<Dropdown
+									:options="rangeOptions"
+									v-model="range.preset"
+									:disabled="loading.metrics"
+									inputClass="bg-gray-5 text-white-0"
+									class="max-w-80 min-w-58"
+								/>
+							</div>
+							<template v-if="range.preset === 'custom'">
+								<div class="flex flex-col gap-y-2">
+									<p class="font-main font-bold text-gray-8">From</p>
+									<DateTimePicker v-model="range.customStart" :disabled="loading.metrics" class="w-64" />
+								</div>
+								<div class="flex flex-col gap-y-2">
+									<p class="font-main font-bold text-gray-8">To</p>
+									<DateTimePicker v-model="range.customEnd" :disabled="loading.metrics" class="w-64" />
+								</div>
+								<!--
+									Explicit rather than fetching on every edit: a custom range is
+									two fields, and firing a multi-object S3 read as the user is
+									halfway through picking the second one is wasted work.
+								-->
+								<FlexButton
+									:variant="BTN_VARIANT.PRIMARY"
+									:disabled="loading.metrics"
+									@input="fetchMetrics"
+									class="max-h-max"
+								>
+									<p class="font-main font-bold py-2 px-8">APPLY</p>
+								</FlexButton>
+							</template>
+						</div>
+						<RefreshButton
+							:variant="BTN_VARIANT.SECONDARY"
+							:disabled="loading.metrics"
+							@input="fetchMetrics"
+						/>
+					</div>
+
+					<p v-if="metricsError" class="font-main font-bold text-yellow-2 mt-4">
+						{{ metricsError }}
+					</p>
+
+					<!--
+						The samples come out of S3, not off the box, so the newest point is
+						as old as the last upload. Saying so is the difference between
+						"nothing happened recently" and "nothing has been uploaded recently".
+					-->
+					<p v-else-if="metrics" class="font-main font-semibold text-gray-7 mt-4">
+						<span v-if="metricsSummary">{{ metricsSummary }}</span>
+						<span v-else>No samples were collected in this range.</span>
+					</p>
+
+					<p v-if="metrics && metrics.truncated" class="font-main font-bold text-yellow-2 mt-2">
+						This range was too large to read in full — only {{ formatTimestamp(metrics.coveredStart) }} onward is shown.
+					</p>
+
+					<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
 						<div class="flex flex-col">
-							<p class="font-main font-bold mb-2">CPU usage</p>
-							<Graph 
-								class="h-80 rounded-lg overflow-hidden border border-gray-5" 
-								:points="testPts1" 
-								:axes-config="{
-									xAxisFormat: (val) => new Date(Math.floor(val * 1000)).toLocaleString(),
-									yAxisFormat: (val) => Number(val.toFixed(1)) + '%',
-									minXAxisMarkDistance: 200
-								}"
+							<div class="flex items-center justify-between mb-2 gap-4">
+								<p class="font-main font-bold">CPU usage</p>
+								<!--
+									Two lines that converge wherever a bucket holds a single
+									sample, so the key is what tells you which one you're reading
+									when they separate.
+								-->
+								<div class="flex items-center gap-4 font-main font-semibold text-gray-7 text-sm">
+									<span class="flex items-center gap-2">
+										<span class="inline-block w-4 h-0.5" :style="{ backgroundColor: seriesConfig.avg.color }" />
+										Average
+									</span>
+									<span class="flex items-center gap-2">
+										<span class="inline-block w-4 h-0.5" :style="{ backgroundColor: seriesConfig.max.color }" />
+										Peak
+									</span>
+								</div>
+							</div>
+							<Graph
+								v-if="hasMetricData"
+								class="h-80 rounded-lg overflow-hidden border border-gray-5"
+								:points="cpuPoints"
+								:axes-config="graphAxesConfig"
+								:series-config="seriesConfig"
 							/>
+							<div v-else class="h-80 rounded-lg border border-gray-5 bg-gray-2 flex items-center justify-center">
+								<p class="font-main font-semibold text-gray-7">{{ emptyGraphText }}</p>
+							</div>
 						</div>
 						<div class="flex flex-col">
 							<p class="font-main font-bold mb-2">Memory usage</p>
-							<Graph 
-								class="h-80 rounded-lg overflow-hidden border 
-								border-gray-5" 
-								:points="testPts2" 
-								:axes-config="{
-									xAxisFormat: (val) => new Date(Math.floor(val * 1000)).toLocaleString(),
-									yAxisFormat: (val) => Number(val.toFixed(1)) + '%',
-									minXAxisMarkDistance: 200
-								}"
+							<Graph
+								v-if="hasMetricData"
+								class="h-80 rounded-lg overflow-hidden border border-gray-5"
+								:points="memoryPoints"
+								:axes-config="graphAxesConfig"
+								:series-config="seriesConfig"
 							/>
+							<div v-else class="h-80 rounded-lg border border-gray-5 bg-gray-2 flex items-center justify-center">
+								<p class="font-main font-semibold text-gray-7">{{ emptyGraphText }}</p>
+							</div>
 						</div>
 					</div>
-				</template>
+				</div>
 
 				<div class="flex flex-wrap justify-end w-full mt-6 gap-4">
 					<FlexButton
@@ -227,6 +317,7 @@ import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 import Dropdown from '../../../common/Dropdown.vue';
 import ValueInput from '../../../common/ValueInput.vue';
+import DateTimePicker from '../../../common/DateTimePicker.vue';
 import Graph from '@/components/common/Graph.vue';
 
 // Mirrors METRICS_BOUNDS in _shared/shared/utils/InstanceMetrics.ts and the
@@ -247,12 +338,31 @@ const DEFAULTS = {
 	retainDays: 2,
 };
 
+// Presets, in seconds. The longest is capped by MAX_METRICS_RANGE_SEC in
+// InstanceMetricsData.ts — the backend rejects anything wider.
+const RANGE_SECONDS = {
+	"1h": 3600,
+	"6h": 6 * 3600,
+	"12h": 12 * 3600,
+	"24h": 24 * 3600,
+	"3d": 3 * 24 * 3600,
+	"7d": 7 * 24 * 3600,
+	"14d": 14 * 24 * 3600,
+};
+
+// Beyond this, x-axis labels need a date to be readable; below it, the date is
+// the same on every tick and only costs width.
+const DATE_LABEL_THRESHOLD_SEC = 36 * 3600;
+
+const pad2 = (n) => String(n).padStart(2, '0');
+
 export default {
 	components: {
 		Checkbox,
 		Dropdown,
 		ValueInput,
 		RefreshButton,
+		DateTimePicker,
 		Graph,
 	},
 	props: {
@@ -284,39 +394,129 @@ export default {
 			// run this session. Never seeded — an untested collector and a passing
 			// one must not look alike.
 			selftestResult: null,
+			// The sample series for the selected window, exactly as the API returned
+			// it. Null until a read succeeds, so "not fetched yet" and "fetched, no
+			// samples" stay distinguishable — the second is a real finding about the
+			// instance, the first is nothing at all.
+			metrics: null,
+			metricsError: null,
+			// Monotonic per-fetch token; see fetchMetrics.
+			metricsRequestId: 0,
+			// One window for every graph in the section.
+			range: {
+				preset: "6h",
+				// Local "YYYY-MM-DD HH:mm:ss", the shape DateTimePicker binds to.
+				// Seeded from the current preset the first time custom is chosen.
+				customStart: null,
+				customEnd: null,
+			},
 			loading: {
 				fetch: false,
 				save: false,
 				upload: false,
 				selftest: false,
+				metrics: false,
 			},
 			uploadModeOptions: [
 				{ id: "timer", text: "On a schedule" },
 				{ id: "manual", text: "When triggered" },
 			],
+			rangeOptions: [
+				{ id: "1h", text: "Last hour" },
+				{ id: "6h", text: "Last 6 hours" },
+				{ id: "12h", text: "Last 12 hours" },
+				{ id: "24h", text: "Last 24 hours" },
+				{ id: "3d", text: "Last 3 days" },
+				{ id: "7d", text: "Last 7 days" },
+				{ id: "14d", text: "Last 14 days" },
+				{ id: "custom", text: "Custom range" },
+			],
 		}
 	},
 	computed: {
-		testPts1() {
+		metricPoints() {
+			return this.metrics?.points ?? [];
+		},
+		// A single point has no line to draw and gives the graph a zero-width x
+		// range, so the placeholder is the honest rendering of it.
+		hasMetricData() {
+			return this.metricPoints.length >= 2;
+		},
+		// `group` comes from the backend and increments across a gap in the samples,
+		// so the line breaks over a window the instance was stopped rather than
+		// drawing a straight edge across it as though the data were continuous.
+		// Groups are per-line, so a second series has to be offset past the first
+		// one's groups or the two would be stroked as one path.
+		groupOffset() {
+			return this.metricPoints.reduce((max, point) => Math.max(max, point.group), 0) + 1;
+		},
+		// Two lines: the bucket average and the bucket peak. Once the window is wide
+		// enough to bucket, the average alone hides exactly the spikes worth looking
+		// for — a minute at 100% inside a 30-minute bucket reads as 3%.
+		cpuPoints() {
 			return [
-				{ x: 1786132853, y: 0 },
-				{ x: 1786132917, y: 13 },
-				{ x: 1786132983, y: 22 },
-				{ x: 1786133047, y: 10 },
-				
+				...this.metricPoints.map((point) => ({ x: point.t, y: point.cpu, group: point.group, series: "avg" })),
+				...this.metricPoints.map((point) => ({ x: point.t, y: point.cpuMax, group: point.group + this.groupOffset, series: "max" })),
 			];
 		},
-		testPts2() {
-			return [
-				{ x: 1786132853, y: 0, group: 1 },
-				{ x: 1786132917, y: 13, group: 1 },
-				{ x: 1786132983, y: 22, group: 1 },
-				{ x: 1786133047, y: 10, group: 1 },
-				{ x: 1786133687, y: 6, group: 2 },
-				{ x: 1786133753, y: 26, group: 2 },
-				{ x: 1786133817, y: 18, group: 2 },
-				
+		// Only one line: memory is a level, not a rate, so it doesn't spike between
+		// samples the way CPU does and a peak series would sit on top of the average.
+		memoryPoints() {
+			return this.metricPoints.map((point) => ({ x: point.t, y: point.mem, group: point.group, series: "avg" }));
+		},
+		// Peak drawn thinner and dimmer than the average: the two lines converge at
+		// the natural resolution (one sample per bucket makes them identical), so
+		// the average has to stay readable underneath.
+		seriesConfig() {
+			return {
+				// theme.css --color-teal-4 / --color-yellow-2. Literals because the
+				// canvas takes a color string, not a CSS class.
+				avg: { color: "#6dbcb0", lineWeight: 2, label: "avg" },
+				max: { color: "hsl(36, 99%, 64%)", lineWeight: 1, label: "peak" },
+			};
+		},
+		emptyGraphText() {
+			if (this.loading.metrics) return "Loading…";
+			if (this.metricsError) return "No data";
+			if (!this.metrics) return "No data loaded";
+			if (this.metricPoints.length === 0) return "No samples in this range";
+			return "Not enough samples to plot";
+		},
+		// Shared by every graph so they stay legible against each other, and so the
+		// label density follows the window rather than being fixed.
+		graphAxesConfig() {
+			return {
+				xAxisFormat: (val) => this.formatTimestamp(val),
+				yAxisFormat: (val) => `${Number(val.toFixed(1))}%`,
+				minXAxisMarkDistance: 200,
+			};
+		},
+		metricsSummary() {
+			if (!this.metrics || this.metricPoints.length === 0) return "";
+
+			const peakCpu = Math.max(...this.metricPoints.map((point) => point.cpuMax));
+			const peakMemPoint = this.metricPoints.reduce((peak, point) => (point.mem > peak.mem ? point : peak));
+
+			const parts = [
+				`${this.metricPoints.length} point${this.metricPoints.length === 1 ? "" : "s"}`,
+				`peak CPU ${peakCpu}%`,
+				`peak memory ${peakMemPoint.mem}% (${peakMemPoint.memMb} MB)`,
 			];
+
+			// Points are averaged into buckets once the window is wider than the
+			// point budget; saying so keeps a smoothed spike from being read as the
+			// real peak. The peaks above are computed from cpuMax, which isn't.
+			if (this.metrics.bucketSec > 1) {
+				parts.push(`${this.metrics.bucketSec}s resolution`);
+			}
+
+			// The right-hand edge of the graph is the last UPLOAD, not the last
+			// sample taken — under manual upload mode those can be days apart.
+			if (this.metrics.lastSampleAt) {
+				parts.push(`latest sample ${new Date(this.metrics.lastSampleAt * 1000).toLocaleString()}`);
+			}
+
+			return parts.join(" · ");
 		},
 		instanceOnline() {
 			return this.selectedInstanceData.state === 'ONLINE';
@@ -476,6 +676,106 @@ export default {
 			this.fetchConfig(this.instanceOnline);
 		},
 
+		// Epoch seconds -> the local "YYYY-MM-DD HH:mm:ss" string DateTimePicker
+		// binds to. Built by hand rather than sliced out of toISOString(), which
+		// would hand the picker a UTC wall-clock time under a local-time label.
+		toPickerValue(epochSec) {
+			const date = new Date(epochSec * 1000);
+			return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())} `
+				+ `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(date.getSeconds())}`;
+		},
+
+		// The inverse. The picker's value has no zone marker, so replacing the space
+		// with a T gives a string the Date constructor reads as local time — which
+		// is what the user typed.
+		fromPickerValue(value) {
+			if (typeof value !== "string" || !value) return null;
+			const parsed = new Date(value.replace(" ", "T"));
+			return Number.isNaN(parsed.getTime()) ? null : Math.floor(parsed.getTime() / 1000);
+		},
+
+		// Resolves the range controls into an epoch-second window. Presets are
+		// relative to now, so this is recomputed per fetch rather than stored.
+		resolveRange() {
+			if (this.range.preset === "custom") {
+				const start = this.fromPickerValue(this.range.customStart);
+				const end = this.fromPickerValue(this.range.customEnd);
+				if (start === null || end === null) return null;
+				return { start, end };
+			}
+
+			const end = Math.floor(Date.now() / 1000);
+			const span = RANGE_SECONDS[this.range.preset] ?? RANGE_SECONDS["6h"];
+			return { start: end - span, end };
+		},
+
+		// Adaptive because one formatter serves both the axis labels and the hover
+		// readout: over a week the date is what identifies a tick, over an hour it
+		// is the same on every one of them.
+		formatTimestamp(epochSec) {
+			const date = new Date(Math.floor(epochSec) * 1000);
+			const span = this.metrics ? this.metrics.end - this.metrics.start : 0;
+
+			if (span > DATE_LABEL_THRESHOLD_SEC) {
+				return date.toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+			}
+			return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+		},
+
+		async fetchMetrics() {
+			this.$validatePermissions(PERMISSIONS.instance.metrics.read);
+
+			if (!this.selectedInstanceData.id) return;
+
+			const bounds = this.resolveRange();
+			if (!bounds) {
+				this.metricsError = "Pick a start and end time.";
+				return;
+			}
+			if (bounds.start >= bounds.end) {
+				this.metricsError = "The start time must be earlier than the end time.";
+				return;
+			}
+
+			// A read can span several seconds of S3 fetches, which is long enough for
+			// the selected instance or the range to change under it. Without a
+			// sequence check the slower of two overlapping reads wins and the graph
+			// ends up describing a window nothing on screen is asking for. Claimed
+			// only once the request is actually going out, so a rejected range can't
+			// orphan an in-flight one.
+			const requestId = ++this.metricsRequestId;
+			const isCurrent = () => requestId === this.metricsRequestId;
+
+			this.loading.metrics = true;
+			this.metricsError = null;
+
+			try {
+				const response = await get(
+					`/instance/${this.selectedInstanceData.id}/metrics?start=${bounds.start}&end=${bounds.end}`,
+					PERMISSIONS.instance.metrics.read
+				);
+
+				if (!response || !Array.isArray(response.points)) {
+					throw new Error("The API returned an unexpected response");
+				}
+
+				if (!isCurrent()) return;
+				this.metrics = response;
+			} catch (e) {
+				if (!isCurrent()) return;
+				// Cleared rather than kept: the range control now says one thing and the
+				// graph would be showing another.
+				this.metrics = null;
+				this.metricsError = e.message || "Could not load metrics.";
+				this.$alert.error(this.metricsError);
+				console.error(e);
+			} finally {
+				if (isCurrent()) {
+					this.loading.metrics = false;
+				}
+			}
+		},
+
 		async save() {
 			this.$validatePermissions(PERMISSIONS.instance.metrics.write);
 
@@ -605,6 +905,38 @@ export default {
 			}
 		},
 	},
+	watch: {
+		// The samples live in S3 keyed by instance, so switching instances has to
+		// re-read them — nothing about the previous instance's series applies.
+		'selectedInstanceData.id'(id, previous) {
+			if (!id || id === previous) return;
+			this.metrics = null;
+			this.metricsError = null;
+			if (this.$checkPermissions(PERMISSIONS.instance.metrics.read)) {
+				this.fetchMetrics();
+			}
+		},
+
+		'range.preset'(preset) {
+			if (preset === "custom") {
+				// Seeded from the window currently on screen so the pickers open on
+				// something meaningful, and set BEFORE they render: DateTimePicker
+				// fills an empty value with "now" on creation, which would otherwise
+				// give both fields the same time and an empty range.
+				const bounds = this.metrics
+					? { start: this.metrics.start, end: this.metrics.end }
+					: this.resolveRange();
+				if (bounds) {
+					this.range.customStart = this.toPickerValue(bounds.start);
+					this.range.customEnd = this.toPickerValue(bounds.end);
+				}
+				// No fetch here — the APPLY button is what commits a custom range.
+				return;
+			}
+
+			this.fetchMetrics();
+		},
+	},
 	mounted() {
 		// Gated on read specifically, not read-or-write: the tile is visible to
 		// either, but fetchConfig's validator throws (and alerts) rather than
@@ -613,6 +945,9 @@ export default {
 		// backend wouldn't serve them the config either.
 		if (this.$checkPermissions(PERMISSIONS.instance.metrics.read)) {
 			this.fetchConfig(false);
+			// Independent of the config read: the samples are in S3 either way, so a
+			// box whose collector is off still has whatever history it collected.
+			this.fetchMetrics();
 		} else {
 			this.invalidate("You don't have permission to read the metrics configuration.");
 		}

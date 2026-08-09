@@ -2,7 +2,7 @@
 	<div 
 		ref="wrapper" 
 		class="bg-gray-2 cursor-crosshair" 
-		@mouseenter="effectivePointWeight = resolvedHoverConfig.pointWeight"
+		@mouseenter="hovering = true"
 		@mouseleave="mouseleave"
 		@mousemove="hovered"
 		@mousedown="startZoom"
@@ -23,12 +23,35 @@ export default {
 	},
 	props: {
 		/**
-		 * Array of points of shape { x: Number, y: Number, group?: Number }
+		 * Array of points of shape { x: Number, y: Number, group?: Number, series?: String|Number }
+		 *
+		 * `group` is a *drawing* concern: each group is stroked as one continuous
+		 * path, so a caller splits a group wherever the line should break (a gap in
+		 * the data, for instance). `series` is a *styling* concern — which dataset
+		 * the point belongs to, looked up in `seriesConfig`. They're separate
+		 * because one series can span many groups: two lines that each break over
+		 * the same three gaps are six groups but still only two colors.
+		 *
+		 * A point with no `series` falls back to its `group`, so a caller that only
+		 * needs one line per style can keep using `group` alone.
 		 */
 		points: {
 			type: Array,
 			default: [],
 			validator: val => val.every(pt => Object.hasOwn(pt, "x") && Object.hasOwn(pt, "y"))
+		},
+		/**
+		 * Per-series overrides, keyed by a point's `series` (or `group`). Every field
+		 * is optional and falls back to the matching top-level prop:
+		 *
+		 *   { color, lineWeight, pointWeight, hoverPointWeight, label }
+		 *
+		 * `label` is shown in the hover readout, which is the only way to tell two
+		 * near-overlapping lines apart once the cursor is on one of them.
+		 */
+		seriesConfig: {
+			type: Object,
+			default: () => ({})
 		},
 		/**
 		 * Two points describing the bounds of the graph, one for the min corner (BL) and one for the max corner (TR), in that order.
@@ -77,13 +100,18 @@ export default {
 			resizeWatcher: null,
 			normalizedPoints: [],
 			effectivePoints: [],
+			// effectivePoints ordered by x, regardless of series or group. The hover
+			// lookup bisects on x and so needs a monotonic array; effectivePoints is
+			// the caller's own order, which with more than one series runs ascending,
+			// resets, and ascends again.
+			xSortedPoints: [],
 			ctx: null,
 			dim: { x: -1, y: -1 },
 			lastRepaint: 0,
 			pendingRepaintTimer: null,
 			lastResizeObserved: null,
 			repaintTick: 300,
-			effectivePointWeight: 0,
+			hovering: false,
 			zoomStartPos: null,
 			zoomEndPos: null,
 			zoomRange: null,
@@ -129,6 +157,28 @@ export default {
 		}
 	},
 	methods: {
+		/**
+		 * Resolves the drawing style for one raw point, falling back per-field to the
+		 * top-level props. Keyed on `series` when present so several groups can share
+		 * one style; `group` is the fallback key for callers whose groups already are
+		 * their series.
+		 */
+		styleFor(rawPoint) {
+			const key = rawPoint?.series ?? rawPoint?.group;
+			const config = (key !== undefined && key !== null && this.seriesConfig[key]) || {};
+
+			// The hover weight is what makes individual samples visible on mouseover;
+			// a series can opt out of that by setting its own hoverPointWeight.
+			const basePointWeight = config.pointWeight ?? this.pointWeight;
+			const hoverPointWeight = config.hoverPointWeight ?? config.pointWeight ?? this.resolvedHoverConfig.pointWeight;
+
+			return {
+				color: config.color ?? this.color,
+				lineWeight: config.lineWeight ?? this.lineWeight,
+				pointWeight: this.hovering ? hoverPointWeight : basePointWeight,
+				label: config.label ?? null,
+			};
+		},
 		draw(recalcPoints = false) {
 			if (recalcPoints) {
 				this.getEffectivePoints();
@@ -239,37 +289,55 @@ export default {
 				this.ctx.fillText(yLabel, yLabelX, hovAtPt[1]);
 			}
 
-			// Data			
+			// Data
 			// Draw the connecting line(s), one path per group, stroked once each.
+			// Style is resolved per group rather than once up front: groups are sorted
+			// together but consecutive groups can belong to different series, and a
+			// stroke uses whatever strokeStyle was set when it runs - so a single
+			// assignment before the loop would paint every line the last series' color.
 			let currentPtGroup = null;
-			this.ctx.strokeStyle = this.color;
+			let pathStarted = false;
 			this.normalizedPoints.forEach(pt => {
 				if (pt.raw.group !== currentPtGroup) {
-					if (currentPtGroup !== null) {
+					if (pathStarted) {
 						this.ctx.stroke();
 					}
 					currentPtGroup = pt.raw.group;
+					const style = this.styleFor(pt.raw);
+					this.ctx.strokeStyle = style.color;
+					this.ctx.lineWidth = style.lineWeight;
 					this.ctx.beginPath();
 					this.ctx.moveTo(...getGraphPt(pt.position));
+					pathStarted = true;
 				} else {
 					this.ctx.lineTo(...getGraphPt(pt.position));
 				}
 			});
-			if (this.normalizedPoints.length) {
+			if (pathStarted) {
 				this.ctx.stroke();
 			}
 
 			// Draw point markers as their own paths so they don't get folded into a line stroke.
-			this.ctx.fillStyle = this.color;
 			this.normalizedPoints.forEach(pt => {
+				const style = this.styleFor(pt.raw);
+				if (!style.pointWeight) {
+					return;
+				}
+				this.ctx.fillStyle = style.color;
 				this.ctx.beginPath();
-				this.ctx.arc(...getGraphPt(pt.position), this.effectivePointWeight, 0, 2 * Math.PI);
+				this.ctx.arc(...getGraphPt(pt.position), style.pointWeight, 0, 2 * Math.PI);
 				this.ctx.fill();
 			});
 
 			if (this.hoveredPoint) {
+				const hoveredStyle = this.styleFor(this.hoveredPoint);
 				const normalizedHovPt = this.valueToNormalized(this.hoveredPoint);
 				const hovPixelPt = getGraphPt(normalizedHovPt);
+				// The ring and the label border take the hovered series' own color:
+				// with two near-overlapping lines, which one the readout describes is
+				// otherwise a guess.
+				this.ctx.strokeStyle = hoveredStyle.color;
+				this.ctx.lineWidth = this.lineWeight;
 				this.ctx.beginPath();
 				this.ctx.arc(...hovPixelPt, this.resolvedHoverConfig.pointCircle, 0, 2 * Math.PI);
 				this.ctx.stroke();
@@ -281,7 +349,9 @@ export default {
 				const direction = { x: normalizedHovPt.x > 0.5 ? -1 : 1, y: normalizedHovPt.y > 0.5 ? 1 : -1 };
 				const xLabel = this.resolvedAxesConfig.xAxisFormat(this.hoveredPoint.x);
 				const yLabel = this.resolvedAxesConfig.yAxisFormat(this.hoveredPoint.y);
-				const fullLabel = `${xLabel} | ${yLabel}`;
+				const fullLabel = hoveredStyle.label
+					? `${hoveredStyle.label} · ${xLabel} | ${yLabel}`
+					: `${xLabel} | ${yLabel}`;
 				this.ctx.textAlign = 'center';
 
 				const labelTextBox = this.ctx.measureText(fullLabel);
@@ -305,7 +375,7 @@ export default {
 				];
 
 				this.ctx.fillRect(...labelRect);
-				this.ctx.strokeStyle = this.color;
+				this.ctx.strokeStyle = hoveredStyle.color;
 				this.ctx.strokeRect(...labelRect)
 				this.ctx.fillStyle = "white";
 				// textAlign is 'center' and textBaseline is 'middle' (set above), so the box's
@@ -314,7 +384,10 @@ export default {
 			}
 
 			// zoom box
+			// lineWidth is restated because the data loop above leaves whatever the
+			// last series set; the box is chrome, not a series.
 			this.ctx.strokeStyle = this.linesColor;
+			this.ctx.lineWidth = this.lineWeight;
 			if (this.zoomStartPos && !this.zoomEndPos) {
 				const zoomNorm = this.zoomStartPos.x / this.dim.x
 
@@ -401,6 +474,7 @@ export default {
 			}
 
 			this.normalizedPoints = this.normalizePoints(this.effectivePoints);
+			this.xSortedPoints = [...this.effectivePoints].sort((a, b) => a.x - b.x);
 		},
 		handleResize(entries) {
 			if (!entries.length) {
@@ -462,10 +536,18 @@ export default {
 				y: Math.min(1, Math.max(0, normY))
 			};
 		},
+		// A series can legitimately be constant on one axis - an idle instance
+		// reports 0% CPU for every sample in the window - which makes the range
+		// zero and every normalized value NaN, so nothing draws at all. Centering
+		// that axis instead renders the flat line the data actually describes.
+		normalizeAgainst(value, min, max) {
+			const range = max - min;
+			return range === 0 ? 0.5 : (value - min) / range;
+		},
 		valueToNormalized(pos) {
 			return {
-				x: (pos.x - this.dataBounds.xMin) / (this.dataBounds.xMax - this.dataBounds.xMin),
-				y: (pos.y - this.dataBounds.yMin) / (this.dataBounds.yMax - this.dataBounds.yMin)
+				x: this.normalizeAgainst(pos.x, this.dataBounds.xMin, this.dataBounds.xMax),
+				y: this.normalizeAgainst(pos.y, this.dataBounds.yMin, this.dataBounds.yMax)
 			}
 		},
 		normalizedToValue(pos) {
@@ -524,37 +606,69 @@ export default {
 			this.hoveredPoint = this.findClosePoint({ x: event.clientX - rect.x, y: event.clientY - rect.y });
 		},
 		mouseleave(event) {
-			this.effectivePointWeight = this.pointWeight;
+			this.hovering = false;
 			this.currentHoverPos = null;
 			this.hoveredPoint = null;
 		},
+		/**
+		 * The point nearest the cursor within `hoverConfig.hoverDistance`, or null.
+		 *
+		 * Bisects to the cursor's x and then scans outward, rather than reporting
+		 * whichever point a fixed number of bisection probes happened to land on.
+		 * The probe-only version could only ever return one of ~log2(n) candidates,
+		 * so with two series sharing an x it had no way to pick the nearer of the
+		 * two - and it read the caller's own array order as if it were sorted by x,
+		 * which stops being true the moment there is more than one series.
+		 */
 		findClosePoint(pos) {
-			let searchSpace = [0, this.effectivePoints.length];
-			const normAtValue = this.pixelToNormalized(pos);
-			const realAtValue = {
-				x: normAtValue.x * (this.dataBounds.xMax - this.dataBounds.xMin) + this.dataBounds.xMin,
-				y: normAtValue.y * (this.dataBounds.yMax - this.dataBounds.yMin) + this.dataBounds.yMin
-			};
+			const points = this.xSortedPoints;
+			if (!points.length) {
+				return null;
+			}
+
+			const realAtValue = this.normalizedToValue(this.pixelToNormalized(pos));
+
+			let low = 0;
+			let high = points.length;
+			while (low < high) {
+				const mid = (low + high) >> 1;
+				if (points[mid].x < realAtValue.x) {
+					low = mid + 1;
+				} else {
+					high = mid;
+				}
+			}
 
 			const closestPoint = {
 				point: null,
 				dist: Number.MAX_SAFE_INTEGER
 			};
 
-			for (let i = 0; i <= Math.ceil(Math.log2(this.effectivePoints.length)); i++) {
-				const searchIdx = Math.floor((searchSpace[0] + searchSpace[1]) / 2);
-				const ptDist = pointDistance(pos, this.valueToPixel(this.effectivePoints[searchIdx]));
-				if (ptDist < this.resolvedHoverConfig.hoverDistance && ptDist < closestPoint.dist) {
-					closestPoint.point = this.effectivePoints[searchIdx];
-					closestPoint.dist = ptDist;
+			// Returns false once the scan has walked past the hover radius on x alone,
+			// which bounds each direction: every point further out is at least that
+			// far away.
+			const consider = index => {
+				const point = points[index];
+				if (!point) {
+					return false;
 				}
 
-				if (this.effectivePoints[searchIdx].x > realAtValue.x) {
-					searchSpace[1] = searchIdx;
-				} else if (this.effectivePoints[searchIdx].x < realAtValue.x) {
-					searchSpace[0] = searchIdx;
+				const pixel = this.valueToPixel(point);
+				if (Math.abs(pixel.x - pos.x) > this.resolvedHoverConfig.hoverDistance) {
+					return false;
 				}
-			}
+
+				const dist = pointDistance(pos, pixel);
+				if (dist < this.resolvedHoverConfig.hoverDistance && dist < closestPoint.dist) {
+					closestPoint.point = point;
+					closestPoint.dist = dist;
+				}
+
+				return true;
+			};
+
+			for (let i = low; i < points.length && consider(i); i++);
+			for (let i = low - 1; i >= 0 && consider(i); i--);
 
 			return closestPoint.point;
 		}
@@ -567,7 +681,6 @@ export default {
 		if (!this.ctx) {
 			this.ctx = this.$refs.canvas.getContext("2d");
 		}
-		this.effectivePointWeight = this.pointWeight;
 		this.draw(true);
 	},
 	unmounted() {
@@ -583,10 +696,13 @@ export default {
 		points() {
 			this.draw(true);
 		},
-		effectivePointWeight() {
+		hovering() {
 			this.draw();
 		},
 		lineWeight() {
+			this.draw();
+		},
+		seriesConfig() {
 			this.draw();
 		}
 	}

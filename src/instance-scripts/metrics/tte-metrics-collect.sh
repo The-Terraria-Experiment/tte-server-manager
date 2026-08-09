@@ -22,6 +22,14 @@ STATE="$DIR/.cpu"
 # The buffer mirrors the S3 key layout (YYYY/MM/DD/HH.jsonl) rather than using a
 # flat YYYY-MM-DDTHH name, so a local path maps to its S3 key by stripping the
 # buffer root -- see tte-metrics-upload.sh.
+#
+# TZ is pinned so that layout is UTC on every box regardless of how the instance
+# is configured. The reader (InstanceMetricsData.ts) computes which hour objects
+# to fetch for a requested window rather than listing the bucket, which is only
+# sound if the hour in the key means the same thing everywhere. Setting a
+# variable costs no fork, so this stays within the one-fork budget below.
+TZ=UTC
+export TZ
 printf -v ts '%(%s)T' -1
 printf -v hour '%(%Y/%m/%d/%H)T' -1
 file="$DIR/$hour.jsonl"

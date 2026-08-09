@@ -31,6 +31,7 @@ import { readInstanceRegistry } from "./actions/readInstanceRegistry.js";
 import { createInstanceRegistration, updateInstanceRegistration } from "./actions/writeInstanceRegistry.js";
 import { deleteInstanceRegistration } from "./actions/deleteInstanceRegistration.js";
 import type { ShutdownRequestData } from "./shared/utils/jobs/ShutdownJob.js";
+import { readMetrics } from "./actions/readMetrics.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
@@ -73,10 +74,10 @@ const endpoints: EndpointList = {
 		action: restart,
 		permRequired: PERMISSIONS.instance.status.restart,
 	},
-	// Reserved for reading the metric data itself; the collector's own on/off and
-	// timing config live under /metrics/config below.
+	// The collected samples themselves, read out of S3 for a requested time window.
+	// The collector's own on/off and timing config live under /metrics/config below.
 	"GET /instance/{id}/metrics": {
-		action: null,
+		action: readMetrics,
 		permRequired: PERMISSIONS.instance.metrics.read,
 	},
 	"GET /instance/{id}/metrics/config": {
