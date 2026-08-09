@@ -20,6 +20,7 @@ export type LogDataEntry = {
 	playersActive?: number,
 	logID?: string,
 	playerDataSource?: PlayerDataSource,
+	additional?: Record<string, any>,
 	versions?: {
 		schema: string,
 		plugin: string,

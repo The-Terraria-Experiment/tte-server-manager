@@ -49,6 +49,7 @@ export const pushLog = async (event: AuthorizedEvent, context: Context) => {
 		playersActive: server.activePlayers,
 		logID: payload.correlationId,
 		...(payload.playerDataSource ? { playerDataSource: payload.playerDataSource } : {}),
+		additional: payload.eventData,
 		versions: {
 			schema: payload.schemaVersion,
 			plugin: payload.pluginVersion,
