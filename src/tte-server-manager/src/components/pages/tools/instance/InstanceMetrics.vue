@@ -166,6 +166,34 @@
 							{{ selftestResult.message }}
 						</p>
 					</div>
+
+					<div class="grid grid-cols-2 gap-4 mt-10">
+						<div class="flex flex-col">
+							<p class="font-main font-bold mb-2">CPU usage</p>
+							<Graph 
+								class="h-80 rounded-lg overflow-hidden border border-gray-5" 
+								:points="testPts1" 
+								:axes-config="{
+									xAxisFormat: (val) => new Date(Math.floor(val * 1000)).toLocaleString(),
+									yAxisFormat: (val) => Number(val.toFixed(1)) + '%',
+									minXAxisMarkDistance: 200
+								}"
+							/>
+						</div>
+						<div class="flex flex-col">
+							<p class="font-main font-bold mb-2">Memory usage</p>
+							<Graph 
+								class="h-80 rounded-lg overflow-hidden border 
+								border-gray-5" 
+								:points="testPts2" 
+								:axes-config="{
+									xAxisFormat: (val) => new Date(Math.floor(val * 1000)).toLocaleString(),
+									yAxisFormat: (val) => Number(val.toFixed(1)) + '%',
+									minXAxisMarkDistance: 200
+								}"
+							/>
+						</div>
+					</div>
 				</template>
 
 				<div class="flex flex-wrap justify-end w-full mt-6 gap-4">
@@ -199,6 +227,7 @@ import { PERMISSIONS } from '../../../../util/permissionValues';
 import Checkbox from '../../../common/Checkbox.vue';
 import Dropdown from '../../../common/Dropdown.vue';
 import ValueInput from '../../../common/ValueInput.vue';
+import Graph from '@/components/common/Graph.vue';
 
 // Mirrors METRICS_BOUNDS in _shared/shared/utils/InstanceMetrics.ts and the
 // *_MIN/*_MAX constants in tte-metrics-ctl.sh. Checked here only to give a
@@ -224,6 +253,7 @@ export default {
 		Dropdown,
 		ValueInput,
 		RefreshButton,
+		Graph,
 	},
 	props: {
 		selectedInstanceData: {
@@ -267,6 +297,27 @@ export default {
 		}
 	},
 	computed: {
+		testPts1() {
+			return [
+				{ x: 1786132853, y: 0 },
+				{ x: 1786132917, y: 13 },
+				{ x: 1786132983, y: 22 },
+				{ x: 1786133047, y: 10 },
+				
+			];
+		},
+		testPts2() {
+			return [
+				{ x: 1786132853, y: 0, group: 1 },
+				{ x: 1786132917, y: 13, group: 1 },
+				{ x: 1786132983, y: 22, group: 1 },
+				{ x: 1786133047, y: 10, group: 1 },
+				{ x: 1786133687, y: 6, group: 2 },
+				{ x: 1786133753, y: 26, group: 2 },
+				{ x: 1786133817, y: 18, group: 2 },
+				
+			];
+		},
 		instanceOnline() {
 			return this.selectedInstanceData.state === 'ONLINE';
 		},
