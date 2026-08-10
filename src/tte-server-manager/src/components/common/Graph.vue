@@ -729,6 +729,13 @@ export default {
 		},
 		seriesConfig() {
 			this.draw();
+		},
+		// Label formatters and the axis buffers are both read at draw time and
+		// neither affects normalization, so a plain redraw is enough - but without
+		// this a caller that changes only its axes (a unit toggle, say) leaves the
+		// canvas showing the previous axis until something unrelated repaints it.
+		axesConfig() {
+			this.draw();
 		}
 	}
 }

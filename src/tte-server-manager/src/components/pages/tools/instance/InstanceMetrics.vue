@@ -241,7 +241,13 @@
 
 					<div class="grid grid-cols-1 xl:grid-cols-2 gap-4 mt-4">
 						<div class="flex flex-col">
-							<div class="flex items-center justify-between mb-2 gap-4">
+							<!--
+								Height pinned rather than left to the content: the memory graph's
+								header carries a padded control and this one only text, and the
+								graphs below are a fixed height, so a taller header there would
+								offset the two plots from each other by a few pixels.
+							-->
+							<div class="flex items-center justify-between mb-2 gap-4 min-h-8">
 								<p class="font-main font-bold">CPU usage</p>
 								<!--
 									Two lines that converge wherever a bucket holds a single
@@ -271,12 +277,34 @@
 							</div>
 						</div>
 						<div class="flex flex-col">
-							<p class="font-main font-bold mb-2">Memory usage</p>
+							<div class="flex items-center justify-between mb-2 gap-4 min-h-8">
+								<p class="font-main font-bold">Memory usage</p>
+								<!--
+									Both figures come off every sample. Percent answers "how loaded
+									is this box"; MB answers "how much is it actually using", which
+									is the one that survives a comparison between instances of
+									different sizes and the only one that informs a resize.
+								-->
+								<div class="flex rounded border border-gray-5 overflow-hidden">
+									<button
+										v-for="option in memoryUnitOptions"
+										:key="option.id"
+										type="button"
+										:class="[
+											'font-main font-semibold text-sm px-3 py-1',
+											memoryUnit === option.id ? 'bg-gray-5 text-white-0' : 'text-gray-7 hover:text-gray-8'
+										]"
+										@click="memoryUnit = option.id"
+									>
+										{{ option.text }}
+									</button>
+								</div>
+							</div>
 							<Graph
 								v-if="hasMetricData"
 								class="h-80 rounded-lg overflow-hidden border border-gray-5"
 								:points="memoryPoints"
-								:axes-config="graphAxesConfig"
+								:axes-config="memoryAxesConfig"
 								:series-config="seriesConfig"
 							/>
 							<div v-else class="h-80 rounded-lg border border-gray-5 bg-gray-2 flex items-center justify-center">
@@ -402,6 +430,10 @@ export default {
 			metricsError: null,
 			// Monotonic per-fetch token; see fetchMetrics.
 			metricsRequestId: 0,
+			// Which of the two collected memory figures the memory graph plots.
+			// Purely a display choice — both ride on every point, so switching
+			// costs no fetch.
+			memoryUnit: "percent",
 			// One window for every graph in the section.
 			range: {
 				preset: "6h",
@@ -420,6 +452,10 @@ export default {
 			uploadModeOptions: [
 				{ id: "timer", text: "On a schedule" },
 				{ id: "manual", text: "When triggered" },
+			],
+			memoryUnitOptions: [
+				{ id: "percent", text: "%" },
+				{ id: "mb", text: "MB" },
 			],
 			rangeOptions: [
 				{ id: "1h", text: "Last hour" },
@@ -461,8 +497,12 @@ export default {
 		},
 		// Only one line: memory is a level, not a rate, so it doesn't spike between
 		// samples the way CPU does and a peak series would sit on top of the average.
+		// Which of the two collected figures it plots is the tile's toggle; they're
+		// the same series scaled by MemTotal, so the shape never changes — only the
+		// axis, which is why nothing else here has to care.
 		memoryPoints() {
-			return this.metricPoints.map((point) => ({ x: point.t, y: point.mem, group: point.group, series: "avg" }));
+			const key = this.memoryUnit === "mb" ? "memMb" : "mem";
+			return this.metricPoints.map((point) => ({ x: point.t, y: point[key], group: point.group, series: "avg" }));
 		},
 		// Peak drawn thinner and dimmer than the average: the two lines converge at
 		// the natural resolution (one sample per bucket makes them identical), so
@@ -489,6 +529,24 @@ export default {
 				xAxisFormat: (val) => this.formatTimestamp(val),
 				yAxisFormat: (val) => `${Number(val.toFixed(1))}%`,
 				minXAxisMarkDistance: 200,
+				// Widened for BOTH graphs when the memory graph is in MB, not just
+				// for the one that needs it: a four- or five-digit MB label runs past
+				// the default 40px gutter and gets clipped at the canvas edge, but
+				// giving only the memory graph more room would shift its plot area
+				// relative to the CPU graph beside it — and the whole point of the
+				// shared window is that the two line up.
+				leftBuffer: this.memoryUnit === "mb" ? 60 : 40,
+			};
+		},
+		// The memory graph's y-axis is the only thing the unit toggle changes about
+		// how the graphs are drawn; everything else is shared so the pair stays
+		// readable against each other.
+		memoryAxesConfig() {
+			if (this.memoryUnit !== "mb") return this.graphAxesConfig;
+
+			return {
+				...this.graphAxesConfig,
+				yAxisFormat: (val) => `${Math.round(val)} MB`,
 			};
 		},
 		metricsSummary() {

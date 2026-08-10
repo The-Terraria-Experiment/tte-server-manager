@@ -44,6 +44,57 @@ Line format:
 `cpu` and `mem` are integer percent; `memMb` is used MiB. `mem` is derived from
 `MemAvailable`, not `MemFree`, so reclaimable page cache doesn't read as used.
 
+### `mem` reads higher than the CloudWatch agent's `mem_used_percent`
+
+This is expected, and it is not a bug — the two answer different questions:
+
+| | Used memory |
+| --- | --- |
+| here | `MemTotal - MemAvailable` |
+| CloudWatch agent (telegraf/gopsutil) | `MemTotal - MemFree - Buffers - Cached` (incl. `SReclaimable`) |
+
+The agent hands back *all* page cache and reclaimable slab as free. `MemAvailable`
+is the kernel's own estimate and withholds a chunk of it: the zone watermarks and
+reserves it subtracts outright, plus the portion of cache and slab it declines to
+promise (`min(pagecache/2, wmark_low)`), plus anything genuinely unreclaimable
+such as `Shmem`.
+
+The difference is therefore an **approximately constant number of MB** for a given
+box, not a percentage — it tracks the kernel's reserves, not the workload. Measured
+on a 3.8 GB idle instance:
+
+```
+(Free 3106 + Buffers 16 + Cached 379 + SReclaim 26) - MemAvailable 3290 = 237 MB
+ours 510 MB / 13.4%      cwagent 273 MB / 7.2%      ratio 1.86x
+```
+
+That fixed ~237 MB is ~6 percentage points on this instance. When the box is idle
+those 6 points sit on top of 7 and the metric looks like it's reporting *double*;
+under real load (TShock holding a large world, ~1.5 GB) the same offset is 46% vs
+39%, a ratio of 1.16. **A large ratio here is an artifact of a small denominator.**
+Compare the MB figures, not the percentages, before concluding anything is wrong.
+
+To check a live box, both formulas off one `/proc/meminfo` snapshot:
+
+```bash
+awk '/^(MemTotal|MemFree|MemAvailable|Buffers|Cached|SReclaimable|Shmem):/ {v[$1]=$2}
+END {
+  t=v["MemTotal:"]; f=v["MemFree:"]; a=v["MemAvailable:"];
+  b=v["Buffers:"]; c=v["Cached:"]; s=v["SReclaimable:"]; sh=v["Shmem:"];
+  printf "MemTotal %6.0f  MemFree %6.0f  MemAvailable %6.0f  (MB)\n", t/1024, f/1024, a/1024;
+  printf "Buffers  %6.0f  Cached  %6.0f  SReclaim     %6.0f  Shmem %6.0f\n\n", b/1024, c/1024, s/1024, sh/1024;
+  printf "ours    (total-available)          %5.1f%%  %6.0f MB\n", 100*(t-a)/t, (t-a)/1024;
+  printf "cwagent (total-free-buff-cache-sr) %5.1f%%  %6.0f MB\n", 100*(t-f-b-c-s)/t, (t-f-b-c-s)/1024;
+}' /proc/meminfo
+```
+
+`MemAvailable` stays the basis deliberately. The question this graph exists to
+answer is how much headroom the box has before it swaps or OOMs, and the
+cache-excluding figure systematically overstates that by counting on cache the
+kernel won't actually give back. Don't emit both fields to split the difference
+either — it widens every line on the hot path and every read payload to settle a
+disagreement of a few points.
+
 ## Turning it on and off
 
 Everything is driven by systemd enablement, so **nothing is ever deleted** to
