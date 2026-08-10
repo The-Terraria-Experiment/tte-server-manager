@@ -62,6 +62,21 @@ export default {
 			default: null,
 			validator: val => val === null || (val.every(pt => Object.hasOwn(pt, "x") && Object.hasOwn(pt, "y")) && val.length === 2)
 		},
+		/**
+		 * When auto-detecting bounds, anchor the y-axis at zero rather than at the
+		 * smallest sample. Without it the bottom of the graph is whatever the low
+		 * point happens to be, which exaggerates variation: a CPU series wobbling
+		 * between 3% and 5% fills the full height and reads like a spike. Zero is
+		 * pulled *into* the range rather than forced to be the bottom, so a series
+		 * that goes negative still shows all of its data.
+		 *
+		 * Only affects the y-axis, and only when `bounds` is null - x is usually a
+		 * timestamp, where zero is nowhere near the data.
+		 */
+		autoDetectBoundsIncludeZero: {
+			type: Boolean,
+			default: true
+		},
 		pointWeight: {
 			type: Number,
 			default: 0,
@@ -424,6 +439,11 @@ export default {
 				xMax = this.effectivePoints.reduce((val, point) => Math.max(val, point.x), Number.NEGATIVE_INFINITY);
 				yMin = this.effectivePoints.reduce((val, point) => Math.min(val, point.y), Number.POSITIVE_INFINITY);
 				yMax = this.effectivePoints.reduce((val, point) => Math.max(val, point.y), Number.NEGATIVE_INFINITY);
+
+				if (this.autoDetectBoundsIncludeZero && this.effectivePoints.length) {
+					yMin = Math.min(0, yMin);
+					yMax = Math.max(0, yMax);
+				}
 			} else {
 				xMin = this.bounds[0].x;
 				xMax = this.bounds[1].x;
@@ -698,6 +718,11 @@ export default {
 		},
 		hovering() {
 			this.draw();
+		},
+		// Changes the axis range, so the points have to be re-normalized rather than
+		// just re-stroked.
+		autoDetectBoundsIncludeZero() {
+			this.draw(true);
 		},
 		lineWeight() {
 			this.draw();
