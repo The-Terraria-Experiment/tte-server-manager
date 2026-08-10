@@ -83,8 +83,25 @@ ACCOUNT_HOLDER_PID=""
 # row should not claim a metrics config.
 METRICS_STATUS_JSON=""
 cleanup_account() {
-	[ -n "$ACCOUNT_HOLDER_PID" ] && kill "$ACCOUNT_HOLDER_PID" 2>/dev/null
-	[ -n "$ACCOUNT_SERVER_PID" ] && kill "$ACCOUNT_SERVER_PID" 2>/dev/null
+	# Each kill needs its own `|| true`, and the reason is subtle enough to be worth
+	# stating: under `set -e` the failure of a non-final command in an AND-list is
+	# exempt, but the failure of the LAST one is not. `[ -n "$PID" ] && kill "$PID"`
+	# therefore takes the whole script down when the kill fails -- and the kill
+	# always fails on the normal path, because step_account sends /off and waits 5s,
+	# so TShock has already exited and been reaped by the time this runs.
+	#
+	# That cost us a provisioned instance: the script died silently right after
+	# "console ready after XXs" (cleanup_account is called before the step's own ok
+	# line), so config, register and summary never ran. The box came up with REST
+	# disabled on TShock's default port, no S3 config seed, no /etc/tte-instance.env
+	# and no by-hand instructions printed -- and every TShock REST call to it was
+	# refused. `2>/dev/null` hides the message but not the status; only `|| true` does.
+	if [ -n "$ACCOUNT_HOLDER_PID" ]; then
+		kill "$ACCOUNT_HOLDER_PID" 2>/dev/null || true
+	fi
+	if [ -n "$ACCOUNT_SERVER_PID" ]; then
+		kill "$ACCOUNT_SERVER_PID" 2>/dev/null || true
+	fi
 	ACCOUNT_SERVER_PID=""
 	ACCOUNT_HOLDER_PID=""
 	rm -f /tmp/tte-setup-ctl /tmp/tte-setup-world.wld
@@ -331,11 +348,31 @@ read_metrics_cfg() {
 
 # Pulls one field out of the JSON status line tte-metrics-ctl prints. That line
 # is a flat object of booleans, integers and two fixed enum strings, so no value
-# can contain a comma, colon or brace -- which is what makes this three
-# substitutions rather than a JSON parser the box may not have.
+# can contain a comma, colon or brace -- which is what lets one awk do this
+# rather than a JSON parser the box may not have.
+#
+# Fed by here-string, and deliberately NOT a pipeline. This was
+# `printf | tr | tr | awk '... {print; exit}'`, and that `exit` is a trap: awk
+# closes the pipe the moment it finds the key, the upstream `tr` gets SIGPIPE on
+# its next write, `set -o pipefail` promotes 141 to the pipeline's status, and
+# `set -e` then kills the whole script -- exit 141, no message, no FATAL line,
+# nothing to debug from. Whether it fires is a scheduling race between the
+# stages, so it is intermittent and cannot be ruled out by "it worked last time"
+# -- it took down a t2.medium mid-provision. A here-string has no upstream
+# process to signal, so the hazard is gone rather than made less likely.
 metrics_status_field() {
-	printf '%s' "$METRICS_STATUS_JSON" | tr -d '{}"' | tr ',' '\n' \
-		| awk -F: -v k="$1" '$1 == k { print $2; exit }'
+	awk -v k="$1" '
+		{
+			gsub(/[{}"]/, "")
+			n = split($0, fields, ",")
+			for (i = 1; i <= n; i++) {
+				p = index(fields[i], ":")
+				if (p > 0 && substr(fields[i], 1, p - 1) == k) {
+					print substr(fields[i], p + 1)
+					exit
+				}
+			}
+		}' <<< "$METRICS_STATUS_JSON"
 }
 
 step_metrics() {
@@ -387,8 +424,13 @@ step_account() {
 	log "tshock rest account"
 
 	local db="$ROOT/tshock/tshock.sqlite"
-	if [ -f "$db" ] && sqlite3 "$db" \
-		"SELECT 1 FROM Users WHERE Username='${REST_USER}' LIMIT 1;" 2>/dev/null | grep -q 1; then
+	# Tested with a command substitution rather than `sqlite3 ... | grep -q 1`, for
+	# the same reason as metrics_status_field: `grep -q` exits on its first match
+	# and SIGPIPEs sqlite3, which `set -o pipefail` turns into a non-zero pipeline.
+	# Here that inverts the answer -- the account exists, the guard reads "no", and
+	# the whole 5-minute throwaway-server bootstrap runs again on every re-run.
+	if [ -f "$db" ] && [ -n "$(sqlite3 "$db" \
+		"SELECT 1 FROM Users WHERE Username='${REST_USER}' LIMIT 1;" 2>/dev/null)" ]; then
 		ok "'$REST_USER' already exists"
 		return
 	fi
@@ -466,11 +508,14 @@ step_account() {
 	# reports most of these as success even when they partially applied.
 	[ -f "$db" ] || { echo "--- console transcript ---" >&2; cat "$console" >&2; die "no tshock.sqlite was created"; }
 
-	sqlite3 "$db" "SELECT 1 FROM Users WHERE Username='${REST_USER}' LIMIT 1;" 2>/dev/null | grep -q 1 || {
+	# Same `grep -q` SIGPIPE hazard as the existence check above, and worse here:
+	# a signalled sqlite3 makes this read as "no such user" and fires the die, so
+	# a successful bootstrap reports itself as a failure.
+	if [ -z "$(sqlite3 "$db" "SELECT 1 FROM Users WHERE Username='${REST_USER}' LIMIT 1;" 2>/dev/null)" ]; then
 		echo "--- console transcript ---" >&2
 		cat "$console" >&2
 		die "user '${REST_USER}' was not created -- see transcript above, and README 'account bootstrap' for the manual fallback"
-	}
+	fi
 
 	local granted
 	granted=$(sqlite3 "$db" "SELECT Commands FROM GroupList WHERE GroupName='${REST_GROUP}';" 2>/dev/null || true)
@@ -549,9 +594,18 @@ step_register() {
 
 	# Don't clobber an entry someone has since hand-edited via the Users page's
 	# path editor (editPaths.ts) -- only seed defaults for a truly new row.
+	#
+	# A read that FAILS is not a row that is ABSENT, and conflating the two is how
+	# this guard stops guarding. It used to be `2>/dev/null || true`, so when the
+	# instance role had no `dynamodb:GetItem` on this table the AccessDenied came
+	# back as an empty string, the check below passed, and the script went on to
+	# overwrite a row it had never managed to read. Fail loudly instead.
 	local existing
-	existing=$(aws dynamodb get-item --table-name "$INSTANCE_TABLE" --key "$key" \
-		--query 'Item.validRoots' --output text 2>/dev/null || true)
+	if ! existing=$(aws dynamodb get-item --table-name "$INSTANCE_TABLE" --key "$key" \
+			--query 'Item.validRoots' --output text 2>&1); then
+		printf '%s\n' "$existing" >&2
+		die "could not read inst#${INSTANCE_ID} from ${INSTANCE_TABLE} -- the instance role needs dynamodb:GetItem and dynamodb:UpdateItem on that table (see README, 'Instance role')"
+	fi
 	if [ -n "$existing" ] && [ "$existing" != "None" ]; then
 		ok "inst#${INSTANCE_ID} already has validRoots, leaving it alone"
 		return
@@ -593,7 +647,7 @@ step_register() {
 	# Same ordering rule the lambda follows (see writeMetricsConfig): this is
 	# written only after the apply on the box succeeded, so the row can never claim
 	# a setting the instance is not running.
-	local metrics_json=""
+	local metrics_value=""
 	if [ -n "$METRICS_STATUS_JSON" ]; then
 		local m_enabled m_mode m_collect m_upload m_retain
 		m_enabled=$(metrics_status_field enabled)
@@ -604,7 +658,7 @@ step_register() {
 
 		if [ -n "$m_enabled" ] && [ -n "$m_mode" ] && [ -n "$m_collect" ] \
 			&& [ -n "$m_upload" ] && [ -n "$m_retain" ]; then
-			metrics_json=$(printf '"metricsConfig": {"M": {"enabled":{"BOOL":%s},"uploadMode":{"S":"%s"},"collectSec":{"N":"%s"},"uploadSec":{"N":"%s"},"retainDays":{"N":"%s"},"appliedAt":{"S":"%s"},"appliedBy":{"S":"setup.sh"}}},' \
+			metrics_value=$(printf '{"M": {"enabled":{"BOOL":%s},"uploadMode":{"S":"%s"},"collectSec":{"N":"%s"},"uploadSec":{"N":"%s"},"retainDays":{"N":"%s"},"appliedAt":{"S":"%s"},"appliedBy":{"S":"setup.sh"}}}' \
 				"$m_enabled" "$m_mode" "$m_collect" "$m_upload" "$m_retain" \
 				"$(date -u +%Y-%m-%dT%H:%M:%S.000Z)")
 		else
@@ -612,19 +666,26 @@ step_register() {
 		fi
 	fi
 
-	local item
-	item=$(cat <<-EOF
-		{
-			"uid": {"S": "inst#${INSTANCE_ID}"},
-			"validRoots": {"M": ${roots_json}},
-			"worldPaths": {"L": ${worldpaths_json}},
-			${metrics_json}
-			"updatedAt": {"S": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"}
-		}
-	EOF
-	)
+	# UpdateItem, never PutItem -- this row has two writers. Registering an instance
+	# in the web UI puts `envs` (plus name/registeredAt/registeredBy) on the SAME
+	# `inst#<id>` row, and PutItem replaces the entire item rather than merging into
+	# it. Seeding paths with one would therefore silently DEREGISTER an instance
+	# that had already been added in the UI: the row survives, `envs` does not, and
+	# `InstanceRegistry` stops listing it in every environment. The lambda side
+	# avoids the mirror image of this by never using PutItem either.
+	local update_expr="SET validRoots = :roots, worldPaths = :paths, updatedAt = :now"
+	local attr_values
+	attr_values=$(printf '{":roots":{"M":%s},":paths":{"L":%s},":now":{"S":"%s"}' \
+		"$roots_json" "$worldpaths_json" "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)")
+	if [ -n "$metrics_value" ]; then
+		update_expr+=", metricsConfig = :metrics"
+		attr_values+=$(printf ',":metrics":%s' "$metrics_value")
+	fi
+	attr_values+="}"
 
-	aws dynamodb put-item --table-name "$INSTANCE_TABLE" --item "$item" \
+	aws dynamodb update-item --table-name "$INSTANCE_TABLE" --key "$key" \
+		--update-expression "$update_expr" \
+		--expression-attribute-values "$attr_values" \
 		|| die "failed to write inst#${INSTANCE_ID} to $INSTANCE_TABLE"
 
 	ok "inst#${INSTANCE_ID} seeded with validRoots=[${VALID_ROOTS}] worldPaths=[${WORLD_PATH_NICKNAMES}]"

@@ -43,7 +43,7 @@ touch, so it's left as a placeholder:
     { "Effect": "Allow", "Action": ["s3:ListBucket"],
       "Resource": ["arn:aws:s3:::<filestore-bucket>", "arn:aws:s3:::ttesm-server-configs",
                    "arn:aws:s3:::ttesm-logs"] },
-    { "Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:PutItem"],
+    { "Effect": "Allow", "Action": ["dynamodb:GetItem", "dynamodb:UpdateItem"],
       "Resource": "arn:aws:dynamodb:<region>:<account-id>:table/ttesm-instance-data" }
   ]
 }

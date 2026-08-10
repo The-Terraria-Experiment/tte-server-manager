@@ -179,7 +179,20 @@ ssh "${SSH_OPTS[@]}" "$SSH_USER@$IP" "chmod 600 $REMOTE_ENV_PATH"
 
 echo "==> connecting to $IP"
 echo
+# The exit status is reported explicitly. This used to be a bare invocation
+# followed by `exec bash -l`, which made a partial run indistinguishable from a
+# complete one: setup.sh exits silently under `set -e`, the shell prompt appears
+# either way, and the summary that lists the remaining by-hand steps simply never
+# prints. A run that died at the account step looked exactly like a successful one
+# to anyone who wasn't counting the steps that had scrolled past.
 ssh -t "${SSH_OPTS[@]}" "$SSH_USER@$IP" '
-	sudo bash -c "set -a; source '"$REMOTE_ENV_PATH"'; set +a; rm -f '"$REMOTE_ENV_PATH"'; /tmp/tte/setup/setup.sh"
+	if sudo bash -c "set -a; source '"$REMOTE_ENV_PATH"'; set +a; rm -f '"$REMOTE_ENV_PATH"'; /tmp/tte/setup/setup.sh"; then
+		printf "\n\033[1;32m==> setup.sh completed\033[0m\n\n"
+	else
+		status=$?
+		printf "\n\033[1;31m!! setup.sh FAILED (exit %s)\033[0m -- it stopped after the last step printed above.\n" "$status" >&2
+		printf "   Steps after that one did NOT run. Re-run the rest with:\n" >&2
+		printf "     sudo /tmp/tte/setup/setup.sh --only <steps>\n\n" >&2
+	fi
 	exec bash -l
 '
