@@ -10,7 +10,7 @@
 		<div class="h-full flex flex-col bg-gray-4">
 			<div class="px-4 py-2 border-b border-gray-2 flex items-center justify-between">
 				<p class="text-xs font-main font-bold text-gray-7 tracking-wide">
-					MODE: {{ displayLanguage }}
+					MODE: {{ displayLanguage }}{{ readOnly ? ' (READ ONLY)' : '' }}
 				</p>
 				<p class="text-xs font-main text-gray-6">{{ lineCount }} lines</p>
 			</div>
@@ -33,6 +33,7 @@
 						class="editor-textarea"
 						spellcheck="false"
 						:disabled="disabled"
+						:readonly="readOnly"
 						:value="pendingValue"
 						@input.stop="onInput"
 						@keydown="onKeydown"
@@ -85,6 +86,12 @@ export default {
 			type: Boolean,
 			default: false,
 		},
+		// View-only mode: the content can still be selected and copied, but not
+		// edited, and the footer offers a single CLOSE instead of CANCEL/SAVE.
+		readOnly: {
+			type: Boolean,
+			default: false,
+		},
 	},
 	data() {
 		return {
@@ -93,6 +100,11 @@ export default {
 	},
 	computed: {
 		popupButtons() {
+			if (this.readOnly) {
+				return [
+					{ variant: BTN_VARIANT.PRIMARY, text: 'CLOSE', onClick: this.onCancel },
+				];
+			}
 			return [
 				{ variant: BTN_VARIANT.DANGER, text: 'CANCEL', onClick: this.onCancel },
 				{ variant: BTN_VARIANT.PRIMARY, text: 'SAVE', onClick: this.onSave },
@@ -119,6 +131,13 @@ export default {
 				this.$nextTick(() => this.resetScroll());
 			}
 		},
+		modelValue(value) {
+			// Nothing to preserve in read-only mode, so track the source directly;
+			// an editable instance keeps whatever the user has typed.
+			if (this.readOnly) {
+				this.pendingValue = value || '';
+			}
+		},
 	},
 	methods: {
 		getPrismLanguage() {
@@ -138,9 +157,11 @@ export default {
 				.replace(/'/g, '&#39;');
 		},
 		onInput(event) {
+			if (this.readOnly) return;
 			this.pendingValue = event.target.value;
 		},
 		onKeydown(event) {
+			if (this.readOnly) return;
 			if (event.key !== 'Tab') return;
 			event.preventDefault();
 			const textarea = event.target;

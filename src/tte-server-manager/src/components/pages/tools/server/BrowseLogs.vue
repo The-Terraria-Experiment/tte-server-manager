@@ -127,6 +127,7 @@
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">TShock Login</div>
 					<div v-if="canViewIP" class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">IP</div>
 					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Players Online</div>
+					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Details</div>
 					<template v-for="(log, i) in currentLogsPage">
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ new Date(log.timestamp).toLocaleString() }}</div>
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.playerName }}</div>
@@ -136,6 +137,18 @@
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.isLoggedIn }}</div>
 						<div v-if="canViewIP" :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.ip }}</div>
 						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.playersActive }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'p-1']">
+							<div class="text-blue-2 hover:text-blue-1 cursor-pointer" @click="openAdditional(log)" v-if="hasAdditional(log)">
+								<div
+									
+									class="inline-flex items-center"
+								>
+									<span class="font-main font-bold">View</span>
+									<Icon icon="external" color="ml-2" size="3" />
+								</div>
+							</div>
+							<span v-else class="text-gray-6">-</span>
+						</div>
 					</template>
 				</div>
 				<div class="flex items-center mt-4">
@@ -164,6 +177,16 @@
 			</div>
 		</Popup>
 
+		<CodeEditor
+			:open="additionalPopupOpen"
+			:model-value="additionalContent"
+			:header-text="additionalHeader"
+			language="json"
+			layer="1"
+			read-only
+			@cancel="additionalPopupOpen = false"
+		/>
+
 		<DateTimePickerPopup
 			:open="timeFilterStartPopupOpen"
 			@close="timeFilterStartPopupOpen = false"
@@ -181,6 +204,7 @@
 
 <script>
 import Checkbox from '@/components/common/Checkbox.vue';
+import CodeEditor from '@/components/common/CodeEditor.vue';
 import DateTimePickerPopup from '@/components/common/DateTimePickerPopup.vue';
 import Dropdown from '@/components/common/Dropdown.vue';
 import FlexButton from '@/components/common/FlexButton.vue';
@@ -213,7 +237,7 @@ const EVENT = {
 const EVENT_NAMES = {
 	[EVENT.PJOIN]: "Player join",
 	[EVENT.PLEAVE]: "Player leave",
-	// [EVENT.PCHAT]: "Player chat",
+	[EVENT.PCHAT]: "Player chat",
 	[EVENT.PDEATH]: "Player death",
 	[EVENT.PSPAWN]: "Player (re)spawn",
 	// [EVENT.WSAVE]: "World save",
@@ -226,6 +250,7 @@ export default {
 		Dropdown,
 		DateTimePickerPopup,
 		Checkbox,
+		CodeEditor,
 		ValueInput,
 		FlexButton,
 		Popup,
@@ -256,6 +281,9 @@ export default {
 			timeFilterStartPopupOpen: false,
 			timeFilterEndPopupOpen: false,
 			logViewPopupOpen: false,
+			additionalPopupOpen: false,
+			additionalContent: "",
+			additionalHeader: "ADDITIONAL DATA",
 			loading: false,
 			loadingActiveSession: false,
 
@@ -306,10 +334,23 @@ export default {
 			return this.$checkPermissions(PERMISSIONS.server.logs.players.ips.read);
 		},
 		gridStyle() {
-			return `grid-template-columns: repeat(${this.canViewIP ? 8 : 7}, minmax(max-content, 1fr));`;
+			return `grid-template-columns: repeat(${this.canViewIP ? 9 : 8}, minmax(max-content, 1fr));`;
 		}
 	},
 	methods: {
+		/**
+		 * Whether an entry carries any event-specific data worth opening. The
+		 * column is per-event, so most rows have nothing here.
+		 */
+		hasAdditional(log) {
+			const additional = log?.additional;
+			return !!additional && typeof additional === "object" && Object.keys(additional).length > 0;
+		},
+		openAdditional(log) {
+			this.additionalHeader = `ADDITIONAL DATA: ${log.eventType ?? "EVENT"}`;
+			this.additionalContent = JSON.stringify(log.additional, null, "\t");
+			this.additionalPopupOpen = true;
+		},
 		async fetchInitial() {
 			await this.$validatePermissions(PERMISSIONS.server.logs.players.read);
 
