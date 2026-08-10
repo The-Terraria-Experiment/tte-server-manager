@@ -467,8 +467,15 @@ export default {
 			this.loading.fileUpload = true;
 
 			try {
-				await put(`/instance/${instanceID}/files`, PERMISSIONS.instance.files.write);
-				this.$alert.success("File sync complete");
+				const response = await put(`/instance/${instanceID}/files`, PERMISSIONS.instance.files.write);
+				// The backend now waits for the instance-side commands, so "complete" is a claim it can
+				// actually make. It gives up watching before API Gateway's timeout though, and that case
+				// is reported as still-running rather than folded into success.
+				if (response?.syncStatus === "running") {
+					this.$alert.info("File sync is taking a while — it's still running on the instance. Refresh the file list in a moment to confirm.");
+				} else {
+					this.$alert.success("File sync complete");
+				}
 			} catch (e) {
 				this.$alert.error("Error syncing instance files. Files may be in an invalid state. Please alert @havoc immediately.", { duration: 30000 });
 				console.error(e);
