@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { verifyAccessToken } from "../lib/signing.js";
 
 export const userinfo = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {

@@ -14,7 +14,7 @@
 		</template>
 		<template #content>
 			<FlexButton 
-				v-if="selectedInstanceData.state === 'ONLINE'"
+				v-if="canMutateFiles"
 				class="bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 mt-4 ml-4" 
 				@input="syncInstanceFiles(selectedInstanceData.id)"
 				:disabled="loading.fileUpload"
@@ -25,6 +25,7 @@
 					<p class="text-teal-3 ml-2 font-main font-bold">RESYNC FILES</p>
 				</div>
 			</FlexButton>
+			<p v-else-if="selectedInstanceData.shutdown?.active" class="italic text-gray-6 mx-4">This instance is shutting down and is syncing its files to storage. You can still browse and download, but editing is unavailable until it finishes.</p>
 			<p v-else class="italic text-gray-6 mx-4">Launch the instance to edit, sync, and upload files. You can still browse and download existing files while it's offline.</p>
 
 			<div class="m-4 gap-4 filetile-parent flex flex-col lg:block lg:columns-2 2xl:columns-3">
@@ -35,7 +36,7 @@
 						</div>
 
 						<FileHierarchy
-							:editable="selectedInstanceData.state === 'ONLINE'"
+							:editable="canMutateFiles"
 							selectable
 							class="mt-4 -ml-4"
 							:files="instanceFiles[path]"
@@ -130,7 +131,7 @@
 			</div>
 			<div class="flex justify-between mt-6">
 				<FlexButton
-					v-if="selectedInstanceData.state === 'ONLINE'"
+					v-if="canMutateFiles"
 					:variant="BTN_VARIANT.DANGER"
 					:disabled="loadingDownload"
 					@input="openDeleteFromInfo"
@@ -216,6 +217,14 @@ export default {
 		}
 	},
 	computed: {
+		/**
+		 * Every file mutation here — resync, upload, delete — needs the box online *and* not on its
+		 * way down: the shutdown's own sync is writing the filestore back from the instance while it
+		 * runs, and anything that lands there is tracked from then on. Reads stay available either way.
+		 */
+		canMutateFiles() {
+			return this.selectedInstanceData.state === 'ONLINE' && !this.selectedInstanceData.shutdown?.active;
+		},
 		instanceFiles() {
 			const roots = Object.values(this.serverStore.instanceFileRoots[this.selectedInstanceData.id] ?? []);
 			const existingFiles = (this.serverStore.instanceFiles[this.selectedInstanceData.id] || [])
@@ -458,8 +467,15 @@ export default {
 			this.loading.fileUpload = true;
 
 			try {
-				await put(`/instance/${instanceID}/files`, PERMISSIONS.instance.files.write);
-				this.$alert.success("File sync complete");
+				const response = await put(`/instance/${instanceID}/files`, PERMISSIONS.instance.files.write);
+				// The backend now waits for the instance-side commands, so "complete" is a claim it can
+				// actually make. It gives up watching before API Gateway's timeout though, and that case
+				// is reported as still-running rather than folded into success.
+				if (response?.syncStatus === "running") {
+					this.$alert.info("File sync is taking a while — it's still running on the instance. Refresh the file list in a moment to confirm.");
+				} else {
+					this.$alert.success("File sync complete");
+				}
 			} catch (e) {
 				this.$alert.error("Error syncing instance files. Files may be in an invalid state. Please alert @havoc immediately.", { duration: 30000 });
 				console.error(e);

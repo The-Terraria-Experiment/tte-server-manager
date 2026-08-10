@@ -1,0 +1,17 @@
+[Unit]
+Description=Sample CPU/memory every minute
+
+[Timer]
+# Defaults only. tte-metrics-ctl's drop-in resets the monotonic timer list and
+# restates BOTH of these -- the reset clears the whole list, not just the option
+# being reset, so a value left only here is silently dropped. Keep the drop-in's
+# COLLECT_BOOT_SEC in step with OnBootSec below.
+OnBootSec=60
+OnUnitActiveSec=60
+AccuracySec=5s
+# Deliberately NOT Persistent=yes: a missed sample while the instance was
+# stopped is genuinely missing data, not work to catch up on. Replaying it at
+# boot would just write a duplicate timestamp with a bogus CPU delta.
+
+[Install]
+WantedBy=timers.target

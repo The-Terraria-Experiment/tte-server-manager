@@ -23,7 +23,7 @@
 					<div
 						v-for="role in roles"
 						:key="role.roleId"
-						class="rounded-lg p-4 w-full sm:w-64 cursor-pointer hover:bg-gray-2 border border-gray-5 bg-gray-4"
+						class="rounded-lg p-4 w-full sm:w-74 cursor-pointer hover:bg-gray-2 border border-gray-5 bg-gray-4"
 						@click="editingRole = role"
 					>
 						<div class="flex items-start justify-between">
@@ -38,7 +38,7 @@
 							<!-- <Icon icon="edit" color="text-white-1" size="5" class="shrink-0 ml-2" @click.stop="editingRole = role" /> -->
 						</div>
 						<div class="mt-2 font-mono text-sm text-white-0">
-							<p v-for="line in summaryLines(role).shown" :key="line">{{ line }}</p>
+							<p v-for="line in summaryLines(role).shown" :key="line" class="truncate">{{ line }}</p>
 							<p v-if="summaryLines(role).hiddenCount" class="text-gray-7 italic mt-2">... {{ summaryLines(role).hiddenCount }} more</p>
 						</div>
 					</div>

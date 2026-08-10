@@ -55,7 +55,8 @@ export const PermissionsMeta = {
 			restart: {value: "instance.status.restart", description: pfx + "reboot instances"},
 		},
 		metrics: {
-			read: {value: "instance.metrics.read", description: "", used: false},
+			read: {value: "instance.metrics.read", description: pfx + "view and force refresh instance metrics"},
+			write: {value: "instance.metrics.write", description: pfx + "modify metrics collector configuration"},
 		},
 		files: {
 			read: {value: "instance.files.read", description: pfx + "view and download all files on the instance"},
@@ -83,6 +84,12 @@ export const PermissionsMeta = {
 			create: {value: "system.notice.create", description: pfx + "create site-wide notifications"},
 			clear: {value: "system.notice.clear", description: pfx + "remove site-wide notifications"},
 			bypass: {value: "system.notice.bypass", description: pfx + "bypass the lockdown imposed by notifications that disable the site"},
+		},
+		instances: {
+			list: {
+				read: {value: "system.instances.list.read", description: pfx + "view which EC2 instances are registered and which environments they serve"},
+				write: {value: "system.instances.list.write", description: pfx + "register, move between environments, and remove EC2 instances"},
+			},
 		},
 	},
 };

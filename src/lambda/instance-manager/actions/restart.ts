@@ -3,10 +3,11 @@ import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { CleanupUtil } from "../shared/utils/Cleanup.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { CleanupUtil } from "../shared/utils/jobs/Cleanup.js";
+import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 
 const EC2 = new Ec2Dao();
 
@@ -19,6 +20,10 @@ export const restart = async (event: AuthorizedEvent, context: Context) => {
     }
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceId);
+	if (blocked) return blocked;
+
 	await EC2.RebootInstance(instanceId);
 
 	await CleanupUtil.ClearWorldCreationStatus(instanceId);

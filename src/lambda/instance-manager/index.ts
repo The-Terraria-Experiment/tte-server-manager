@@ -2,12 +2,12 @@ import type { APIGatewayProxyResult, Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../shared/types/APIGatewayTypes.js";
 import type { EndpointList } from "../../shared/types/LambdaTypes.js";
 import { createHandler } from "./shared/middleware/createHandler.js";
-import { Parsers } from "./shared/utils/Parsers.js";
+import { Parsers } from "./shared/utils/core/Parsers.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
 import { FUNC_NAMES } from "./shared/constants.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
-import { Permissions } from "./shared/utils/Perms.js";
-import { ResponseUtil } from "./shared/utils/APIResponse.js";
+import { Permissions } from "./shared/utils/core/Perms.js";
+import { ResponseUtil } from "./shared/utils/core/APIResponse.js";
 import { list } from "./actions/list.js";
 import { getStatus } from "./actions/getStatus.js";
 import { start } from "./actions/start.js";
@@ -23,11 +23,40 @@ import { getInstanceFiles } from "./actions/getInstanceFiles.js";
 import { readFileContent } from "./actions/readFileContent.js";
 import { writeFileContent } from "./actions/writeFileContent.js";
 import { downloadFile } from "./actions/downloadFile.js";
+import { readMetricsConfig } from "./actions/readMetricsConfig.js";
+import { writeMetricsConfig } from "./actions/writeMetricsConfig.js";
+import { triggerMetricsUpload } from "./actions/triggerMetricsUpload.js";
+import { shutdownWorker } from "./actions/shutdownWorker.js";
+import { readInstanceRegistry } from "./actions/readInstanceRegistry.js";
+import { createInstanceRegistration, updateInstanceRegistration } from "./actions/writeInstanceRegistry.js";
+import { deleteInstanceRegistration } from "./actions/deleteInstanceRegistration.js";
+import type { ShutdownRequestData } from "./shared/utils/jobs/ShutdownJob.js";
+import { readMetrics } from "./actions/readMetrics.js";
 
 const endpoints: EndpointList = {
 	"GET /instances": {
 		action: list,
 		permRequired: PERMISSIONS.instance.list,
+	},
+	// The registry — which instances exist and which environments they belong to. Replaces the
+	// EC2_INSTANCE_IDS / AUTO_SHUTOFF_SERVER_IDS_* env vars. Hosted here rather than in
+	// system-manager because this function already holds INSTANCE_TABLE_NAME, Dynamo access to that
+	// table, and ec2:DescribeInstances.
+	"GET /instances/registry": {
+		action: readInstanceRegistry,
+		permRequired: PERMISSIONS.system.instances.list.read,
+	},
+	"POST /instances/registry": {
+		action: createInstanceRegistration,
+		permRequired: PERMISSIONS.system.instances.list.write,
+	},
+	"PUT /instances/registry/{id}": {
+		action: updateInstanceRegistration,
+		permRequired: PERMISSIONS.system.instances.list.write,
+	},
+	"POST /instances/registry/{id}/delete": {
+		action: deleteInstanceRegistration,
+		permRequired: PERMISSIONS.system.instances.list.write,
 	},
 	"GET /instance/{id}/status": {
 		action: getStatus,
@@ -45,8 +74,24 @@ const endpoints: EndpointList = {
 		action: restart,
 		permRequired: PERMISSIONS.instance.status.restart,
 	},
+	// The collected samples themselves, read out of S3 for a requested time window.
+	// The collector's own on/off and timing config live under /metrics/config below.
 	"GET /instance/{id}/metrics": {
-		action: null,
+		action: readMetrics,
+		permRequired: PERMISSIONS.instance.metrics.read,
+	},
+	"GET /instance/{id}/metrics/config": {
+		action: readMetricsConfig,
+		permRequired: PERMISSIONS.instance.metrics.read,
+	},
+	"PUT /instance/{id}/metrics/config": {
+		action: writeMetricsConfig,
+		permRequired: PERMISSIONS.instance.metrics.write,
+	},
+	// A read-tier permission on purpose: this refreshes what's in S3, it doesn't
+	// change how the collector is configured.
+	"POST /instance/{id}/metrics/upload": {
+		action: triggerMetricsUpload,
 		permRequired: PERMISSIONS.instance.metrics.read,
 	},
 	"GET /instance/{id}/files": {
@@ -93,9 +138,9 @@ const endpoints: EndpointList = {
 	},
 }
 
-const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
+const hNormal = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	CWLogger.Action(FUNC_NAMES.INST_MGR, {
-		userId: Parsers.GetUserSub(event), 
+		userId: Parsers.GetUserSub(event),
 		action: "invoke",
 	});
 
@@ -116,7 +161,28 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 		details: { context, event }
 	});
 
-	const result = endpointDetails.action(event, context);
+	return endpointDetails.action(event, context);
+}
+
+const hWorker = async (event: ShutdownRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+	CWLogger.Action(FUNC_NAMES.INST_MGR, {
+		userId: event.requestedBy,
+		action: "invoke-worker",
+		resource: event.instanceID,
+		details: { event }
+	});
+
+	return shutdownWorker(event, context);
+}
+
+const h = async (event: AuthorizedEvent | ShutdownRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+	let result: APIGatewayProxyResult;
+
+	if ("requestType" in event && event.requestType === "shutdown-request") {
+		result = await hWorker(event as ShutdownRequestData, context);
+	} else {
+		result = await hNormal(event as AuthorizedEvent, context);
+	}
 
 	await CWLogger.FlushAll();
 

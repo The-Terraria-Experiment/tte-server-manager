@@ -7,7 +7,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { CWLogger } from "./CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
-import { Delay } from "../utils/Delay.js";
+import { Delay } from "../utils/core/Delay.js";
 
 export const InstanceState = {
 	PENDING: "pending",
@@ -16,7 +16,13 @@ export const InstanceState = {
 	TERMINATED: "terminated",
 	STOPPING: "stopping",
 	STOPPED: "stopped",
-	UNKNOWN: "unknown"
+	UNKNOWN: "unknown",
+	/**
+	 * Registered in the instance registry, but EC2 has no such instance — typically a terminated box
+	 * or a typo'd ID. Never returned by AWS; synthesised by GetMultipleInstanceStatus so one bad
+	 * registry entry degrades to a single flagged row instead of failing the whole list.
+	 */
+	MISSING: "missing"
 } as const;
 
 type InstanceState = (typeof InstanceState)[keyof typeof InstanceState];
@@ -36,6 +42,14 @@ function toInstanceState(awsStateValue: string | undefined): InstanceState {
 export interface InstanceStatus {
 	state: InstanceState;
 	publicIp: string;
+	/**
+	 * Both addresses are carried because they serve different consumers. `publicIp` is what players
+	 * connect to and what the UI displays; `privateIp` is what the TShock REST path dials, and it has
+	 * to be the private one — traffic sent to an instance's *public* address from inside the VPC
+	 * hairpins out through the internet gateway and arrives with a public source address, which will
+	 * not match the source-security-group rule that keeps port 3891 closed to the internet.
+	 */
+	privateIp: string;
 	launchTime: Date | undefined;
 	instanceType: string | undefined;
 	name: string;
@@ -84,35 +98,27 @@ export class Ec2Dao {
 		return {
 			state: toInstanceState(instance.State?.Name ?? "unknown"),
 			publicIp: instance.PublicIpAddress || "PENDING",
+			privateIp: instance.PrivateIpAddress || "PENDING",
 			launchTime: instance.LaunchTime,
 			instanceType: instance.InstanceType,
 			name: nameTag?.Value || "(Unnamed)",
 		};
 	}
 
+	/**
+	 * Describes several instances at once, tolerating IDs EC2 no longer knows about.
+	 *
+	 * DescribeInstances with an explicit InstanceIds list is all-or-nothing: a single terminated or
+	 * typo'd ID throws InvalidInstanceID.NotFound and takes the entire response with it. Since the
+	 * caller's ID list now comes from the instance registry, which admins edit, one stale entry would
+	 * otherwise blank the instance list — including the UI needed to remove it. So on that error we
+	 * fall back to describing each ID on its own and return the unresolvable ones as `missing`.
+	 *
+	 * @returns One entry per requested ID, in the order requested.
+	 */
 	public async GetMultipleInstanceStatus(instanceIds: string[]): Promise<MultiInstanceStatus[]> {
 		if (!instanceIds || instanceIds.length === 0) {
 			return [];
-		}
-
-		const command = new DescribeInstancesCommand({
-			InstanceIds: instanceIds,
-		});
-		const response = await this.ec2Client.send(command);
-
-		const instances: MultiInstanceStatus[] = [];
-		for (const reservation of response.Reservations || []) {
-			for (const instance of reservation.Instances || []) {
-				const nameTag = instance.Tags?.find((tag) => tag.Key === "Name");
-				instances.push({
-					id: instance.InstanceId || "",
-					state: toInstanceState(instance.State?.Name ?? "unknown"),
-					publicIp: instance.PublicIpAddress || "PENDING",
-					launchTime: instance.LaunchTime,
-					instanceType: instance.InstanceType,
-					name: nameTag?.Value || "(Unnamed)",
-				});
-			}
 		}
 
 		await CWLogger.CAction(3, CW_LOG_GENERAL, {
@@ -122,7 +128,86 @@ export class Ec2Dao {
 			details: { instanceIds },
 		});
 
+		let found: Map<string, MultiInstanceStatus>;
+		try {
+			found = await this.DescribeInstancesById(instanceIds);
+		} catch (error) {
+			if (!Ec2Dao.IsUnknownInstanceIdError(error)) {
+				throw error;
+			}
+
+			// At least one ID is bad, but EC2 doesn't say which. Re-describe individually so the
+			// good ones still resolve.
+			await CWLogger.Error(CW_LOG_GENERAL, {
+				error: error instanceof Error ? error.message : String(error),
+				details: {
+					action: "getMultipleInstanceStatus",
+					note: "batch describe rejected an unknown instance id; falling back to per-id describe",
+					instanceIds,
+				},
+			});
+
+			found = new Map();
+			const perId = await Promise.all(
+				instanceIds.map(async (id) => {
+					try {
+						return await this.DescribeInstancesById([id]);
+					} catch (individualError) {
+						if (Ec2Dao.IsUnknownInstanceIdError(individualError)) {
+							return new Map<string, MultiInstanceStatus>();
+						}
+						throw individualError;
+					}
+				}),
+			);
+			for (const result of perId) {
+				for (const [id, status] of result) {
+					found.set(id, status);
+				}
+			}
+		}
+
+		return instanceIds.map(
+			(id) =>
+				found.get(id) ?? {
+					id,
+					state: InstanceState.MISSING,
+					publicIp: "UNKNOWN",
+					privateIp: "UNKNOWN",
+					launchTime: undefined,
+					instanceType: undefined,
+					name: "(Not found in EC2)",
+				},
+		);
+	}
+
+	private async DescribeInstancesById(instanceIds: string[]): Promise<Map<string, MultiInstanceStatus>> {
+		const response = await this.ec2Client.send(new DescribeInstancesCommand({ InstanceIds: instanceIds }));
+
+		const instances = new Map<string, MultiInstanceStatus>();
+		for (const reservation of response.Reservations || []) {
+			for (const instance of reservation.Instances || []) {
+				if (!instance.InstanceId) {
+					continue;
+				}
+				const nameTag = instance.Tags?.find((tag) => tag.Key === "Name");
+				instances.set(instance.InstanceId, {
+					id: instance.InstanceId,
+					state: toInstanceState(instance.State?.Name ?? "unknown"),
+					publicIp: instance.PublicIpAddress || "PENDING",
+					privateIp: instance.PrivateIpAddress || "PENDING",
+					launchTime: instance.LaunchTime,
+					instanceType: instance.InstanceType,
+					name: nameTag?.Value || "(Unnamed)",
+				});
+			}
+		}
 		return instances;
+	}
+
+	private static IsUnknownInstanceIdError(error: unknown): boolean {
+		const code = (error as { name?: string; Code?: string })?.name || (error as { Code?: string })?.Code || "";
+		return code.startsWith("InvalidInstanceID");
 	}
 
 	public async StartInstance(instanceId: string): Promise<{ state: string }> {

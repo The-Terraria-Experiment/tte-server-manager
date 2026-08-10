@@ -1,5 +1,5 @@
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
-import { resolveCorsOrigin } from "../utils/APIResponse.js";
+import { resolveCorsOrigin } from "../utils/core/APIResponse.js";
 import type { LambdaHandler } from "../../../../shared/types/LambdaTypes.js";
 
 export function corsHandler<TEvent = unknown>(handler: LambdaHandler<TEvent>): LambdaHandler<TEvent> {

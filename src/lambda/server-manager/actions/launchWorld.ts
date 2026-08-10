@@ -1,19 +1,20 @@
 import type { Context } from "vm";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import type { InstanceDataEntry } from "../shared/schema/InstanceTable.js";
 import path from "path";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
-import { applyServerPasswordToConfig } from "../shared/utils/TShockConfig.js";
+import { applyServerPasswordToConfig } from "../shared/utils/tshock/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
+import { ensureLogDirsCommand, joinLaunchSteps, tshockProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
+import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
@@ -81,7 +82,7 @@ const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlaye
 	Assert.IsTruthyString(workingDir, "TShock working directory not configured (TSHOCK_WD env var missing)");
 	const cdRoot = `cd "${workingDir}"`;
 
-	const serviceScript = `${cdRoot} && exec ${command} < /dev/null`;
+	const serviceScript = joinLaunchSteps(cdRoot, ensureLogDirsCommand(), `exec ${command} < /dev/null`);
 	const escapedServiceScript = serviceScript.replace(/'/g, `'"'"'`);
 	const systemdLaunch = `systemd-run --unit "tshock-$(date +%s)-$$" --uid ubuntu --working-directory "${workingDir}" --collect --quiet /bin/bash -c '${escapedServiceScript}' && echo "TShock launch dispatched"`;
 
@@ -91,9 +92,7 @@ const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlaye
 const buildPreLaunchGuardPath = (): string => {
 	const tshockPath = process.env.TSHOCK_PATH;
 	Assert.IsTruthyString(tshockPath, "TShock executable path not configured (TSHOCK_PATH env var missing)");
-	const normalizedPath = String(tshockPath || "").trim();
-	const binaryName = path.posix.basename(normalizedPath).replace(/[^a-zA-Z0-9._-]/g, "");
-	const searchPattern = ["TerrariaServer", "TShock", binaryName].filter(Boolean).join("|");
+	const searchPattern = tshockProcessPattern();
 
 	return `if pgrep -af '${searchPattern}' >/dev/null 2>&1; then echo 'TSHOCK_ALREADY_RUNNING'; else echo 'TSHOCK_CLEAR_TO_START'; fi`;
 };
@@ -108,6 +107,9 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${instanceID}`);
+
+	const blocked = await blockIfShutdownInProgress(instanceID);
+	if (blocked) return blocked;
 
 	try {
 		validateLaunchParams(event.parsedBody || {});
@@ -215,9 +217,6 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 				port
 			}
 		});
-
-		// Clear out stale tokens
-		TShockAPI.DropTokenCache();
 
 		await DB.UpdateItem(SYSTEM_TABLE, `autoshutoff#${instanceID}`, {
 			updates: {

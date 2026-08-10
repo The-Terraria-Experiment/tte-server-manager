@@ -1,26 +1,31 @@
 import type { APIGatewayProxyResult, Context } from "aws-lambda";
-import { ResponseUtil } from "../utils/APIResponse.js";
+import { ResponseUtil } from "../utils/core/APIResponse.js";
 import { CWLogger } from "../aws/CloudWatch.js";
 import { CW_LOG_GENERAL } from "../constants.js";
-import { redactToJson } from "../utils/Redact.js";
+import { redactCredentials, redactToJson } from "../utils/core/Redact.js";
 import type { LambdaHandler } from "../../../../shared/types/LambdaTypes.js";
 
+/**
+ * Both fields are redacted here rather than at each use site: the message is logged *and*
+ * returned to the caller verbatim on the mapped 4xx paths below, and a stack's first line
+ * is the message again.
+ */
 function getErrorDetails(error: unknown): { message: string; stack?: string } {
 	if (error instanceof Error) {
 		if (error.stack !== undefined) {
 			return {
-				message: error.message,
-				stack: error.stack,
+				message: redactCredentials(error.message),
+				stack: redactCredentials(error.stack),
 			};
 		}
 
 		return {
-			message: error.message,
+			message: redactCredentials(error.message),
 		};
 	}
 
 	return {
-		message: String(error),
+		message: redactCredentials(String(error)),
 	};
 }
 

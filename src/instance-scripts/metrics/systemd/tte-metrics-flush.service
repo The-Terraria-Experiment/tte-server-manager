@@ -1,0 +1,30 @@
+[Unit]
+Description=Flush the TTE metrics buffer to S3 on shutdown
+After=network-online.target
+Wants=network-online.target
+# Auto-shutoff stops these instances routinely, so the shutdown flush is the
+# normal path for the last few minutes of data, not an edge case. Ordering
+# before network shutdown matters: the upload needs the network up.
+DefaultDependencies=no
+Before=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+User=ubuntu
+Group=ubuntu
+EnvironmentFile=/etc/tte-metrics.env
+ExecStart=/bin/true
+ExecStop=/usr/local/bin/tte-metrics-upload
+# Bounded so a hung upload can't stall the stop. The instance-manager shutdown
+# path is already on a tight deadline budget; this must not eat into it.
+TimeoutStopSec=20
+
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/tte-metrics
+
+[Install]
+WantedBy=multi-user.target

@@ -1,17 +1,17 @@
 <template>
 	<div class="sm:grid sm:grid-cols-2 w-full gap-2">
-		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full p-4 mb-4 sm:mb-8 flex flex-col justify-center items-center']">
+		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full p-4 mb-4 sm:mb-8 flex flex-col justify-center items-center border border-gray-3']">
 			<!-- <div class="title-bg-gradient"></div> -->
 			<div class="flex items-center">
 				<Icon icon="server" size="6" color="text-white-1 sm:text-teal-4" />
-				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0 ml-3">MANAGE INSTANCE</h1>
+				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-content-top sm:z-auto ml-3">MANAGE INSTANCE</h1>
 			</div>
-			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View machine status and manage files</p>
+			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-content-top sm:z-auto">View machine status and manage files</p>
 		</div>
 		
 		<div
 			v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
-			class="bg-gray-1 p-4 rounded-xl"
+			class="bg-gray-1 p-4 rounded-xl border border-gray-3"
 		>
 			<p class="font-main font-bold text-gray-7 mb-2">PICK INSTANCE</p>
 			<Dropdown
@@ -61,10 +61,16 @@
 		:selected-instance-data="selectedInstanceData" 
 	/>
 
-	<InstanceFiles 
+	<InstanceFiles
 		v-if="selectedInstance"
-		:selected-instance-data="selectedInstanceData" 
-		:loading="loading" 
+		:selected-instance-data="selectedInstanceData"
+		:loading="loading"
+	/>
+
+	<InstanceMetrics
+		v-if="selectedInstance"
+		:key="selectedInstance"
+		:selected-instance-data="selectedInstanceData"
 	/>
 	
 </template>
@@ -79,6 +85,7 @@ import { useUserStore } from '../../stores/userStore';
 import BasicInstanceInfo from './tools/instance/BasicInstanceInfo.vue';
 import InstanceFiles from './tools/instance/InstanceFiles.vue';
 import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
+import InstanceMetrics from './tools/instance/InstanceMetrics.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
@@ -92,6 +99,7 @@ export default {
 		BasicInstanceInfo,
 		InstanceFiles,
 		InstanceFilePaths,
+		InstanceMetrics,
 		MajorLoader,
 	},
 	props: {
@@ -114,11 +122,19 @@ export default {
 	computed: {
 		selectedInstanceData() {
 			const rawData = this.serverStore.getInstanceData(this.selectedInstance);
+			// The status fetch lands after the instance list does, so tiles mount and
+			// render against this fallback first. `id` belongs here even though
+			// nothing else does: which instance this describes is known from the
+			// selection alone, and a tile that fetches on mount would otherwise
+			// request /instance/undefined/... and never retry, since the key doesn't
+			// change when the real data arrives.
 			if (!rawData) return {
+				id: this.selectedInstance,
 				state: "UNKNOWN",
 				publicIp: null,
 				timeOnline: null,
-				instanceType: null
+				instanceType: null,
+				shutdown: null
 			};
 
 			const stateMap = {
@@ -135,7 +151,11 @@ export default {
 				state: stateMap[rawData.state],
 				publicIp: rawData.publicIp,
 				timeOnline: (rawData.launchTime && rawData.state === 'running') ? new Date(rawData.launchTime) : null,
-				instanceType: rawData.instanceType
+				instanceType: rawData.instanceType,
+				// Passed through rather than mapped: the EC2 state reads ONLINE for most of a shutdown
+				// (the box only starts stopping once the tasks are done), so this is the only thing that
+				// can tell the tile a shutdown is underway.
+				shutdown: rawData.shutdown || null
 			};
 		},
 		filteredInstanceOptions() {
@@ -240,6 +260,6 @@ export default {
 }
 
 .server-bg .title-bg-gradient {
-	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-10;
+	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-content;
 }
 </style>

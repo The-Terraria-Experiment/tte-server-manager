@@ -113,7 +113,7 @@
 						v-if="!serverStore.loading.worldLaunch[selectedInstance]"
 						:variant="BTN_VARIANT.PRIMARY"
 						@input="createWorld"
-						:disabled="!(newWorldData.name && newWorldData.maxPlayers && newWorldData.worldFileLocation)"
+						:disabled="isShuttingDown || !(newWorldData.name && newWorldData.maxPlayers && newWorldData.worldFileLocation)"
 					>
 						<p class="font-main font-bold py-2 px-4 md:px-10">CREATE & LAUNCH WORLD</p>
 					</FlexButton>
@@ -167,12 +167,18 @@ const defaultNewWorldData = () => ({
 	worldFileLocation: null
 });
 
+// Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
+const POLL_HANDLER_ID = "create-world-poll-status";
+const FINISH_HANDLER_ID = "create-world-handle-finished";
+
 const defaultLastWorldCreateStatus = () => ({
 	requestedBy: null,
 	status: "",
 	step: "",
 	progress: -1,
 	detail: null,
+	failureReason: null,
+	abandoned: false,
 	createdAt: null,
 	updatedAt: null,
 	jobID: null
@@ -218,6 +224,10 @@ export default {
 			],
 			worldCreatePopupOpen: false,
 			lastWorldCreateStatus: defaultLastWorldCreateStatus(),
+			// Set by whoever stops the polling so handleCreationFinished — which runs off the
+			// task-end subscription and owns the teardown — can report the real reason instead of
+			// both of them alerting about the same stop.
+			worldCreateEndMessage: null,
 		}
 	},
 	computed: {
@@ -252,6 +262,9 @@ export default {
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
+		},
+		isShuttingDown() {
+			return this.serverStore.isShuttingDown(this.selectedInstance);
 		}
 	},
 	methods: {
@@ -271,18 +284,32 @@ export default {
 			try {
 				const statusResult = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
 
-				if (statusResult && statusResult.found !== false) {
-					this.lastWorldCreateStatus = statusResult;
+				if (!statusResult || statusResult.found === false) {
+					// The job row is gone — it finished and was cleaned up, or was replaced by a
+					// newer request. Either way there's nothing left to watch, and continuing to
+					// poll would keep the spinner up against a job that no longer exists.
+					this.stopWorldCreatePolling();
+					return;
+				}
+
+				this.lastWorldCreateStatus = statusResult;
+
+				if (statusResult.abandoned) {
+					// The worker died without recording an outcome. The backend already treats this
+					// job as replaceable, so say so rather than spinning until the poll cap.
+					this.stopWorldCreatePolling("World creation stopped without finishing — the job is no longer running. You can start a new one.");
 				}
 			} catch (error) {
-				this.statusStore.cancelRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK);
-				this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
-				this.closeWorldCreatePopup();
-				this.$alert.error("Lost connection while tracking world creation status");
 				console.error(error);
+				this.stopWorldCreatePolling("Lost connection while tracking world creation status");
 			}
 		},
+		stopWorldCreatePolling(message = null) {
+			this.worldCreateEndMessage = message;
+			this.statusStore.cancelRepeatingTask(TASK_IDS.CREATE_WORLD_CHECK);
+		},
 		startWorldCreatePolling(firstStatus, maxRepeats = 180) {
+			this.worldCreateEndMessage = null;
 			this.lastWorldCreateStatus = firstStatus;
 			// Poll every 5s. The window is deliberately generous (default ~15min) because a
 			// cold start — booting the instance, SSM + TShock warmup, generating a large world,
@@ -332,7 +359,13 @@ export default {
 			} catch (e) {
 				// Note: don't clear the loading flag unconditionally here — the timeout branch
 				// below keeps world creation "in progress" and hands off to status polling.
-				if (e.message.includes("Instances not in a valid state")) {
+				if (e.status === 409) {
+					// Someone else's job is genuinely still running (the backend only says this for a
+					// job that's still heartbeating). Watching it is more useful than an error.
+					this.$alert.warning("A world is already being created on this instance");
+					this.openWorldCreatePopup();
+					this.startWorldCreatePolling(defaultLastWorldCreateStatus());
+				} else if (e.message.includes("Instances not in a valid state")) {
 					this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
 					this.$alert.warning("Could not create world: instance is not running or not responding");
 				} else if (e.message.includes("Endpoint request timed out")) {
@@ -352,7 +385,13 @@ export default {
 			}
 		},
 		async handleCreationFinished() {
-			if (this.lastWorldCreateStatus.status === "completed") {
+			const endMessage = this.worldCreateEndMessage;
+			this.worldCreateEndMessage = null;
+
+			if (endMessage) {
+				this.$alert.error(endMessage);
+				this.closeWorldCreatePopup();
+			} else if (this.lastWorldCreateStatus.status === "completed") {
 				this.newWorldData = defaultNewWorldData();
 				if (this.worldCreatePopupOpen) {
 					this.$alert.success("World created, saved, and launched successfully");
@@ -364,7 +403,10 @@ export default {
 				await delay(1200);
 				this.closeWorldCreatePopup();
 			} else if (this.lastWorldCreateStatus.status === "failed") {
-				this.$alert.error("World creation failed");
+				// The backend records *why* it failed; the cases that matter (TShock never started,
+				// world path not configured, ran out of time mid-generation) are indistinguishable
+				// to a user without it.
+				this.$alert.error(this.lastWorldCreateStatus.failureReason || "World creation failed");
 				this.closeWorldCreatePopup();
 			} else {
 				// Polling stopped without the backend reporting a terminal state. The job is
@@ -379,8 +421,14 @@ export default {
 		}
 	},
 	created() {
-		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.pollWorldCreateStatus);
-		this.statusStore.subscribeToTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, this.handleCreationFinished);
+		this.statusStore.subscribeToTask(TASK_IDS.CREATE_WORLD_CHECK, this.pollWorldCreateStatus, POLL_HANDLER_ID);
+		this.statusStore.subscribeToTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, this.handleCreationFinished, FINISH_HANDLER_ID);
+	},
+	beforeUnmount() {
+		// Without this the previous instance's handlers keep running after a route change, so the
+		// alerts land against a component that's no longer on screen — and multiply with each visit.
+		this.statusStore.unsubscribeFromTask(TASK_IDS.CREATE_WORLD_CHECK, POLL_HANDLER_ID);
+		this.statusStore.unsubscribeFromTaskEnd(TASK_IDS.CREATE_WORLD_CHECK, FINISH_HANDLER_ID);
 	},
 	watch: {
 		worldFileLocationOptions(value) {

@@ -2,6 +2,7 @@
 	<StatusTile 
 		class="grow gradient-tile"
 		:collapsible="!!selectedServerData.playercount"
+		:contentLoaded="selectedServerData.playercount !== undefined"
 		:perm-required="PERMISSIONS.server.status.read"
 		:floatingExpand="!isMobile"
 	>

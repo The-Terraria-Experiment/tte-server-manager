@@ -47,8 +47,14 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     strategy:
+      # One function's failure must not cancel the others. These jobs are independent deploys, and
+      # the default (fail-fast: true) cancels in-flight siblings — which can leave a lambda updated
+      # on $LATEST but cancelled before publish-version, so its alias still serves the old code.
+      # The usual trigger is a function that doesn't exist in AWS yet: update-function-code fails
+      # immediately and takes the rest of the fleet's deploy down with it.
+      fail-fast: false
       matrix:
-        lambda: [instance-manager, server-manager, user-manager, logs-manager, "auto-shutoff-manager", cognito-user-link, system-manager, api-authorizer, patreon-oidc]
+        lambda: [instance-manager, server-manager, user-manager, logs-manager, "auto-shutoff-manager", cognito-user-link, system-manager, api-authorizer, patreon-oidc, tshock-proxy]
     steps:
       - uses: actions/checkout@v5
 

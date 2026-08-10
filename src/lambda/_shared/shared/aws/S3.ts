@@ -478,6 +478,20 @@ export class S3Dao {
 	 * Executes SSM commands to sync an S3 object or prefix to an instance path.
 	 * For folders, sourceKey is treated as a prefix and localPath is the destination directory.
 	 * Uses the instance AWS CLI for batching; set overwriteExisting=false to skip existing files.
+	 *
+	 * Every `aws` call goes through `run_aws` (i.e. {@link runAsUbuntu}) rather than running as the
+	 * root user the SSM script starts as, and that is a correctness requirement, not tidiness. When an
+	 * instance registers with SSM through Default Host Management Configuration, the agent exports
+	 * `AWS_SHARED_CREDENTIALS_FILE=/var/lib/amazon/ssm/credentials` into the command environment, which
+	 * outranks IMDS in the CLI's credential chain — so root gets
+	 * `AWSSystemsManagerDefaultEC2InstanceManagementRole` (SSM's own managed policy, no access to our
+	 * buckets) instead of the instance profile. `runuser` resets the environment, dropping that
+	 * variable, so the CLI falls back to IMDS and the instance role. Every other instance-side CLI call
+	 * in this file already did this; this one didn't, which is exactly why it was the one that broke.
+	 *
+	 * The agent drops the DHMC registration once it notices the instance profile, so the window is a
+	 * few minutes after boot rather than permanent — which makes it worse, not better: it reproduces
+	 * only on a freshly started box and clears itself before anyone finishes investigating.
 	 */
 	public async SyncS3ToInstance(params: {
 		instanceId: string;
@@ -512,7 +526,10 @@ export class S3Dao {
 
 		const commands = [
 			"#!/bin/bash",
-			"set -e",
+			"set -euo pipefail",
+			"",
+			// See the docstring: root's AWS CLI can silently be the DHMC role, so hand every call to ubuntu.
+			"run_aws() { runuser -u ubuntu -- /bin/bash -lc 'aws \"$@\"' aws \"$@\"; }",
 			"",
 			`echo \"Starting S3 sync from s3://${escapedBucket}/${escapedKey} to ${escapedLocalPath}\"`,
 			`BUCKET=\"${escapedBucket}\"`,
@@ -526,26 +543,41 @@ export class S3Dao {
 			"  chown ubuntu:ubuntu \"$DEST_PATH\"",
 			"  chmod 755 \"$DEST_PATH\"",
 			"  if [ \"$OVERWRITE\" = \"true\" ]; then",
-			"    aws s3 sync \"s3://$BUCKET/$SOURCE_KEY\" \"$DEST_PATH\" --only-show-errors",
+			"    run_aws s3 sync \"s3://$BUCKET/$SOURCE_KEY\" \"$DEST_PATH\" --only-show-errors",
 			"    chown -R ubuntu:ubuntu \"$DEST_PATH\"",
+			"    echo \"Completed S3 sync\"",
 			"  else",
-			"    aws s3api list-objects-v2 --bucket \"$BUCKET\" --prefix \"$SOURCE_KEY\" --query \"Contents[].Key\" --output text | tr \"\\t\" \"\\n\" | while IFS= read -r key; do",
-			"      [ -z \"$key\" ] && continue",
+			// Captured into a variable, not piped into the loop. As a pipeline head its failure was
+			// exempt from `set -e` (no pipefail), so an AccessDenied here produced an empty key list,
+			// a loop that ran zero times, "Completed S3 sync", and SSM exit 0 -- a total no-op
+			// reported as success. It also ran the loop body in a subshell, so the counters below
+			// could not have survived it.
+			"    keys=$(run_aws s3api list-objects-v2 --bucket \"$BUCKET\" --prefix \"$SOURCE_KEY\" --query \"Contents[].Key\" --output text)",
+			// --output text prints the literal string "None" for an empty result, which would
+			// otherwise be treated as a key and attempted as a download.
+			"    if [ \"$keys\" = \"None\" ]; then keys=\"\"; fi",
+			"    copied=0",
+			"    skipped=0",
+			// Tabs to newlines via parameter expansion rather than `tr`, to keep the pipeline gone.
+			"    while IFS= read -r key; do",
+			"      if [ -z \"$key\" ]; then continue; fi",
 			"      case \"$key\" in */) continue ;; esac",
 			"      rel=\"${key#$SOURCE_KEY}\"",
 			"      dest=\"$DEST_PATH/$rel\"",
 			"      if [ -e \"$dest\" ]; then",
-			"        echo \"File exists, skipping: $dest\"",
+			"        skipped=$((skipped + 1))",
 			"        continue",
 			"      fi",
 			"      dir=\"$(dirname \"$dest\")\"",
 			"      mkdir -p \"$dir\"",
 			"      chown ubuntu:ubuntu \"$dir\"",
 			"      chmod 755 \"$dir\"",
-			"      aws s3 cp \"s3://$BUCKET/$key\" \"$dest\" --only-show-errors",
+			"      run_aws s3 cp \"s3://$BUCKET/$key\" \"$dest\" --only-show-errors",
 			"      chown ubuntu:ubuntu \"$dest\"",
 			"      chmod 644 \"$dest\"",
-			"    done",
+			"      copied=$((copied + 1))",
+			"    done <<< \"${keys//$'\\t'/$'\\n'}\"",
+			"    echo \"Completed S3 sync: downloaded $copied file(s), skipped $skipped already present\"",
 			"  fi",
 			"else",
 			"  dir=\"$(dirname \"$DEST_PATH\")\"",
@@ -553,14 +585,14 @@ export class S3Dao {
 			"    mkdir -p \"$dir\"",
 			"    chown ubuntu:ubuntu \"$dir\"",
 			"    chmod 755 \"$dir\"",
-			"    aws s3 cp \"s3://$BUCKET/$SOURCE_KEY\" \"$DEST_PATH\" --only-show-errors",
+			"    run_aws s3 cp \"s3://$BUCKET/$SOURCE_KEY\" \"$DEST_PATH\" --only-show-errors",
 			"    chown ubuntu:ubuntu \"$DEST_PATH\"",
 			"    chmod 644 \"$DEST_PATH\"",
+			"    echo \"Completed S3 sync: downloaded 1 file\"",
 			"  else",
-			"    echo \"File exists, skipping: $DEST_PATH\"",
+			"    echo \"Completed S3 sync: file exists, skipped $DEST_PATH\"",
 			"  fi",
 			"fi",
-			"echo \"Completed S3 sync\"",
 		];
 
 		return this.ssmDao.ExecuteCommand(instanceId, commands);

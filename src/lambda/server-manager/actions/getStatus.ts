@@ -1,17 +1,18 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { InstanceState } from "../shared/aws/EC2.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import type { AutoShutoffStateEntry, SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
+import { readShutdownState } from "../shared/utils/jobs/ShutdownJob.js";
 
 export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 	void context;
@@ -26,9 +27,18 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 
 	try {
 		const ec2 = new Ec2Dao();
-		const instance = await ec2.GetInstanceStatus(serverId);
-		const ip = instance.publicIp;
+		const ec2Instance = await ec2.GetInstanceStatus(serverId);
+		const ip = ec2Instance.privateIp;
 		const DB = new DynamoDao();
+
+		// The shutdown block has to ride this endpoint too, not just instance-manager's: serverStore
+		// overwrites its whole `instanceStatusData[id]` entry from this response, so if only the other
+		// endpoint carried it, simply visiting the Server page would wipe the flag out from under the
+		// tracker and the guards.
+		// privateIp is destructured off rather than spread through: it's only ever an input to the
+		// TShock REST path, the client has no use for it, and this response goes to the browser.
+		const { privateIp: _privateIp, ...clientInstance } = ec2Instance;
+		const instance = { ...clientInstance, shutdown: await readShutdownState(serverId) };
 		const autoShutoffState = await DB.GetItem(SYSTEM_TABLE, `autoshutoff#${serverId}`) as AutoShutoffStateEntry | null;
 		const autoShutoff = autoShutoffState
 			? {
@@ -38,11 +48,15 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			}
 			: null;
 
-		if (!ip || ip === "PENDING") {
-			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");
+		if (ip === "PENDING") {
+			return ResponseUtil.Success({ server: { status: false }, instance, autoShutoff });
+		}
+		
+		if (!ip) {
+			return ResponseUtil.Error(`Instance ${serverId} has no reachable private IP`, 503, "INSTANCE_IP_UNAVAILABLE");
 		}
 
-		if (instance.state !== InstanceState.RUNNING) {
+		if (ec2Instance.state !== InstanceState.RUNNING) {
 			return ResponseUtil.Success({ server: { status: false }, instance, autoShutoff });
 		}
 		const createWorldStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${serverId}`) as SystemWorldCreateEntry;

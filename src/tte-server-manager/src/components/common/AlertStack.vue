@@ -1,5 +1,5 @@
 <template>
-	<div class="pointer-events-none fixed left-0 right-0 top-4 z-50 flex justify-center">
+	<div class="pointer-events-none fixed left-0 right-0 top-4 z-alert flex justify-center">
 		<div class="w-full max-w-3xl px-4">
 			<TransitionGroup name="alert" tag="div" class="space-y-3">
 				<div

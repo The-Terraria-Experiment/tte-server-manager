@@ -1,12 +1,13 @@
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { Assert } from "../shared/utils/core/Assert.js";
+import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 
 const syncConfigToInstance = async (instanceId: string, s3Bucket: string, baseLocalPath: string) => {
 	const commands: string[] = [];
@@ -48,6 +49,9 @@ export const writeConfig = async (event: AuthorizedEvent) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${serverId}`);
+
+	const blocked = await blockIfShutdownInProgress(serverId);
+	if (blocked) return blocked;
 
 	let configBody: Record<string, unknown>;
 	try {

@@ -1,7 +1,7 @@
 <template>
 	<Teleport to="body">
-		<div 
-			:class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[layer], { 'overlay-open': open, 'overlay-closed': !open }]" 
+		<div
+			:class="['fixed left-0 top-0 right-0 bottom-0 overlay-backdrop', zLayers[Number(layer)]?.backdrop, { 'overlay-open': open, 'overlay-closed': !open }]"
 			@click="() => closeWhenBgClicked ? xClicked() : null"
 		></div>
 		
@@ -13,7 +13,7 @@
 				v-if="open"
 				:class="[
 					'fixed left-0 top-0 right-0 bottom-0 m-auto flex flex-col overflow-hidden shadow-gray-0 shadow-lg rounded-lg bg-gray-3',
-					zLayers[Number(layer) + 1],
+					zLayers[Number(layer)]?.dialog,
 					bodyClass
 				]"
 			>
@@ -66,10 +66,13 @@ export default {
 		Spinner,
 	},
 	props: {
+		// Nesting depth of this popup: 0 for a popup opened from the page, 1 for
+		// one opened from inside a layer-0 popup, and so on. Each layer takes its
+		// own backdrop/dialog pair out of the popup band (see theme.css).
 		layer: {
 			type: String,
 			default: "0",
-			validator: (val) => parseInt(val) <= 2
+			validator: (val) => Number.isInteger(parseInt(val)) && parseInt(val) >= 0 && parseInt(val) <= 3
 		},
 		bodyClass: {
 			type: String,
@@ -109,7 +112,15 @@ export default {
 	},
 	data() {
 		return {
-			zLayers: ["z-20", "z-30", "z-40", "z-50"],
+			// One backdrop/dialog pair per nesting layer, so a nested popup's
+			// backdrop lands above the dialog that opened it rather than tying
+			// with it and relying on DOM order to break the tie.
+			zLayers: [
+				{ backdrop: "z-30", dialog: "z-31" },
+				{ backdrop: "z-40", dialog: "z-41" },
+				{ backdrop: "z-50", dialog: "z-51" },
+				{ backdrop: "z-60", dialog: "z-61" },
+			],
 			preModifiedState: null
 		}
 	},

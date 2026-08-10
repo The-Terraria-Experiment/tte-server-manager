@@ -49,6 +49,8 @@
 			</template>
 		</StatusTile>
 
+		<InstanceRegistryEditor />
+
 		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
 			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">The Terraria Experiment Server Manager</h1>
 			<p class="font-main font-semibold text-white-0 mt-4">Welcome! Parts of this site are still under construction. There may be bugs, bad UI/UX, or broken tools.</p>
@@ -91,6 +93,7 @@ import Icon from '../common/Icon.vue';
 import LargeTextInput from '../common/LargeTextInput.vue';
 import Spinner from '../common/Spinner.vue';
 import ValueInput from '../common/ValueInput.vue';
+import InstanceRegistryEditor from './tools/system/InstanceRegistryEditor.vue';
 
 // Cognito bounces the browser back to the app's root ("/", which routes here) on completion
 // of every federated sign-in attempt (see amplify/auth/resource.ts callbackUrls) - this is the
@@ -109,6 +112,7 @@ export default {
 		ValueInput,
 		LargeTextInput,
 		Checkbox,
+		InstanceRegistryEditor,
 	},
 	props: {
 

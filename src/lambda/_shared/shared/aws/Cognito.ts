@@ -5,7 +5,7 @@ import {
 	CognitoIdentityProviderClient,
 } from "@aws-sdk/client-cognito-identity-provider";
 import { CWLogger } from "./CloudWatch.js";
-import { Assert } from "../utils/Assert.js";
+import { Assert } from "../utils/core/Assert.js";
 import { CW_LOG_GENERAL } from "../constants.js";
 
 export interface CognitoUserLookup {

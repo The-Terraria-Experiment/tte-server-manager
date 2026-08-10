@@ -2,11 +2,12 @@ import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { Permissions } from "../shared/utils/Perms.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
+import { Assert } from "../shared/utils/core/Assert.js";
+import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 
 export const reloadConfig = async (event: AuthorizedEvent) => {
 	const serverId = event.pathParameters?.id;
@@ -16,6 +17,9 @@ export const reloadConfig = async (event: AuthorizedEvent) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `server::${serverId}`);
+
+	const blocked = await blockIfShutdownInProgress(serverId);
+	if (blocked) return blocked;
 
 	await CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 		userId: Parsers.GetUserSub(event),
@@ -27,7 +31,7 @@ export const reloadConfig = async (event: AuthorizedEvent) => {
 	try {
 		const ec2 = new Ec2Dao();
 		const instance = await ec2.GetInstanceStatus(serverId);
-		const ip = instance.publicIp;
+		const ip = instance.privateIp;
 
 		if (!ip || ip === "PENDING") {
 			return ResponseUtil.Error(`Instance ${serverId} has no reachable public IP`, 503, "INSTANCE_IP_UNAVAILABLE");

@@ -1,12 +1,12 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
-import { HmacToken } from "../shared/utils/HmacToken.js";
+import { HmacToken } from "../shared/utils/core/HmacToken.js";
 import { SecretsManagerDao } from "../shared/aws/SecretsManager.js";
 import { CognitoDao } from "../shared/aws/Cognito.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { COGNITO_USER_POOL_ID, PATREON_LINK_APP_ORIGIN, PATREON_OIDC_ISSUER_URL, PERM_TABLE } from "../shared/vars.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { exchangePatreonCode, fetchPatreonIdentity, toPatreonSub } from "../lib/patreonClient.js";
 import { createCode } from "../lib/ephemeralCode.js";
 import { loadPatreonCreds } from "../lib/patreonCreds.js";

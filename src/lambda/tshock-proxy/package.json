@@ -1,0 +1,9 @@
+{
+  "name": "tshock-proxy",
+  "version": "1.0.0",
+  "description": "VPC-attached transport for TShock REST calls, so the REST port can stay closed to the internet",
+  "type": "module",
+  "main": "index.js",
+  "bundleSharedDependencies": false,
+  "dependencies": {}
+}

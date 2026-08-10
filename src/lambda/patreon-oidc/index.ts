@@ -11,7 +11,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-l
 import { createHandler } from "./shared/middleware/createHandler.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "./shared/constants.js";
-import { ResponseUtil } from "./shared/utils/APIResponse.js";
+import { ResponseUtil } from "./shared/utils/core/APIResponse.js";
 import { authorize } from "./routes/authorize.js";
 import { callback } from "./routes/callback.js";
 import { token } from "./routes/token.js";

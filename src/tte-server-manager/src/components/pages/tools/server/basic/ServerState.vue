@@ -3,6 +3,7 @@
 		<StatusTile
 			:class="['grow gradient-tile', selectedServerData.state ? 'gradient-tile-green' : 'gradient-tile-red']"
 			:collapsible="selectedServerData.state && showStopButton"
+			:contentLoaded="selectedServerData.state && serverStore.worldStatusData[this.selectedInstance] !== undefined"
 			:perm-required="PERMISSIONS.server.status.read"
 			:floatingExpand="!isMobile"
 			:loading="statusLoading || statusStore.isTaskRunning(TASK_IDS.SERVER_STATUS_CHECK)"
@@ -20,6 +21,7 @@
 						v-if="$checkPermissions(PERMISSIONS.server.status.stop) && showStopButton"
 						class="mx-4 mb-4 mt-4"
 						:variant="BTN_VARIANT.DANGER"
+						:disabled="isShuttingDown"
 						@input="openConfirmStopPopup"
 					>
 						<p class="py-2 px-12">STOP</p>
@@ -68,6 +70,8 @@ export default {
 		return {
 			PERMISSIONS,
 			BTN_VARIANT,
+			WORLD_STATES,
+
 			TASK_IDS,
 			serverStore: useServerStore(),
 			statusStore: useStatusStore(),
@@ -79,6 +83,9 @@ export default {
 	computed: {
 		selectedServerData() {
 			return this.serverStore.selectedServerData;
+		},
+		isShuttingDown() {
+			return this.serverStore.isShuttingDown(this.selectedInstance);
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;

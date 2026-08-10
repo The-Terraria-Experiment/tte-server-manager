@@ -2,7 +2,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
+import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 
@@ -27,7 +27,7 @@ export async function getTShockTarget(serverId: string): Promise<TShockTarget | 
 			return null;
 		}
 
-		if (!instance.publicIp || instance.publicIp === "PENDING") {
+		if (!instance.privateIp || instance.privateIp === "PENDING") {
 			await CWLogger.Action(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
 				userId: AUTO_SHUTOFF_USER_ID,
 				action: "skip",
@@ -40,8 +40,8 @@ export async function getTShockTarget(serverId: string): Promise<TShockTarget | 
 
 		return {
 			serverId,
-			ip: instance.publicIp,
-			tshock: new TShockAPI(instance.publicIp),
+			ip: instance.privateIp,
+			tshock: new TShockAPI(instance.privateIp),
 		};
 	} catch (error) {
 		await CWLogger.Error(FUNC_NAMES.AUTO_SHUTOFF_MGR, {

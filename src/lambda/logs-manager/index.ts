@@ -4,10 +4,10 @@ import type { EndpointList, KeyedEndpointList } from "../../shared/types/LambdaT
 import { createHandler } from "./shared/middleware/createHandler.js";
 import { CWLogger } from "./shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "./shared/constants.js";
-import { Parsers } from "./shared/utils/Parsers.js";
-import { ResponseUtil } from "./shared/utils/APIResponse.js";
+import { Parsers } from "./shared/utils/core/Parsers.js";
+import { ResponseUtil } from "./shared/utils/core/APIResponse.js";
 import { PERMISSIONS } from "./shared/permissionValues.js";
-import { Permissions } from "./shared/utils/Perms.js";
+import { Permissions } from "./shared/utils/core/Perms.js";
 import { pushLog } from "./actions/pushLog.js";
 import { getLogs } from "./actions/getLogs.js";
 import { searchTShockLogs } from "./actions/searchTShockLogs.js";

@@ -1,11 +1,11 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { buildTShockLogS3Key, type TShockLogStream } from "../shared/utils/TShockConsoleLogs.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { buildTShockLogS3Key, type TShockLogStream } from "../shared/utils/tshock/TShockConsoleLogs.js";
 
 type TranscriptBody = {
 	date?: string;

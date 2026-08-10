@@ -1,12 +1,10 @@
 import type { Context } from "aws-lambda";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
-import { Ec2Dao } from "../shared/aws/EC2.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import type { AutoShutoffMessage, CheckResult } from "./types.js";
 import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
-import { syncAndPruneTShockLogs } from "../shared/utils/TShockConsoleLogs.js";
-import { syncInstanceFilesToS3 } from "../shared/utils/InstanceFileSync.js";
-import { shutdownSyncDeadline } from "../shared/utils/SyncBudget.js";
+import { isShutdownBlocking, queueShutdownJob, readShutdownJob } from "../shared/utils/jobs/ShutdownJob.js";
+import { INSTANCE_MANAGER_FUNCTION_ARN } from "../shared/vars.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 const IDLE_MINUTES = parseNumber(process.env.AUTO_SHUTOFF_IDLE_MINUTES, 60);
@@ -48,16 +46,24 @@ export async function handleEc2Stop(message: AutoShutoffMessage, context: Contex
 		};
 	}
 
-	try {
-		// Shared budget from this invocation's remaining time — see shutdownSyncDeadline. This handler
-		// runs on a tighter lambda timeout than the interactive stop, so the syncs must yield early
-		// enough to still issue the stop below.
-		const syncDeadline = shutdownSyncDeadline(context);
-		await syncAndPruneTShockLogs(serverId, syncDeadline);
-		await syncInstanceFilesToS3(serverId, syncDeadline);
+	// Someone may have pressed STOP during the countdown. Queueing over a live job would overwrite the
+	// row a worker is already heartbeating, and since the claim is per-jobID that worker would keep
+	// running — two task lists and two stop calls against the same box.
+	if (isShutdownBlocking(await readShutdownJob(serverId))) {
+		return { serverId, action: "skip", reason: "shutdown-already-running", idleMinutes: idleStatus.idleMinutes };
+	}
 
-		const ec2 = new Ec2Dao();
-		await ec2.StopInstance(serverId);
+	void context;
+
+	try {
+		// Hands the whole shutdown sequence — archive, sync, stop — to instance-manager's worker
+		// rather than running it here. It used to run inline on this lambda's 15s timeout, the
+		// tightest budget of any caller, which meant the unattended path was the one most likely to
+		// abandon a world sync half-done. Going through the worker also means there is exactly one
+		// definition of what a shutdown does, and that an auto-shutdown reports its stage to the UI
+		// the same way a hand-pressed one does.
+		const jobID = await queueShutdownJob(serverId, AUTO_SHUTOFF_USER_ID, INSTANCE_MANAGER_FUNCTION_ARN);
+
 		await updateAutoShutoffState(serverId, {
 			ec2StopRequestedAt: Date.now(),
 			sequenceStage: "ec2-stop",
@@ -66,7 +72,9 @@ export async function handleEc2Stop(message: AutoShutoffMessage, context: Contex
 		await CWLogger.Action(FUNC_NAMES.AUTO_SHUTOFF_MGR, {
 			userId: AUTO_SHUTOFF_USER_ID,
 			action: "stop-instance",
+			status: "queued",
 			resource: serverId,
+			details: { jobID },
 		});
 		return { serverId, action: "stop-instance", idleMinutes: idleStatus.idleMinutes };
 	} catch (error) {

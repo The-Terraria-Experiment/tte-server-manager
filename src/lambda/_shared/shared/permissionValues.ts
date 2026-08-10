@@ -55,6 +55,7 @@ export const PERMISSIONS = {
 		},
 		metrics: {
 			read: "instance.metrics.read",
+			write: "instance.metrics.write",
 		},
 		files: {
 			read: "instance.files.read",
@@ -82,6 +83,12 @@ export const PERMISSIONS = {
 			create: "system.notice.create",
 			clear: "system.notice.clear",
 			bypass: "system.notice.bypass",
+		},
+		instances: {
+			list: {
+				read: "system.instances.list.read",
+				write: "system.instances.list.write",
+			},
 		},
 	},
 } as const;

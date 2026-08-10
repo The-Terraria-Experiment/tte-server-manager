@@ -1,11 +1,11 @@
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
 import { S3Dao } from "../shared/aws/S3.js";
-import { Parsers } from "../shared/utils/Parsers.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 
 export const readConfig = async (event: AuthorizedEvent) => {
 	const serverId = event.pathParameters?.id;

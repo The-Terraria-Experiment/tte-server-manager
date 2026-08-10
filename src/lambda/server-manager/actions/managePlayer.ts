@@ -1,11 +1,11 @@
 import type { Context } from "aws-lambda";
 import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
-import { Permissions } from "../shared/utils/Perms.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
+import { Permissions } from "../shared/utils/core/Perms.js";
 import { Ec2Dao } from "../shared/aws/EC2.js";
-import { TShockAPI } from "../shared/utils/TShockAPI.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 
@@ -92,7 +92,7 @@ export const managePlayer = async (event: AuthorizedEvent, context: Context) => 
 		const EC2 = new Ec2Dao();
 
 		const instance = await EC2.GetInstanceStatus(serverID);
-		const instanceIP = instance.publicIp;
+		const instanceIP = instance.privateIp;
 
 		if (!instanceIP || instanceIP === 'PENDING') {
 			return ResponseUtil.Error(`Instance ${serverID} has no reachable public IP`, 503, 'INSTANCE_IP_UNAVAILABLE');

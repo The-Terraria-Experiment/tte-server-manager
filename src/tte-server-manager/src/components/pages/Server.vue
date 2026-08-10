@@ -1,16 +1,16 @@
 <template>
 	<div class="sm:grid sm:grid-cols-2 gap-2">
-		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full w-full p-4 mb-4 sm:mb-8 flex flex-col items-center justify-center']">
+		<div :class="['bg-gray-1 rounded-xl overflow-hidden h-full w-full p-4 mb-4 sm:mb-8 flex flex-col items-center justify-center border border-gray-3']">
 			<!-- <div class="title-bg-gradient"></div> -->
 			<div class="flex items-center">
 				<Icon icon="gamepad" size="8" color="text-white-1 sm:text-teal-4" />
-				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-20 sm:z-0 ml-3">MANAGE GAME SERVER</h1>
+				<h1 class="font-main font-bold text-white-1 sm:text-teal-4 text-2xl relative z-content-top sm:z-auto ml-3">MANAGE GAME SERVER</h1>
 			</div>
-			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-20 sm:z-0">View and manage game server status</p>
+			<p class="font-main font-bold text-gray-8 sm:text-gray-7 mt-2 relative z-content-top sm:z-auto">View and manage game server status</p>
 		</div>
 		<div
 			v-if="$checkPermissions(PERMISSIONS.instance.list) && !serverStore.isLoadingList && filteredInstanceOptions?.length"
-			class="bg-gray-1 p-4 rounded-xl"
+			class="bg-gray-1 p-4 rounded-xl border border-gray-3"
 		>
 			<p class="font-main font-bold text-gray-7 mb-2">PICK HOST INSTANCE</p>
 			<Dropdown
@@ -31,7 +31,7 @@
 					leftIconSize="5"
 					@input="dropTshockTokenCache"
 				>
-					DROP TOKEN CACHE
+					DROP CRED CACHE
 				</FlexButton>
 			</div>
 		</div>
@@ -105,6 +105,9 @@ import { TASK_IDS } from '../../stores/statusStore';
 import BrowseLogs from './tools/server/BrowseLogs.vue';
 import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
+
+// Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
+const STATUS_HANDLER_ID = "server-page-fetch-status";
 
 
 export default {
@@ -224,11 +227,19 @@ export default {
 		},
 
 		async fetchWorldCreationStatus() {
-			const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+			try {
+				const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
 
-			if (status && status.found !== false) {
-				this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
-				this.$refs.createWorld.startWorldCreatePolling(status);
+				// Only pick up a job that's actually still going. A finished — or abandoned — row
+				// sticks around until someone starts the next creation, and attaching the poller to
+				// it would replay its outcome as a fresh alert on every page load.
+				if (status && status.found !== false && !status.isDone) {
+					this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
+					this.$refs.createWorld.startWorldCreatePolling(status);
+				}
+			} catch (e) {
+				this.$alert.error("Error checking world creation status");
+				console.error(e);
 			}
 		},
 
@@ -256,7 +267,10 @@ export default {
 			}
 		}
 
-		this.statusStore.subscribeToTask(TASK_IDS.SERVER_STATUS_CHECK, this.fetchServerStatus);
+		this.statusStore.subscribeToTask(TASK_IDS.SERVER_STATUS_CHECK, this.fetchServerStatus, STATUS_HANDLER_ID);
+	},
+	beforeUnmount() {
+		this.statusStore.unsubscribeFromTask(TASK_IDS.SERVER_STATUS_CHECK, STATUS_HANDLER_ID);
 	},
 	watch: {
 		selectedInstance(value) {
@@ -286,6 +300,6 @@ export default {
 }
 
 .terraria-bg .title-bg-gradient {
-	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-10;
+	@apply h-full w-1/2 bg-linear-to-l from-transparent to-gray-3 absolute right-0 top-0 z-content;
 }
 </style>

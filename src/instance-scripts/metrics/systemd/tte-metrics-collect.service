@@ -1,0 +1,16 @@
+[Unit]
+Description=Sample CPU/memory into the local TTE metrics buffer
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+EnvironmentFile=-/etc/tte-metrics.env
+ExecStart=/usr/local/bin/tte-metrics-collect
+
+# Reads /proc and appends to its own buffer dir; needs nothing else.
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/tte-metrics

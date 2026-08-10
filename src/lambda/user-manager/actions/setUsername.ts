@@ -4,8 +4,8 @@ import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { PERM_TABLE } from "../shared/vars.js";
-import { Parsers } from "../shared/utils/Parsers.js";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { Parsers } from "../shared/utils/core/Parsers.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 
 type SetUsernameBody = {
 	username?: string;

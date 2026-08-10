@@ -1,0 +1,78 @@
+import * as http from "http";
+import { redactCredentials } from "./Redact.js";
+
+export type RequestBody = Record<string, any> | string | null;
+
+/**
+ * Applied whenever a caller doesn't set `timeout` itself. Omitting it is never actually "no
+ * timeout": Node's global agent keeps sockets alive, and a pooled socket still carries the timeout
+ * armed by whichever request used it last — so a call that sets nothing either hangs for the rest
+ * of the invocation or inherits someone else's deadline, depending on pool luck. Every request gets
+ * a bound so neither happens.
+ */
+const DEFAULT_TIMEOUT_MS = 10000;
+
+export class Network {
+	public static HTTPJsonRequest(url: string, params: RequestParams, body: RequestBody = null): Promise<RequestResponse> {
+		// Callers pass credentials in the query string (TShock's token endpoint has no other
+		// way to take them), and these rejections are surfaced to the client by several
+		// handlers, so the URL is only ever named in redacted form.
+		const safeUrl = redactCredentials(url);
+		const requestParams: RequestParams = { ...params, timeout: params.timeout ?? DEFAULT_TIMEOUT_MS };
+
+		return new Promise((resolve, reject) => {
+			const req = http.request(url, requestParams, (res) => {
+				let chunks = "";
+				res.setEncoding("utf8");
+
+				res.on("data", (chunk) => {
+					chunks += chunk;
+				});
+
+				res.on("end", () => {
+					const statusCode = res.statusCode || 0;
+					let json: Record<string, any> = {};
+
+					try {
+						json = chunks ? JSON.parse(chunks) : {};
+					} catch (err) {
+						const error = err instanceof Error ? err : new Error(String(err));
+						return reject(new Error(`Invalid JSON from ${safeUrl} (${statusCode}): ${error.message}`));
+					}
+
+					resolve({statusCode, json});
+				});
+			});
+
+			req.on("error", (err) => reject(err));
+			req.on("timeout", () => {
+				req.destroy(new Error(`Request timed out for ${safeUrl}`));
+			});
+
+			if (body !== null && body !== undefined) {
+				const payload = typeof body === "string" ? body : JSON.stringify(body);
+				req.write(payload);
+			}
+
+			req.end();
+		});
+	}
+}
+
+export type RequestParams = {
+	method: HttpMethod;
+	headers: Record<string, string>;
+	timeout?: number;
+};
+
+export type RequestResponse = {
+	statusCode: number;
+	json: Record<string, any>;
+};
+
+export enum HttpMethod {
+	GET = "GET",
+	POST = "POST",
+	PUT = "PUT",
+	DELETE = "DELETE",
+}

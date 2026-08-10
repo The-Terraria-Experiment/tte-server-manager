@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from "aws-lambda";
-import { ResponseUtil } from "../shared/utils/APIResponse.js";
+import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { PATREON_OIDC_ISSUER_URL } from "../shared/vars.js";
 
 export const discovery = async (event: APIGatewayProxyEvent, context: Context): Promise<APIGatewayProxyResult> => {

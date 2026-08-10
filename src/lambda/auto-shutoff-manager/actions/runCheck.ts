@@ -2,7 +2,7 @@ import type { Context } from "aws-lambda";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { SchedulerDao, toScheduleNameFragment } from "../shared/aws/Scheduler.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { Assert } from "../shared/utils/Assert.js";
+import { Assert } from "../shared/utils/core/Assert.js";
 import type { AutoShutoffMessage, CheckResult, CheckStage } from "./types.js";
 import { getAutoShutoffState, getIdleStatus, updateAutoShutoffState } from "./state.js";
 import { broadcastWarning, checkTShockProcessViaSSM, getOnlinePlayerCount, getTShockTarget, pingTShock, stopServer } from "./tshock.js";

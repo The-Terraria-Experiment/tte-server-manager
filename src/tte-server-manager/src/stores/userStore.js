@@ -5,6 +5,37 @@ const USE_CACHE = true;
 const CACHE_TTL = 3 * 60 * 1000; /// 3min
 const CACHE_KEY = "ttesm-user-cache";
 
+/**
+ * Runway an ID token must still have to be worth sending. Below this it's treated as expired, so a
+ * request never spends a round trip discovering that for itself.
+ */
+const TOKEN_MIN_REMAINING_MS = 60 * 1000;
+
+/**
+ * True when the stored token is expired, nearly expired, or unreadable.
+ *
+ * The store holds the token as a plain string with a fixed lifetime, so "we have one" is not the
+ * same as "it works": between expiry and the first 401 every request is guaranteed to fail against
+ * the API Gateway authorizer. Reading `exp` locally closes that window without a network call. An
+ * unparseable token counts as expiring — refreshing costs one request, being wrong costs a 401 for
+ * every call the page makes.
+ */
+function isIdTokenExpiring(token) {
+	try {
+		const [, payload] = token.split(".");
+		if (!payload) return true;
+
+		const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+		const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), "=");
+		const { exp } = JSON.parse(atob(padded));
+		if (!exp) return true;
+
+		return exp * 1000 - Date.now() <= TOKEN_MIN_REMAINING_MS;
+	} catch {
+		return true;
+	}
+}
+
 export const useUserStore = defineStore("userstore", {
 	state: () => ({
 		user: null,
@@ -128,12 +159,22 @@ export const useUserStore = defineStore("userstore", {
 		async getIdToken() {
 			if (!this.idToken) {
 				await this.loadUser();
+				return this.idToken;
 			}
+
+			if (isIdTokenExpiring(this.idToken)) {
+				await this.refreshIdToken();
+			}
+
 			return this.idToken;
 		},
 		async refreshIdToken() {
 			try {
-				const session = await fetchAuthSession();
+				// forceRefresh, because this is only ever called when the token we already have is
+				// known to be unusable — a plain fetchAuthSession can hand back the same cached
+				// token, which is how a 401 turned into a second 401 on the retry rather than a
+				// recovery.
+				const session = await fetchAuthSession({ forceRefresh: true });
 				this.idToken = session.tokens?.idToken?.toString() || null;
 				return this.idToken;
 			} catch (error) {
