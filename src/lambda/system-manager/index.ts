@@ -19,6 +19,7 @@ import { deleteRole } from "./actions/deleteRole.js";
 import { readPatreonTierMap } from "./actions/readPatreonTierMap.js";
 import { writePatreonTierMap } from "./actions/writePatreonTierMap.js";
 import { deletePatreonTierMap } from "./actions/deletePatreonTierMap.js";
+import { createRealtimeTicket } from "./actions/createRealtimeTicket.js";
 
 const endpoints: EndpointList = {
 	"POST /system/postnotice": {
@@ -64,6 +65,10 @@ const endpoints: EndpointList = {
 	"POST /system/patreon/tiermap/delete": {
 		action: deletePatreonTierMap,
 		permRequired: PERMISSIONS.users.permissions.write,
+	},
+	"POST /system/realtime/ticket": {
+		action: createRealtimeTicket,
+		permRequired: PERMISSIONS.access,
 	},
 };
 

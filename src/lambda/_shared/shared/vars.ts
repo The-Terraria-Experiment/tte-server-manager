@@ -37,6 +37,17 @@ export const TSHOCK_PROXY_FUNCTION_ARN =
 	process.env.ACTIVE_ENV === "prod"
 		? (process.env.TSHOCK_PROXY_FUNCTION_ARN + ":prod")
 		: (process.env.TSHOCK_PROXY_FUNCTION_ARN + ":stage");
+// Alias-qualified ARN of realtime-manager, which owns WebSocket fan-out. Same qualification
+// reasoning as above, and the same unset caveat: callers check the raw env var, because an absent one
+// concatenates to "undefined:stage". Realtime.Publish does exactly that, which also makes leaving
+// this unset the per-environment kill switch for the whole notification pipeline.
+export const REALTIME_MANAGER_FUNCTION_ARN =
+	process.env.ACTIVE_ENV === "prod"
+		? (process.env.REALTIME_MANAGER_FUNCTION_ARN + ":prod")
+		: (process.env.REALTIME_MANAGER_FUNCTION_ARN + ":stage");
+// Secret holding the HMAC key that signs short-lived WebSocket connect tickets. Read by
+// system-manager (to sign) and realtime-manager (to verify).
+export const REALTIME_TICKET_SECRET_NAME = process.env.REALTIME_TICKET_SECRET_NAME;
 export const ROLE_KEY_PREFIX = "role#";
 export const PATREON_TIERMAP_KEY_PREFIX = "patreontier#";
 export const PATREON_CODE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-patreon-oidc-codes" : "ttesm-patreon-oidc-codes-stage";

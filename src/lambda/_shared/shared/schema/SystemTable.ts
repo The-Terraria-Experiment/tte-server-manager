@@ -72,6 +72,41 @@ export type PatreonTierMapEntry = {
 	updatedAt?: string,
 };
 
+/**
+ * One live WebSocket connection (`conn#<connectionId>`). Per-environment on purpose: the system
+ * table is per-env and a connection belongs to exactly one API Gateway stage, unlike the instance
+ * table which is shared prod/stage.
+ *
+ * Read back through the sparse `recordType-index` GSI rather than a prefix scan, so fan-out cost
+ * scales with the number of connections instead of the size of the whole table.
+ */
+export type RealtimeConnectionEntry = {
+	uid?: string,
+	/**
+	 * Always `"conn"`. This is the GSI partition key — a row that omits it is invisible to fan-out
+	 * with no error anywhere, so it is written unconditionally on every put.
+	 */
+	recordType?: string,
+	connectionId?: string,
+	/** Cognito sub, from the verified connect ticket. Diagnostics today; the hook for per-connection permission filtering later. */
+	userSub?: string,
+	/**
+	 * `https://<domainName>/<stage>` for the callback API, taken straight off the `$connect` event
+	 * rather than an env var — it is then automatically correct for both stages and for a custom
+	 * domain, and it is one less piece of hand-set out-of-band configuration.
+	 */
+	apiEndpoint?: string,
+	connectedAt?: number,
+	/** Touched by `$default` pings. Deliberately NOT projected into the GSI, so a ping doesn't rewrite the index. */
+	lastSeenAt?: number,
+	/**
+	 * Dynamo TTL, epoch **seconds**. A backstop only: `$disconnect` and the `GoneException` delete on
+	 * publish are the real cleanup paths. API Gateway hard-kills a connection at 2h, so a row still
+	 * present at 3h is definitionally garbage.
+	 */
+	expireAt?: number,
+};
+
 export type AutoShutoffStateEntry = {
 	uid?: string,
 	serverId?: string,

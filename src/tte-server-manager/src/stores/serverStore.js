@@ -41,6 +41,16 @@ export const useServerStore = defineStore("serverstore", {
 		isLoadingList: (state) => state.loading.list,
 		isLoadingStatus: (state) => (instanceId) => state.loading.status[instanceId] || false,
 		/**
+		 * Whether a server-status fetch is already in flight for this instance.
+		 *
+		 * Exists for realtimeStore. `fetchServerStatus` DROPS a concurrent call rather than queueing it,
+		 * and returns undefined whether it ran or was dropped — so a socket-driven refetch has no way to
+		 * tell "done" from "silently discarded". Without checking this first and re-arming, a burst of
+		 * events landing during an unrelated fetch would vanish and leave the UI stale, which is exactly
+		 * the failure the socket exists to fix.
+		 */
+		isLoadingServerStatus: (state) => (instanceId) => state.loading.serverStatus[instanceId] || false,
+		/**
 		 * The instance's shutdown job as the backend reports it, or null if it has never been stopped
 		 * through the job path. Present on both the instance and server status responses — see
 		 * fetchServerStatus for why it has to be on both.

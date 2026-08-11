@@ -54,7 +54,7 @@ jobs:
       # immediately and takes the rest of the fleet's deploy down with it.
       fail-fast: false
       matrix:
-        lambda: [instance-manager, server-manager, user-manager, logs-manager, "auto-shutoff-manager", cognito-user-link, system-manager, api-authorizer, patreon-oidc, tshock-proxy]
+        lambda: [instance-manager, server-manager, user-manager, logs-manager, "auto-shutoff-manager", cognito-user-link, system-manager, api-authorizer, patreon-oidc, tshock-proxy, realtime-manager]
     steps:
       - uses: actions/checkout@v5
 

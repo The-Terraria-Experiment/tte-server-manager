@@ -7,6 +7,19 @@ import { PlayerEvent, type LogDataEntry, type PayloadSchemaV1 } from "../shared/
 import type { AutoShutoffStateEntry } from "../shared/schema/SystemTable.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
+import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
+
+/**
+ * Events that change the player roster, and therefore the only ones worth notifying browsers about.
+ *
+ * Chat, death and spawn are deliberately excluded. A connected client's response to an event is a
+ * refetch of `GET /server/{id}/status`, which goes through `tshock-proxy` to the actual game server —
+ * so publishing on chat would turn ten messages a minute across five operators into fifty extra TShock
+ * round trips a minute against a box that is sometimes single-core. Nothing currently renders deaths or
+ * spawns at all. Both already land in the logs table for `BrowseLogs` to read on demand; a live chat
+ * feed is a payload-carrying feature with its own permission, not something to get for free here.
+ */
+const ROSTER_EVENTS = new Set<string>([PlayerEvent.JOIN, PlayerEvent.LEAVE]);
 
 export const pushLog = async (event: AuthorizedEvent, context: Context) => {
 	const serverID = event.pathParameters?.id;
@@ -72,6 +85,15 @@ export const pushLog = async (event: AuthorizedEvent, context: Context) => {
 				lastUpdatedAt: Date.now(),
 			} satisfies AutoShutoffStateEntry,
 		});
+	}
+
+	// Published after the writes, never before: the client's reaction is a REST refetch, so an event
+	// that outran its own write would have every browser read pre-write state, render it, and receive
+	// no second event. Awaited (Lambda freezes this environment the moment the handler settles, so a
+	// floating publish may never complete) but incapable of throwing — a notification failure must not
+	// turn a stored log into a 500 that makes the plugin retry it.
+	if (success && ROSTER_EVENTS.has(payload.eventType)) {
+		await Realtime.PublishServerPlayers(serverID, payload.eventType);
 	}
 
 	if (!success) {

@@ -8,5 +8,6 @@ export const FUNC_NAMES = {
 	AUTO_SHUTOFF_MGR: "ttesm-auto-shutoff-manager",
 	AUTHORIZER: "ttesm-api-authorizer",
 	PATREON_OIDC: "ttesm-patreon-oidc",
+	REALTIME_MGR: "ttesm-realtime-manager",
 };
 export const CW_LOG_GENERAL = "ttesm-actions-general";
