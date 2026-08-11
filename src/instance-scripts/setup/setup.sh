@@ -45,9 +45,17 @@ REST_PASSWORD=${TTE_REST_PASSWORD:-}
 
 DOTNET_MAJOR=${TTE_DOTNET_MAJOR:-9}
 
-# Permissions the lambda's REST calls require. Kept in sync with the docstring
-# on _shared/shared/utils/TShockAPI.ts -- if you add a REST call there that
-# needs a new permission, add it here too or the call 403s on a fresh box.
+# Permissions the lambda's REST calls require. Kept in sync with the endpoint
+# table in the docstring on _shared/shared/utils/tshock/TShockAPI.ts -- if you
+# add a REST call there that needs a new permission, add it here too or the call
+# 403s on a fresh box (and only on a fresh box: already-provisioned instances
+# keep whatever their group was created with, so it won't reproduce on the
+# existing fleet -- grant it there by hand with
+#   /group addperm ttesm-rest <perm>
+# via the Run TShock Command tile).
+#
+# Note the trailing "tshock.*" does NOT cover plugin permissions -- those live
+# under their own prefix and each needs its own entry.
 REST_PERMS=(
 	tshock.rest.maintenance
 	tshock.rest.useapi
@@ -60,6 +68,9 @@ REST_PERMS=(
 	tshock.rest.broadcast
 	"playerinfo.*"
 	"tshock.*"
+	# InventoryMonitor plugin (tshock-inventory-monitor). Harmless if the plugin
+	# isn't installed -- the permission simply grants nothing.
+	"invmonitor.rest.*"
 )
 
 # preflight is deliberately absent -- it always runs, since later steps depend on

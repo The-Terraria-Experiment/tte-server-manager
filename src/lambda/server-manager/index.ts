@@ -17,6 +17,7 @@ import { getWorldgenStatus } from "./actions/createWorldStatus.js";
 import { launchWorld } from "./actions/launchWorld.js";
 import { managePlayer } from "./actions/managePlayer.js";
 import { readPlayer } from "./actions/readPlayer.js";
+import { readPlayerInventory } from "./actions/readPlayerInventory.js";
 import { getBans } from "./actions/getBans.js";
 import { deleteBan } from "./actions/deleteBan.js";
 import { getStatus } from "./actions/getStatus.js";
@@ -99,6 +100,10 @@ const endpoints: EndpointList = {
 	"GET /server/{id}/players/{player}": {
 		action: readPlayer,
 		permRequired: PERMISSIONS.server.player.read
+	},
+	"GET /server/{id}/players/{player}/inventory": {
+		action: readPlayerInventory,
+		permRequired: PERMISSIONS.server.player.inventory.read
 	},
 	"GET /server/{id}/bans": {
 		action: getBans,

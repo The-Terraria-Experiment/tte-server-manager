@@ -31,7 +31,7 @@ export const PermissionsMeta = {
 			kill: {value: "server.player.kill", description: pfx + "kill online players on Terraria servers"},
 			mute: {value: "server.player.mute", description: pfx + "mute online players on Terraria servers"},
 			inventory: {
-				read: {value: "server.player.inventory.read", description: pfx + "read all information about an online player's Terraria inventory", used: false},
+				read: {value: "server.player.inventory.read", description: pfx + "read all information about an online player's Terraria inventory"},
 			},
 		},
 		logs: {

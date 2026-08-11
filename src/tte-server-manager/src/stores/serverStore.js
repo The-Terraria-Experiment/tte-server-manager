@@ -5,6 +5,9 @@ import { INSTANCE_STATES, WORLD_STATES } from '../util/constants.js';
 import { shutdownTaskId, useStatusStore } from './statusStore.js';
 import { useAlertStore } from './alertStore.js';
 
+/** Inventory cache key. Nicknames are unique per server but not across them. */
+const inventoryKey = (instanceId, playerName) => `${instanceId}::${playerName}`;
+
 export const useServerStore = defineStore("serverstore", {
 	state: () => ({
 		selected: {
@@ -19,13 +22,15 @@ export const useServerStore = defineStore("serverstore", {
 		serverStatusData: {},
 		worldStatusData: {}, // map of server IDs to WORLD_STATES enum
 		serverConfigs: {},
+		playerInventories: {}, // keyed `${instanceId}::${playerName}` — see inventoryKey
 		loading: {
 			list: false,
 			status: {},
 			files: {},
 			serverStatus: {},
 			config: {},
-			worldLaunch: {}
+			worldLaunch: {},
+			inventory: {}
 		},
 	}),
 	getters: {
@@ -85,6 +90,12 @@ export const useServerStore = defineStore("serverstore", {
 		},
 		selectedInstanceID: (state) => state.selected.instance,
 		selectedServerID: (state) => state.selected.server,
+		/**
+		 * A player's last-fetched inventory report, or null. Keyed per instance *and* player because
+		 * the same nickname can be on two servers, and the popup is opened per player.
+		 */
+		getPlayerInventory: (state) => (instanceId, playerName) => state.playerInventories[inventoryKey(instanceId, playerName)] || null,
+		isLoadingInventory: (state) => (instanceId, playerName) => state.loading.inventory[inventoryKey(instanceId, playerName)] || false,
 	},
 	actions: {
 		async fetchInstanceList() {
@@ -276,6 +287,33 @@ export const useServerStore = defineStore("serverstore", {
 				throw error;
 			} finally {
 				this.loading.config[instanceId] = false;
+			}
+		},
+		/**
+		 * Reads a player's full inventory from the InventoryMonitor plugin via server-manager.
+		 *
+		 * Always refetches rather than serving the cached copy: an inventory is live state a player
+		 * changes second to second, and this is used to check for cheated items — a stale answer is
+		 * worse than a slow one. The cache exists so the grid keeps rendering across a re-fetch, not
+		 * to avoid the request.
+		 */
+		async fetchPlayerInventory(instanceId, playerName) {
+			const key = inventoryKey(instanceId, playerName);
+			if (this.loading.inventory[key]) return;
+			this.loading.inventory[key] = true;
+
+			try {
+				const data = await get(
+					`/server/${instanceId}/players/${encodeURIComponent(playerName)}/inventory`,
+					PERMISSIONS.server.player.inventory.read
+				);
+				this.playerInventories[key] = data.inventory;
+				return data.inventory;
+			} catch (error) {
+				console.error("Error fetching player inventory:", error);
+				throw error;
+			} finally {
+				this.loading.inventory[key] = false;
 			}
 		}
 	}

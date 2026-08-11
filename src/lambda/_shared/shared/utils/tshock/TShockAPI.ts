@@ -23,6 +23,32 @@ import { TSHOCK_PROXY_REQUEST_TYPE, type TShockCredential, type TShockProxyReque
  * The split is: everything needing AWS APIs — the Secrets Manager read, CloudWatch logging — stays
  * here, outside the VPC. The proxy gets the credential in its payload and therefore needs no IAM,
  * no NAT gateway and no interface endpoints. See `TShockDirect` for the other half.
+ *
+ * ## Endpoints called, and the TShock permissions they need
+ *
+ * This table is the counterpart to `REST_PERMS` in `instance-scripts/setup/setup.sh`, which is what
+ * actually grants them on a new instance. Adding a call here that needs a new permission without
+ * updating `REST_PERMS` yields a 403 on that one feature, **on new instances only** — the existing
+ * fleet keeps whatever its group was created with, so it won't reproduce on already-provisioned boxes.
+ *
+ * | Endpoint                | Permission                |
+ * |-------------------------|---------------------------|
+ * | `/v2/token/create`      | (none — mints the token)  |
+ * | `/v2/server/status`     | `tshock.rest.useapi`      |
+ * | `/v2/server/off`        | `tshock.rest.maintenance` |
+ * | `/v2/server/broadcast`  | `tshock.rest.broadcast`   |
+ * | `/v3/server/rawcmd`     | `tshock.*`                |
+ * | `/v3/server/reload`     | `tshock.rest.cfg`         |
+ * | `/v2/players/list`      | `tshock.rest.useapi`      |
+ * | `/v4/players/read`      | `playerinfo.*`            |
+ * | `/v2/players/kick`      | `tshock.rest.kick`        |
+ * | `/v2/players/kill`      | `tshock.rest.kill`        |
+ * | `/v2/players/mute`      | `tshock.rest.mute`        |
+ * | `/v3/bans/*`            | `tshock.rest.bans.*`      |
+ * | `/inventory/read`       | `invmonitor.rest.read`    |
+ *
+ * `/inventory/*` is served by the InventoryMonitor plugin rather than TShock itself, so its
+ * permissions sit under their own prefix — the blanket `tshock.*` grant does not cover them.
  */
 export class TShockAPI {
 	/**

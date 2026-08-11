@@ -27,8 +27,12 @@
 		</template>
 	</StatusTile>
 
-	<Popup 
-		body-class="h-3/4 w-11/12 sm:w-3/4 lg:w-3/4"
+	<!--
+		Wider than the other popups because the inventory grid reproduces the in-game layout: ten
+		columns of main inventory plus the equipment/vanity/dye columns don't fit in 3/4 width.
+	-->
+	<Popup
+		:body-class="['h-3/4 w-11/12 sm:w-11/12', $checkPermissions(PERMISSIONS.server.player.inventory.read) ? 'lg:w-11/12' : 'lg:w-1/4']"
 		:open="managePlayerPopupOpen"
 		header-text="MANAGE PLAYER"
 		@x-clicked="closeManagePlayerPopup"
@@ -38,16 +42,20 @@
 				<span class="italic text-gray-7 mr-2">Player:</span>
 				<span class="text-teal-5">{{ selectedPlayer.nickname }}</span>
 			</div>
-			<div class="flex flex-col sm:flex-row">
-				<ManagePlayer :selected-player="selectedPlayer" />
-				<PlayerInventory />
+			<div class="flex flex-col sm:flex-row gap-4">
+				<!-- Management actions keep a fixed column; the inventory takes the rest and scrolls. -->
+				<div :class="[$checkPermissions(PERMISSIONS.server.player.inventory.read) ? 'sm:w-80 shrink-0' : 'w-full']">
+					<ManagePlayer :selected-player="selectedPlayer" />
+				</div>
+				<div v-if="$checkPermissions(PERMISSIONS.server.player.inventory.read)" class="grow min-w-0 overflow-y-auto">
+					<PlayerInventory :selected-player="selectedPlayer" />
+				</div>
 			</div>
 		</div>
 	</Popup>
 </template>
 
 <script>
-import { getDefaultFormatCodeSettings } from 'typescript';
 import { useServerStore } from '../../../../../stores/serverStore';
 import { BTN_VARIANT } from '../../../../../util/constants';
 import { PERMISSIONS } from '../../../../../util/permissionValues';

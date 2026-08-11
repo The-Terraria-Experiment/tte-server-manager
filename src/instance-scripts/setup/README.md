@@ -126,6 +126,33 @@ account on every upgrade.
 Versioning is just the key. Keep `tshock/current.zip` as the pointer and upload
 real versions alongside it (`tshock/5.2.0.zip`) so a rollback is a copy.
 
+## Plugins — installed by hand, not by this script
+
+`setup.sh` installs no plugins beyond whatever ships inside the TShock artifact.
+The web UI's player-inventory view needs
+[tshock-inventory-monitor](https://github.com/The-Terraria-Experiment/tshock-inventory-monitor),
+which is installed per instance manually:
+
+1. Build it: `dotnet build InventoryMonitor/InventoryMonitor.csproj -c Release`
+2. Upload `InventoryMonitor.dll` to the **`plugins`** root (`/tshock/ServerPlugins`)
+   through the Instance Files page — that root is already in `validRoots`, so no
+   config change is needed.
+3. Restart the server.
+
+The REST permission it needs (`invmonitor.rest.*`) **is** in `REST_PERMS`, so a
+box provisioned after that change already has it. Instances provisioned before it
+do not, and their group is never revisited — grant it once through the Run TShock
+Command tile:
+
+```
+/group addperm ttesm-rest invmonitor.rest.*
+```
+
+Without the permission the plugin is installed but every inventory read fails;
+without the plugin the endpoint returns `502 INVENTORY_UNAVAILABLE` naming both
+causes. Neither reproduces on a freshly provisioned box, which is exactly why
+this is written down.
+
 ## Run it
 
 ### The lazy way
