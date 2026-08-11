@@ -61,8 +61,21 @@ export const useSpriteStore = defineStore("spritestore", {
 		 * The atlas image itself is loaded by the browser when the first slot renders.
 		 */
 		async loadAtlas() {
-			if (this.atlas || this.loading || this.failed || !this.isConfigured) {
+			if (this.atlas || this.loading || this.failed) {
 				return this.atlas;
+			}
+
+			// Falling back to item names is a supported state, not an error — but it looks identical to
+			// a broken atlas, so say which one this is. Unset vars are the likeliest cause of "the
+			// sprites aren't showing", and Vite inlines these at startup, so a .env change needs a
+			// dev-server restart to take effect.
+			if (!this.isConfigured) {
+				console.warn(
+					"[spriteStore] VITE_SPRITE_BASE_URL / VITE_SPRITE_VERSION are not set — " +
+					"inventory slots will show item names instead of sprites."
+				);
+				this.failed = true;
+				return null;
 			}
 
 			this.loading = true;
@@ -70,7 +83,18 @@ export const useSpriteStore = defineStore("spritestore", {
 			try {
 				// Deliberately a bare fetch rather than util/api.js: this is a public CDN object, not an
 				// API Gateway route, so it carries no Cognito token and needs no permission check.
+				//
+				// Do NOT add a `cache: "reload"` retry here. One lived here briefly, on the theory that a
+				// CORS failure meant a bad response was stuck in the browser cache under the atlas's
+				// one-year `immutable` max-age. It was worse than useless: `cache: "reload"` sends
+				// `Cache-Control: no-cache`, and CloudFront silently omits a response headers policy's
+				// CORS header on any request carrying a cache-revalidation header — so the "recovery"
+				// path was the one request shape guaranteed to fail. That is fixed at the CDN now (S3
+				// serves the header itself via a CORS config plus the Managed-CORS-S3Origin origin
+				// request policy), but the retry stays gone: cache-busting from the client cannot fix a
+				// CDN-side problem, and it made the real cause much harder to see.
 				const response = await fetch(this.atlasMapUrl);
+
 				if (!response.ok) {
 					throw new Error(`Sprite atlas request failed: ${response.status}`);
 				}

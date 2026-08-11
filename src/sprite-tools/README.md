@@ -39,8 +39,17 @@ npm run upload    # -> s3://$SPRITE_BUCKET/sprites/items/<version>/
 npm run all
 ```
 
-Then point the frontend at the new version — `VITE_SPRITE_BASE_URL` and `VITE_SPRITE_VERSION` in
-`src/tte-server-manager/.env*`. `upload.mjs` prints both.
+Then point the frontend at the new version — `VITE_SPRITE_BASE_URL` and `VITE_SPRITE_VERSION`.
+`upload.mjs` prints both. They have to be set in **two** places:
+
+- **Local dev:** `src/tte-server-manager/.env.local`. Vite inlines these at build time, so the dev
+  server needs a restart to pick up a change.
+- **Stage and prod:** the Amplify Hosting app's environment variables, per branch. `.env.local` is
+  gitignored and never reaches a deployed build — if only the local file is set, the site builds fine
+  and silently renders item names instead of sprites.
+
+Unset is a supported state (`spriteStore.isConfigured` goes false and slots fall back to item names),
+which is convenient for local work but does mean a missing variable fails quietly rather than loudly.
 
 ### Environment
 
@@ -158,6 +167,39 @@ be turned off. With OAC you touch neither.
 `atlas.png` is loaded as a CSS `background-image` and needs no CORS. `atlas.json` is loaded with
 `fetch()`, so it is a cross-origin request from the app domain to the CloudFront domain and the
 browser blocks it without an `Access-Control-Allow-Origin` header.
+
+**A response headers policy alone is not enough.** All three of these are required:
+
+1. A **CORS configuration on the bucket** (`s3api put-bucket-cors`) — `GET`/`HEAD`, origins `*`.
+2. The **`Managed-CORS-S3Origin` origin request policy** on the behavior, so CloudFront actually
+   forwards `Origin` to S3 and S3 will emit the header.
+3. The **`Managed-SimpleCORS` response headers policy** (already covered above) for ordinary cached
+   hits. Its `OriginOverride` is false, so it defers to S3's header rather than duplicating it.
+
+Why 1 and 2 matter: **CloudFront silently omits the response headers policy's CORS header on any
+request that carries a cache-revalidation header** — `Cache-Control: no-cache`, `max-age=0`, or
+`Pragma: no-cache` — even when the response is a cache hit. Chrome sends those on *every hard reload*.
+With only the response headers policy, the atlas loads on a normal reload and fails on a hard one,
+which is a maddening thing to debug because the natural reaction to a broken page is to hard reload.
+
+Two traps worth internalising, both of which cost hours here:
+
+- **`curl` with default flags sends no cache headers**, so it returns the header perfectly while the
+  browser fails. Never conclude the CDN is fine until you have replayed the browser's *exact* request
+  headers, cache directives included. Copy them from DevTools → Network → the failing request.
+- **A response headers policy is not retroactive.** Objects already in the edge cache keep the headers
+  they were cached with, so attaching a policy late fixes only what the edge fetches next — and with
+  `immutable` plus a one-year max-age, "next" is effectively never. After any CDN change:
+
+  ```bash
+  aws cloudfront create-invalidation --distribution-id <id> --paths "/sprites/*"
+  ```
+
+Diagnose from **`Age` and `X-Amz-Cf-Pop`** on the failing response. If `Date - Age` predates your
+config change, you are looking at a pre-change cached object and the fix is an invalidation. Note that
+clearing the browser cache, incognito, and cache-busting query strings all change nothing when the
+stale copy is at the CDN — and a query string is *specifically* useless, since the cache policy is
+Managed-CachingOptimized (`QueryStringBehavior: none`) so CloudFront ignores it entirely.
 
 Attach a CloudFront **response headers policy** with CORS to the behavior.
 `Access-Control-Allow-Origin: *` is the right call here — the atlas is public game art, and `*` means

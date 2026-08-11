@@ -30,7 +30,7 @@
 					<p class="text-red-4">{{ inventory.stats.life }} / {{ inventory.stats.lifeMax }} HP</p>
 					<p class="text-blue-2">{{ inventory.stats.mana }} / {{ inventory.stats.manaMax }} MP</p>
 					<p v-if="inventory.serverSideCharacter" class="text-teal-4 text-sm">SSC</p>
-					<p v-else class="text-gray-7 text-sm italic" title="Without server-side characters the client owns the inventory, so this is what the player reports.">client-authoritative</p>
+					<p v-else class="text-gray-7 text-sm italic" title="Without server-side characters the client owns the inventory, so this is what the player reports.">Non-SSC</p>
 				</div>
 
 				<div v-if="inventory.buffs?.length" class="flex flex-wrap gap-1 px-1 pb-2">
