@@ -45,7 +45,7 @@
 			<div class="flex flex-col sm:flex-row gap-4">
 				<!-- Management actions keep a fixed column; the inventory takes the rest and scrolls. -->
 				<div :class="[$checkPermissions(PERMISSIONS.server.player.inventory.read) ? 'sm:w-80 shrink-0' : 'w-full']">
-					<ManagePlayer :selected-player="selectedPlayer" />
+					<ManagePlayer :selected-player="selectedPlayer" @refresh="refreshRoster" />
 				</div>
 				<div v-if="$checkPermissions(PERMISSIONS.server.player.inventory.read)" class="grow min-w-0 overflow-y-auto">
 					<PlayerInventory :selected-player="selectedPlayer" />
@@ -112,6 +112,23 @@ export default {
 		closeManagePlayerPopup() {
 			this.selectedPlayer = null;
 			this.managePlayerPopupOpen = false;
+		},
+		/**
+		 * ManagePlayer emits this after a kick or a ban. It had no listener, so a kicked player stayed
+		 * in this tile until something else happened to refetch the status — the action that changes
+		 * the roster was the one action that didn't update it.
+		 *
+		 * This is the same refetch a `player.leave` socket event triggers, so on a socket-enabled
+		 * client the two race and the loading guard drops one of them; that's the intended cost of
+		 * keeping the local path working when the socket is unavailable.
+		 */
+		async refreshRoster() {
+			try {
+				await this.serverStore.fetchServerStatus(this.selectedInstance);
+			} catch {
+				// The store already logs it, and the kick/ban itself succeeded — a second, contradictory
+				// alert about the refresh would be worse than a stale count.
+			}
 		},
 		plural,
 	},

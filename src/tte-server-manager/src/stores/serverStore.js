@@ -315,6 +315,7 @@ export const useServerStore = defineStore("serverstore", {
 				// This overwrites the whole instance entry, shutdown block included — which is why the
 				// server status endpoint has to carry it too, and why tracking is re-checked here.
 				this.instanceStatusData[instanceId] = data.instance;
+				this.evictDepartedInventories(instanceId, data.server?.players);
 
 				if (data.instance?.shutdown?.active) {
 					this.trackShutdown(instanceId);
@@ -374,6 +375,31 @@ export const useServerStore = defineStore("serverstore", {
 				throw error;
 			} finally {
 				this.loading.inventory[key] = false;
+			}
+		},
+		/**
+		 * Drops cached inventories for players no longer on the roster.
+		 *
+		 * Called from fetchServerStatus because that is the only place the roster is written, so the
+		 * eviction cannot drift from the thing it keys off. Nothing evicted this cache before, so a
+		 * player who logged out weeks ago kept an entry for the life of the page.
+		 *
+		 * Skipped entirely when the roster is unknown: "the server reported nobody online" and "we have
+		 * no roster information" both arrive as an absent `players`, and evicting on the second would
+		 * throw away entries for players who are still on. PlayerInventory.vue retains its own copy of
+		 * whatever it is displaying, so an eviction never blanks out an inventory someone is reading.
+		 */
+		evictDepartedInventories(instanceId, players) {
+			if (!Array.isArray(players)) return;
+
+			const online = new Set(players.map(player => player.nickname));
+			for (const key of Object.keys(this.playerInventories)) {
+				const separator = key.indexOf("::");
+				// Split on the first separator only — instance IDs never contain one, nicknames might.
+				if (key.slice(0, separator) !== instanceId) continue;
+				if (!online.has(key.slice(separator + 2))) {
+					delete this.playerInventories[key];
+				}
 			}
 		}
 	}
