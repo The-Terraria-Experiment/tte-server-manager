@@ -15,6 +15,7 @@ import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 import { ensureLogDirsCommand, joinLaunchSteps, tshockProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
@@ -225,6 +226,10 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 				lastUpdatedAt: Date.now(),
 			},
 		});
+
+		// The launch is dispatched, not finished — systemd-run reports success as soon as the unit starts.
+		// So this tells other operators the server is coming up; their own poller observes it arriving.
+		await Realtime.PublishServerState(instanceID, "launching");
 
 		return ResponseUtil.Success({
 			message: " TShock server starting",

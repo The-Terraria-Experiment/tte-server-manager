@@ -21,6 +21,15 @@ export const useServerStore = defineStore("serverstore", {
 		instanceWorldPaths: {},
 		serverStatusData: {},
 		worldStatusData: {}, // map of server IDs to WORLD_STATES enum
+		/**
+		 * In-flight worldgen job per instance, as the backend reports it.
+		 *
+		 * Lives in the store rather than in CreateWorld.vue because the guard it drives is
+		 * cross-component and cross-operator: SelectWorld's launch button has to respect a creation
+		 * someone else started, and a component-local copy dies on unmount. Same reasoning as the
+		 * `shutdown` block on instanceStatusData driving isShuttingDown everywhere.
+		 */
+		worldCreateStatus: {},
 		serverConfigs: {},
 		playerInventories: {}, // keyed `${instanceId}::${playerName}` — see inventoryKey
 		loading: {
@@ -63,6 +72,23 @@ export const useServerStore = defineStore("serverstore", {
 		 * error the user can't act on. A finished or abandoned job reports false.
 		 */
 		isShuttingDown: (state) => (instanceId) => Boolean(state.instanceStatusData[instanceId]?.shutdown?.active),
+		getWorldCreateStatus: (state) => (instanceId) => state.worldCreateStatus[instanceId] || null,
+		/**
+		 * True while a world is genuinely being created on this instance, by anyone.
+		 *
+		 * Mirrors the backend's `isWorldgenBlocking`: terminal and abandoned jobs report false, because
+		 * those are exactly the rows `queueCreateWorld` will happily overwrite. Anything that would start
+		 * a world creation or a launch should be disabled on this — the server returns 409 CONFLICT
+		 * regardless, so a control left enabled just lets someone fill in the whole form first.
+		 */
+		isCreatingWorld: (state) => (instanceId) => {
+			const job = state.worldCreateStatus[instanceId];
+			if (!job || job.found === false) return false;
+			if (job.abandoned) return false;
+			return !["completed", "failed"].includes(job.status);
+		},
+		/** Display name of whoever started the in-flight creation, for the "started by X" label. */
+		worldCreateRequestedBy: (state) => (instanceId) => state.worldCreateStatus[instanceId]?.requestedBy || null,
 		somethingIsLoading: (state) => {
 			for (const cat of Object.values(state.loading)) {
 				if (typeof cat !== "object") continue;
@@ -215,6 +241,30 @@ export const useServerStore = defineStore("serverstore", {
 			// Deliberately not reported as a failure: the poller gave up watching, which tells us
 			// nothing about whether the shutdown itself succeeded.
 			alertStore.push({ type: "warning", message: "The shutdown is taking longer than expected — check back in a few minutes" });
+		},
+		/**
+		 * Reads the current worldgen job for an instance.
+		 *
+		 * Errors are deliberately NOT swallowed — CreateWorld.vue's poller distinguishes a lost
+		 * connection from a finished job and alerts differently, so it needs the throw. Returns null
+		 * when there is no job row, which is the same signal (`found: false`) the endpoint sends.
+		 */
+		async fetchWorldCreateStatus(instanceId) {
+			const status = await get(`/server/${instanceId}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+
+			if (!status || status.found === false) {
+				delete this.worldCreateStatus[instanceId];
+				return null;
+			}
+
+			this.worldCreateStatus[instanceId] = status;
+			return status;
+		},
+		setWorldCreateStatus(instanceId, status) {
+			this.worldCreateStatus[instanceId] = status;
+		},
+		clearWorldCreateStatus(instanceId) {
+			delete this.worldCreateStatus[instanceId];
 		},
 		async fetchInstanceStatus(instanceId) {
 			if (this.loading.status[instanceId]) return;

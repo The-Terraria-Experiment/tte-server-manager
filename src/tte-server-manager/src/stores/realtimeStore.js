@@ -4,6 +4,7 @@ import { post } from "../util/api";
 import { PERMISSIONS } from "../util/permissionValues";
 import { useUserStore } from "./userStore";
 import { useServerStore } from "./serverStore";
+import { TASK_IDS, useStatusStore } from "./statusStore";
 import { KNOWN_REALTIME_EVENTS, REALTIME_EVENTS } from "../util/realtimeEvents";
 
 /**
@@ -50,7 +51,7 @@ const EVENT_FETCH_KINDS = {
 	[REALTIME_EVENTS.SERVER_AUTOSHUTOFF]: "serverStatus",
 	[REALTIME_EVENTS.INSTANCE_STATE]: "instanceStatus",
 	[REALTIME_EVENTS.INSTANCE_SHUTDOWN]: "instanceStatus",
-	// world.create is handled in phase 2, alongside the cross-operator creation guard.
+	[REALTIME_EVENTS.WORLD_CREATE]: "worldCreate",
 };
 
 const jitter = (ms) => Math.floor(Math.random() * ms);
@@ -266,13 +267,16 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 			const serverStore = useServerStore();
 			const key = `${kind}:${instanceId}`;
 
-			const busy = kind === "serverStatus"
-				? serverStore.isLoadingServerStatus(instanceId)
-				: serverStore.isLoadingStatus(instanceId);
+			// worldCreate has no loading guard to collide with, so it never needs the busy re-arm.
+			if (kind !== "worldCreate") {
+				const busy = kind === "serverStatus"
+					? serverStore.isLoadingServerStatus(instanceId)
+					: serverStore.isLoadingStatus(instanceId);
 
-			if (busy) {
-				this.scheduleFlush(kind, instanceId, BUSY_RETRY_MS);
-				return;
+				if (busy) {
+					this.scheduleFlush(kind, instanceId, BUSY_RETRY_MS);
+					return;
+				}
 			}
 
 			delete this.dirty[key];
@@ -280,6 +284,8 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 			try {
 				if (kind === "serverStatus") {
 					await serverStore.fetchServerStatus(instanceId);
+				} else if (kind === "worldCreate") {
+					await this.trackWorldCreate(instanceId);
 				} else {
 					await serverStore.fetchInstanceStatus(instanceId);
 				}
@@ -292,6 +298,47 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 			if (this.dirty[key]) {
 				this.scheduleFlush(kind, instanceId, DEBOUNCE_MS);
 			}
+		},
+
+		/**
+		 * Picks up a worldgen job this browser didn't start.
+		 *
+		 * This is the one event kind that legitimately starts a poller, and it is safe for a specific
+		 * reason: `CREATE_WORLD_CHECK` is a single fixed task ID and `startRepeatingTask` allows exactly
+		 * one poller per ID (a second call silently returns), so repeated `world.create` events cannot
+		 * stack pollers. Contrast `server.players`, where frequency is bounded by player activity rather
+		 * than job lifecycle — starting a poller there would multiply requests without limit.
+		 *
+		 * Starting the poller is also what makes it unnecessary to publish worldgen heartbeats: this
+		 * browser now polls for its own live `detail`, exactly as the initiating browser does.
+		 */
+		async trackWorldCreate(instanceId) {
+			const serverStore = useServerStore();
+			const statusStore = useStatusStore();
+
+			const status = await serverStore.fetchWorldCreateStatus(instanceId);
+			if (!status || !serverStore.isCreatingWorld(instanceId)) {
+				return;
+			}
+
+			// Nothing to do if a poller is already running — including the initiator's own.
+			if (statusStore.isTaskRunning(TASK_IDS.CREATE_WORLD_CHECK)) {
+				return;
+			}
+
+			// Seeded with the status just read, because startRepeatingTask evaluates its stop condition
+			// at the top of the first tick: against a stale terminal status it would cancel immediately
+			// and fire the end handler, announcing an outcome for a job that is still running.
+			statusStore.startRepeatingTask(
+				TASK_IDS.CREATE_WORLD_CHECK,
+				() => {
+					const job = serverStore.getWorldCreateStatus(instanceId);
+					if (!job) return true;
+					return ["completed", "failed"].includes(job.status) || Boolean(job.abandoned);
+				},
+				5000,
+				180,
+			);
 		},
 
 		/** Refetches whatever the current page needs. Called on every (re)connect. */
@@ -310,6 +357,11 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 				}
 				if (userStore.hasPermissions(PERMISSIONS.server.status.read, false)) {
 					await serverStore.fetchServerStatus(instanceId);
+				}
+				// Also picks up a creation that started while we were disconnected, which is what keeps
+				// the guard correct across a reconnect rather than only from the event that opened it.
+				if (userStore.hasPermissions(PERMISSIONS.server.world.create, false)) {
+					await this.trackWorldCreate(instanceId);
 				}
 			} catch (error) {
 				console.warn("[realtime] reconnect refetch failed:", error?.message || error);

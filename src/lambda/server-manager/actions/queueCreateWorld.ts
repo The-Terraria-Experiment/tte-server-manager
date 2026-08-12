@@ -14,7 +14,8 @@ import type { SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 import type { UserDataEntry } from "../../_shared/shared/schema/UserTable.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SsmDao } from "../shared/aws/SSM.js";
-import { isWorldgenBlocking, worldgenIdleForMs } from "../shared/utils/jobs/WorldgenJob.js";
+import { isWorldgenBlocking, worldgenIdleForMs, writeWorldgenProgress } from "../shared/utils/jobs/WorldgenJob.js";
+import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 
 const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
@@ -139,7 +140,7 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 			failureReason: reason,
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, jobKey, { updates: failure });
+		await writeWorldgenProgress(instanceID, failure);
 	};
 
 	const creationData: SystemWorldCreateEntry = {
@@ -154,6 +155,11 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 		jobID
 	};
 	await DB.PutItem(SYSTEM_TABLE, creationData);
+
+	// The event other operators' pages need in order to disable their own create/launch controls. The
+	// server-side 409 above is the real guard; this is what stops someone filling in the whole world
+	// form before discovering it.
+	await Realtime.PublishWorldCreate(instanceID, creationData.step);
 
 	CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 		userId: Parsers.GetUserSub(event),

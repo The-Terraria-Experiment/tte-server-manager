@@ -1,5 +1,8 @@
 import type { SystemWorldCreateEntry } from "../../schema/SystemTable.js";
 import { isJobAbandoned, isJobBlocking, isJobTerminal, jobIdleForMs } from "./AsyncJob.js";
+import { DynamoDao } from "../../aws/DynamoDB.js";
+import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../../vars.js";
+import { Realtime } from "../realtime/RealtimePublisher.js";
 
 /**
  * Shared read model for the single in-flight worldgen row (`worldgen#<instanceID>`).
@@ -32,6 +35,28 @@ const DEFAULT_STALE_MS = 3 * 60 * 1000;
 export function worldgenStaleAfterMs(): number {
 	const configured = Number(process.env.WORLD_CREATE_STALE_MS);
 	return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_STALE_MS;
+}
+
+export function worldgenJobKey(instanceId: string): string {
+	return `${WORLD_CREATE_KEY}#${instanceId}`;
+}
+
+/**
+ * Writes a worldgen *phase* change and notifies watchers.
+ *
+ * Use this for transitions only — never for the per-poll heartbeat that refreshes `detail`. That fires
+ * every few seconds for the whole run, and every event it produced would cost each open browser a
+ * status refetch.
+ *
+ * Losing live `detail` for non-initiators is not the consequence it looks like: `CREATE_WORLD_CHECK` is
+ * a single stable task ID and `startRepeatingTask` is idempotent, so the frontend's `world.create`
+ * handler simply starts the poller that already exists. Everyone then gets the same live detail the
+ * initiator does — the event's only job is to tell a page that a job it didn't start is running.
+ */
+export async function writeWorldgenProgress(instanceId: string, updates: SystemWorldCreateEntry): Promise<void> {
+	const DB = new DynamoDao();
+	await DB.UpdateItem(SYSTEM_TABLE, worldgenJobKey(instanceId), { updates });
+	await Realtime.PublishWorldCreate(instanceId, updates.step);
 }
 
 export function isWorldgenTerminal(job: SystemWorldCreateEntry | null): boolean {

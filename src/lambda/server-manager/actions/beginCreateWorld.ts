@@ -15,6 +15,7 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { Delay } from "../shared/utils/core/Delay.js";
 import { S3Dao } from "../shared/aws/S3.js";
 import { applyServerPasswordToConfig } from "../shared/utils/tshock/TShockConfig.js";
+import { writeWorldgenProgress } from "../shared/utils/jobs/WorldgenJob.js";
 
 /**
  * Resolves the daily TShock stdout log path (BASE-agnostic; matches the redirect target used when
@@ -299,9 +300,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 		progress: 20,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
-		updates: creationUpdate1
-	});
+	await writeWorldgenProgress(params.instanceID, creationUpdate1);
 
 	// TShock ignores CLI passwords, so write the requested server password into config.json before
 	// the -autocreate run (which generates the world and then serves it) reads it. Blank = leave the
@@ -330,9 +329,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 		progress: 45,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
-		updates: creationUpdate2
-	});
+	await writeWorldgenProgress(params.instanceID, creationUpdate2);
 	
 	const outLogPath = resolveOutLogPath();
 	await waitForWorldFileReady(worldFilePath, params.instanceID, outLogPath, boundedWaitDeadline(context, POST_WAIT_RESERVE_MS), async (line) => {
@@ -350,9 +347,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 		progress: 85,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
-		updates: creationUpdate3
-	});
+	await writeWorldgenProgress(params.instanceID, creationUpdate3);
 
 	CWLogger.CAction(3, FUNC_NAMES.SERV_MGR, {
 		userId: params.requestedBy,
@@ -381,9 +376,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 		progress: 100,
 		updatedAt: new Date().toISOString()
 	};
-	await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
-		updates: creationUpdate4
-	});
+	await writeWorldgenProgress(params.instanceID, creationUpdate4);
 
 	CWLogger.CAction(3, FUNC_NAMES.SERV_MGR, {
 		userId: params.requestedBy,

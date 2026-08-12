@@ -148,7 +148,7 @@
 <script>
 import { useServerStore } from '../../../../stores/serverStore';
 import { TASK_IDS, useStatusStore } from '../../../../stores/statusStore';
-import { get, post } from '../../../../util/api';
+import { post } from '../../../../util/api';
 import delay from '../../../../util/delay';
 import { BTN_VARIANT } from '../../../../util/constants';
 import { PERMISSIONS } from '../../../../util/permissionValues';
@@ -223,7 +223,6 @@ export default {
 				{ id: 3, text: "Master" },
 			],
 			worldCreatePopupOpen: false,
-			lastWorldCreateStatus: defaultLastWorldCreateStatus(),
 			// Set by whoever stops the polling so handleCreationFinished — which runs off the
 			// task-end subscription and owns the teardown — can report the real reason instead of
 			// both of them alerting about the same stop.
@@ -231,6 +230,14 @@ export default {
 		}
 	},
 	computed: {
+		/**
+		 * Read from the store rather than held locally, so a creation started by another operator (which
+		 * arrives as a `world.create` socket event) drives this component's display and the launch guard
+		 * in SelectWorld identically to one started here.
+		 */
+		lastWorldCreateStatus() {
+			return this.serverStore.getWorldCreateStatus(this.selectedInstance) ?? defaultLastWorldCreateStatus();
+		},
 		worldFileLocationOptions() {
 			const worldPathNicknames = this.serverStore.instanceWorldPaths[this.selectedInstance] ?? [];
 			const worldRoots = worldPathNicknames.filter(pname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${pname}`));
@@ -282,17 +289,17 @@ export default {
 			}
 
 			try {
-				const statusResult = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+				// The store owns the fetch and the state; this method still owns how each outcome is
+				// reported, because a lost connection and a finished job need different alerts.
+				const statusResult = await this.serverStore.fetchWorldCreateStatus(this.selectedInstance);
 
-				if (!statusResult || statusResult.found === false) {
+				if (!statusResult) {
 					// The job row is gone — it finished and was cleaned up, or was replaced by a
 					// newer request. Either way there's nothing left to watch, and continuing to
 					// poll would keep the spinner up against a job that no longer exists.
 					this.stopWorldCreatePolling();
 					return;
 				}
-
-				this.lastWorldCreateStatus = statusResult;
 
 				if (statusResult.abandoned) {
 					// The worker died without recording an outcome. The backend already treats this
@@ -310,7 +317,7 @@ export default {
 		},
 		startWorldCreatePolling(firstStatus, maxRepeats = 180) {
 			this.worldCreateEndMessage = null;
-			this.lastWorldCreateStatus = firstStatus;
+			this.serverStore.setWorldCreateStatus(this.selectedInstance, firstStatus);
 			// Poll every 5s. The window is deliberately generous (default ~15min) because a
 			// cold start — booting the instance, SSM + TShock warmup, generating a large world,
 			// then uploading it — can take several minutes before the job reports completion.
@@ -417,7 +424,8 @@ export default {
 			}
 
 			this.serverStore.loading.worldLaunch[this.selectedInstance] = false;
-			this.lastWorldCreateStatus = defaultLastWorldCreateStatus();
+			// Clears the store entry, which also releases the cross-operator create/launch guard.
+			this.serverStore.clearWorldCreateStatus(this.selectedInstance);
 		}
 	},
 	created() {

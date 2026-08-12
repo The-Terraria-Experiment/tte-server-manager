@@ -11,8 +11,7 @@ import { PERMISSIONS } from "./shared/permissionValues.js";
 import { queueCreateWorld } from "./actions/queueCreateWorld.js";
 import { beginCreateWorld } from "./actions/beginCreateWorld.js";
 import type { SystemWorldCreateEntry } from "./shared/schema/SystemTable.js";
-import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "./shared/vars.js";
-import { DynamoDao } from "./shared/aws/DynamoDB.js";
+import { writeWorldgenProgress } from "./shared/utils/jobs/WorldgenJob.js";
 import { getWorldgenStatus } from "./actions/createWorldStatus.js";
 import { launchWorld } from "./actions/launchWorld.js";
 import { managePlayer } from "./actions/managePlayer.js";
@@ -186,7 +185,6 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 			}
 		});
 
-		const DB = new DynamoDao();
 		// The reason is stored on the job so the frontend can say *what* went wrong instead of a bare
 		// "World creation failed" — for worldgen the useful cases (TShock never started, world path not
 		// configured, ran out of time mid-generation) are indistinguishable to a user otherwise.
@@ -196,9 +194,7 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 			failureReason,
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${event.instanceID}`, {
-			updates: errorUpdate
-		});
+		await writeWorldgenProgress(event.instanceID, errorUpdate);
 
 		// Returned, not rethrown: this worker is invoked asynchronously, so a throw would have lambda
 		// retry it — and the job is already recorded as failed, so a retry could only muddy that.

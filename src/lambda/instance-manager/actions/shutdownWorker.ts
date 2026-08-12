@@ -8,7 +8,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { CleanupUtil } from "../shared/utils/jobs/Cleanup.js";
 import { boundedWaitDeadline } from "../shared/utils/jobs/SyncBudget.js";
-import { shutdownJobKey } from "../shared/utils/jobs/ShutdownJob.js";
+import { shutdownJobKey, writeShutdownProgress } from "../shared/utils/jobs/ShutdownJob.js";
 import {
 	SHUTDOWN_STEP_COMPLETED,
 	SHUTDOWN_STEP_STOPPING,
@@ -70,7 +70,7 @@ export const shutdownWorker = async (event: ShutdownRequestData, context: Contex
 			detail: task.label,
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, jobKey, { updates: progressUpdate });
+		await writeShutdownProgress(instanceID, progressUpdate);
 
 		// Each task is capped on its own so one stuck task can't consume what's left for the rest,
 		// and the phase deadline stops the whole list before the invocation runs out either way.
@@ -103,7 +103,7 @@ export const shutdownWorker = async (event: ShutdownRequestData, context: Contex
 			detail: "Stopping instance",
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, jobKey, { updates: stoppingUpdate });
+		await writeShutdownProgress(instanceID, stoppingUpdate);
 
 		await EC2.StopInstance(instanceID);
 		await CleanupUtil.ClearWorldCreationStatus(instanceID);
@@ -116,7 +116,7 @@ export const shutdownWorker = async (event: ShutdownRequestData, context: Contex
 			taskOutcomes,
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, jobKey, { updates: done });
+		await writeShutdownProgress(instanceID, done);
 
 		await CWLogger.Action(FUNC_NAMES.INST_MGR, {
 			userId: requestedBy,
@@ -137,7 +137,7 @@ export const shutdownWorker = async (event: ShutdownRequestData, context: Contex
 			taskOutcomes,
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, jobKey, { updates: failure });
+		await writeShutdownProgress(instanceID, failure);
 
 		await CWLogger.Error(FUNC_NAMES.INST_MGR, {
 			userId: requestedBy,

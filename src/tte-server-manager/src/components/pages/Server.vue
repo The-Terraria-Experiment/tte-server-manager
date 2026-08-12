@@ -96,7 +96,7 @@ import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import FlexButton from '../common/FlexButton.vue';
-import { get, post } from '../../util/api';
+import { post } from '../../util/api';
 import CreateWorld from './tools/server/CreateWorld.vue';
 import ManageBans from './tools/server/ManageBans.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
@@ -228,12 +228,14 @@ export default {
 
 		async fetchWorldCreationStatus() {
 			try {
-				const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+				// Through the store so the worldgen guard (SelectWorld's launch button) sees the same
+				// state this poller does. Returns null when there is no job row.
+				const status = await this.serverStore.fetchWorldCreateStatus(this.selectedInstance);
 
 				// Only pick up a job that's actually still going. A finished — or abandoned — row
 				// sticks around until someone starts the next creation, and attaching the poller to
 				// it would replay its outcome as a fresh alert on every page load.
-				if (status && status.found !== false && !status.isDone) {
+				if (status && !status.isDone) {
 					this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
 					this.$refs.createWorld.startWorldCreatePolling(status);
 				}
