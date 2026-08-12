@@ -333,6 +333,56 @@ export const useServerStore = defineStore("serverstore", {
 				this.loading.serverStatus[instanceId] = false;
 			}
 		},
+		/**
+		 * Refetches only the roster, via `GET /server/{id}/status?fields=players`.
+		 *
+		 * This is what a `server.players` socket event triggers, so it runs on every join and leave for
+		 * every open browser — the one read whose frequency is set by how busy the game is. The slim
+		 * response skips three Dynamo reads and asks TShock for players without rules.
+		 *
+		 * It **merges** into the existing entry instead of replacing it, which is the whole reason the
+		 * slim response omits `instance`: `fetchServerStatus` assigns `instanceStatusData[id]`
+		 * wholesale, and a partial response going through that path would wipe the shutdown block out
+		 * from under `trackShutdown` and every guard that reads it. Nothing here touches
+		 * `instanceStatusData` at all.
+		 *
+		 * Falls back to a full fetch when there is nothing to merge into, so the tile can't end up
+		 * showing a player count beside a blank server name and version.
+		 */
+		async fetchPlayerList(instanceId) {
+			if (!this.serverStatusData[instanceId]) {
+				return this.fetchServerStatus(instanceId);
+			}
+
+			// Shares the full fetch's flag so the two can't interleave writes, and so realtimeStore's
+			// existing busy check and re-arm cover this path without knowing it exists.
+			if (this.loading.serverStatus[instanceId]) return;
+			this.loading.serverStatus[instanceId] = true;
+
+			try {
+				const data = await get(`/server/${instanceId}/status?fields=players`, PERMISSIONS.server.status.read);
+
+				this.serverStatusData[instanceId] = {
+					...this.serverStatusData[instanceId],
+					status: data.server.status,
+					playercount: data.server.playercount,
+					players: data.server.players,
+				};
+
+				if (data.server.status === "200") {
+					this.worldStatusData[instanceId] = WORLD_STATES.RUNNING;
+				} else {
+					this.worldStatusData[instanceId] = WORLD_STATES.OFFLINE;
+				}
+
+				this.evictDepartedInventories(instanceId, data.server?.players);
+			} catch (error) {
+				console.error("Error fetching player list:", error);
+				throw error;
+			} finally {
+				this.loading.serverStatus[instanceId] = false;
+			}
+		},
 		async fetchServerConfig(instanceId) {
 			if (this.loading.config[instanceId]) return;
 			this.loading.config[instanceId] = true;

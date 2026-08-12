@@ -44,9 +44,15 @@ const BACKOFF_CEILING_MS = 30 * 1000;
 /** Jitter applied to the on-connect refetch, so N reconnecting tabs don't all hit TShock at once. */
 const REFETCH_JITTER_MS = 2000;
 
-/** Which refetch an event implies. Keys are event types; values are logical fetch kinds. */
+/**
+ * Which refetch an event implies. Keys are event types; values are logical fetch kinds.
+ *
+ * `server.players` gets its own kind rather than sharing `serverStatus` because it is the only event
+ * whose rate is set by player activity, and the roster is the only thing it can have changed. It maps
+ * to the slim `?fields=players` read; everything else needs the full response.
+ */
 const EVENT_FETCH_KINDS = {
-	[REALTIME_EVENTS.SERVER_PLAYERS]: "serverStatus",
+	[REALTIME_EVENTS.SERVER_PLAYERS]: "players",
 	[REALTIME_EVENTS.SERVER_STATE]: "serverStatus",
 	[REALTIME_EVENTS.SERVER_AUTOSHUTOFF]: "serverStatus",
 	[REALTIME_EVENTS.INSTANCE_STATE]: "instanceStatus",
@@ -269,7 +275,8 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 
 			// worldCreate has no loading guard to collide with, so it never needs the busy re-arm.
 			if (kind !== "worldCreate") {
-				const busy = kind === "serverStatus"
+				// "players" shares the server-status flag deliberately — see fetchPlayerList.
+				const busy = (kind === "serverStatus" || kind === "players")
 					? serverStore.isLoadingServerStatus(instanceId)
 					: serverStore.isLoadingStatus(instanceId);
 
@@ -282,7 +289,9 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 			delete this.dirty[key];
 
 			try {
-				if (kind === "serverStatus") {
+				if (kind === "players") {
+					await serverStore.fetchPlayerList(instanceId);
+				} else if (kind === "serverStatus") {
 					await serverStore.fetchServerStatus(instanceId);
 				} else if (kind === "worldCreate") {
 					await this.trackWorldCreate(instanceId);

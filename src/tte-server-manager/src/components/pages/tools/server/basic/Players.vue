@@ -2,7 +2,7 @@
 	<StatusTile 
 		class="grow gradient-tile"
 		:collapsible="!!selectedServerData.playercount"
-		:contentLoaded="selectedServerData.playercount !== undefined"
+		:contentLoaded="!!selectedServerData.playercount"
 		:perm-required="PERMISSIONS.server.status.read"
 		:floatingExpand="!isMobile"
 	>
@@ -118,13 +118,13 @@ export default {
 		 * in this tile until something else happened to refetch the status — the action that changes
 		 * the roster was the one action that didn't update it.
 		 *
-		 * This is the same refetch a `player.leave` socket event triggers, so on a socket-enabled
-		 * client the two race and the loading guard drops one of them; that's the intended cost of
-		 * keeping the local path working when the socket is unavailable.
+		 * This is the same slim roster read a `player.leave` socket event triggers, so on a
+		 * socket-enabled client the two race and the loading guard drops one of them; that's the
+		 * intended cost of keeping the local path working when the socket is unavailable.
 		 */
 		async refreshRoster() {
 			try {
-				await this.serverStore.fetchServerStatus(this.selectedInstance);
+				await this.serverStore.fetchPlayerList(this.selectedInstance);
 			} catch {
 				// The store already logs it, and the kick/ban itself succeeded — a second, contradictory
 				// alert about the refresh would be worse than a stale count.
