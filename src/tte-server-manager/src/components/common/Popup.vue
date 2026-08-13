@@ -14,7 +14,7 @@
 				:class="[
 					'fixed left-0 top-0 right-0 bottom-0 m-auto flex flex-col overflow-hidden shadow-gray-0 shadow-lg rounded-lg bg-gray-3',
 					zLayers[Number(layer)]?.dialog,
-					bodyClass
+					...(Array.isArray(bodyClass) ? bodyClass : [bodyClass])
 				]"
 			>
 				<div class="w-full h-12 flex justify-between items-center px-4 bg-gray-4">
@@ -75,7 +75,7 @@ export default {
 			validator: (val) => Number.isInteger(parseInt(val)) && parseInt(val) >= 0 && parseInt(val) <= 3
 		},
 		bodyClass: {
-			type: String,
+			type: [String, Array],
 			default: "w-11/12 sm:w-1/2 h-1/2"
 		},
 		headerText: {
