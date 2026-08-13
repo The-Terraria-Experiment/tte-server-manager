@@ -37,6 +37,7 @@ export const PERMISSIONS = {
 				},
 				violations: {
 					read: "server.player.inventory.violations.read",
+					write: "server.player.inventory.violations.write",
 				},
 			},
 		},

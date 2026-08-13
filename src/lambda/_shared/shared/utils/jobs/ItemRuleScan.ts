@@ -98,12 +98,18 @@ export async function claimScanLease(instanceId: string, owner: string): Promise
 	const now = Date.now();
 
 	const result = await DB.UpdateItem(SYSTEM_TABLE, inventoryScanKey(instanceId), {
-		UpdateExpression: "SET #lease = :until, #owner = :owner, #instance = :instance, #pending = :pending",
+		// `violations` is seeded here rather than left to the first write that has something to put in
+		// it, because `writeScanResult` addresses it by nested path (`violations.<player>`) and Dynamo
+		// rejects a path whose parent map does not exist. Doing it at claim time means every drain runs
+		// against a row where those paths are already valid, at no extra write.
+		UpdateExpression:
+			"SET #lease = :until, #owner = :owner, #instance = :instance, #pending = :pending, #violations = if_not_exists(#violations, :emptyViolations)",
 		ExpressionAttributeNames: {
 			"#lease": "leaseUntil",
 			"#owner": "leaseOwner",
 			"#instance": "instanceID",
 			"#pending": "pending",
+			"#violations": "violations",
 		},
 		ExpressionAttributeValues: {
 			":until": now + SCAN_LEASE_MS,
@@ -111,6 +117,7 @@ export async function claimScanLease(instanceId: string, owner: string): Promise
 			":instance": instanceId,
 			":pending": false,
 			":now": now,
+			":emptyViolations": {},
 		},
 		ConditionExpression: "attribute_not_exists(leaseUntil) OR leaseUntil < :now",
 	});
@@ -152,29 +159,92 @@ export async function isScanPending(instanceId: string): Promise<boolean> {
  * Releasing here rather than in a separate call is what keeps the cursor and the lease consistent: a
  * crash between the two would either strand the lease (blocking scans for its full duration) or free
  * it before the cursor was written (letting the next worker re-drain everything).
+ *
+ * **Violations are written per player, never as a whole map, and that is what makes dismissing one
+ * safe.** A drain reads the violation set at its start and finishes up to a lease-length later; if it
+ * wrote the map it had read, an operator who dismissed a flag in between would watch it come back
+ * with nothing to explain it. Addressing `violations.<player>` individually means this update touches
+ * only the players this drain actually reached a conclusion about, and a dismissal of anyone else
+ * survives it. Where the two genuinely collide — a dismissed player rejoined and was flagged again
+ * during the same drain — the drain wins, which is correct: that is new evidence, not stale evidence.
  */
 export async function writeScanResult(
 	instanceId: string,
 	result: {
 		cursor: number,
 		head: number,
-		violations: Record<string, PlayerViolation>,
+		/** Players this drain flagged. Written individually; players absent here are left alone. */
+		upserts: Record<string, PlayerViolation>,
+		/** Players this drain cleared — a clean re-join, or pruned for age. */
+		removals: string[],
 		status: string,
 	},
 ): Promise<void> {
 	const DB = new DynamoDao();
+
+	const names: Record<string, string> = {};
+	const values: Record<string, unknown> = {
+		":instance": instanceId,
+		":cursor": result.cursor,
+		":head": result.head,
+		":lastScanAt": Date.now(),
+		":lastScanStatus": result.status,
+		":leaseUntil": 0,
+		":pending": false,
+		":updatedAt": new Date().toISOString(),
+	};
+
+	const sets = [
+		"#instanceID = :instance",
+		"#cursor = :cursor",
+		"#head = :head",
+		"#lastScanAt = :lastScanAt",
+		"#lastScanStatus = :lastScanStatus",
+		"#leaseUntil = :leaseUntil",
+		"#pending = :pending",
+		"#updatedAt = :updatedAt",
+	];
+
+	// Reserved words and dotted paths both need aliasing, so every attribute goes through #names.
+	Object.assign(names, {
+		"#instanceID": "instanceID",
+		"#cursor": "cursor",
+		"#head": "head",
+		"#lastScanAt": "lastScanAt",
+		"#lastScanStatus": "lastScanStatus",
+		"#leaseUntil": "leaseUntil",
+		"#pending": "pending",
+		"#updatedAt": "updatedAt",
+	});
+
+	// Declared only when something actually references it. Dynamo rejects the whole update if
+	// ExpressionAttributeNames carries an entry no expression uses, and the commonest drain of all —
+	// one that saw only leave captures, or no captures — concludes nothing about any player.
+	const upsertEntries = Object.entries(result.upserts);
+	if (upsertEntries.length || result.removals.length) {
+		names["#violations"] = "violations";
+	}
+
+	// Player names are user-controlled, so they can never go into the expression text itself — each
+	// becomes a positional alias instead.
+	upsertEntries.forEach(([player, violation], index) => {
+		names[`#up${index}`] = player;
+		values[`:up${index}`] = violation;
+		sets.push(`#violations.#up${index} = :up${index}`);
+	});
+
+	const removes: string[] = [];
+	result.removals.forEach((player, index) => {
+		names[`#rm${index}`] = player;
+		removes.push(`#violations.#rm${index}`);
+	});
+
+	const expression = `SET ${sets.join(", ")}${removes.length ? ` REMOVE ${removes.join(", ")}` : ""}`;
+
 	await DB.UpdateItem(SYSTEM_TABLE, inventoryScanKey(instanceId), {
-		updates: {
-			instanceID: instanceId,
-			cursor: result.cursor,
-			head: result.head,
-			violations: result.violations,
-			lastScanAt: Date.now(),
-			lastScanStatus: result.status,
-			leaseUntil: 0,
-			pending: false,
-			updatedAt: new Date().toISOString(),
-		} satisfies InventoryScanEntry,
+		UpdateExpression: expression,
+		ExpressionAttributeNames: names,
+		ExpressionAttributeValues: values,
 	});
 }
 
@@ -192,6 +262,50 @@ export async function releaseScanLease(instanceId: string, status: string): Prom
 			updatedAt: new Date().toISOString(),
 		},
 	});
+}
+
+/**
+ * Clears the flags for specific players, and reports which ones were actually there.
+ *
+ * Dismissal exists because nothing else clears a flag except the same player joining again clean.
+ * That is deliberate — a flag that lapsed when its owner disconnected could be erased by the offender
+ * simply leaving — but it leaves an operator who has dealt with someone no way to say so. This is it.
+ *
+ * Always takes an explicit player list, even for "dismiss everything": resolving that to the names
+ * the operator was actually looking at, and removing those individually, means a violation raised
+ * between the read and this write survives instead of being wiped by a blanket overwrite. Same
+ * reasoning as the per-player writes in `writeScanResult`, from the other side.
+ *
+ * The removed list is what lets the caller publish only on a real change, so dismissing an already
+ * dismissed player is silent rather than a refetch in every open browser.
+ */
+export async function dismissViolations(instanceId: string, players: string[]): Promise<string[]> {
+	if (!players.length) {
+		return [];
+	}
+
+	const DB = new DynamoDao();
+	const names: Record<string, string> = { "#violations": "violations" };
+	const paths: string[] = [];
+
+	// Player names come from the request body, so they are aliased rather than interpolated.
+	players.forEach((player, index) => {
+		names[`#p${index}`] = player;
+		paths.push(`#violations.#p${index}`);
+	});
+
+	const result = await DB.UpdateItem(SYSTEM_TABLE, inventoryScanKey(instanceId), {
+		UpdateExpression: `SET #updatedAt = :updatedAt REMOVE ${paths.join(", ")}`,
+		ExpressionAttributeNames: { ...names, "#updatedAt": "updatedAt" },
+		ExpressionAttributeValues: { ":updatedAt": new Date().toISOString() },
+		// ALL_OLD so the caller learns which of these were genuinely flagged. A REMOVE of an absent
+		// path is a silent no-op, so without this there is no way to tell a real dismissal from one
+		// that did nothing.
+		ReturnValues: "ALL_OLD",
+	});
+
+	const before = (result?.violations ?? {}) as Record<string, PlayerViolation>;
+	return players.filter(player => Boolean(before[player]));
 }
 
 /** Keeps the most recently flagged players and drops the rest, so the row can't grow without bound. */

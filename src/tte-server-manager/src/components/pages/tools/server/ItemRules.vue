@@ -25,7 +25,17 @@
 
 				<!-- Flagged players first: this is the part anyone opening the tile is here for. -->
 				<div v-if="flaggedCount" class="mb-4">
-					<p class="font-main font-bold text-gray-7 mb-2">FLAGGED PLAYERS</p>
+					<div class="flex items-center justify-between mb-2">
+						<p class="font-main font-bold text-gray-7">FLAGGED PLAYERS</p>
+						<button
+							v-if="canDismiss && flaggedCount > 1"
+							class="font-mono text-xs text-gray-7 hover:text-white-0 disabled:opacity-50"
+							:disabled="dismissing"
+							@click="onDismissAll"
+						>
+							DISMISS ALL
+						</button>
+					</div>
 					<div class="flex flex-wrap gap-2">
 						<div
 							v-for="violation in flaggedList"
@@ -34,7 +44,23 @@
 						>
 							<div class="flex items-center justify-between">
 								<p class="font-main font-bold text-yellow-2 break-all">{{ violation.player }}</p>
-								<p class="font-mono text-xs text-gray-7 ml-2 shrink-0">{{ relativeTime(violation.at) }}</p>
+								<div class="flex items-center ml-2 shrink-0">
+									<p class="font-mono text-xs text-gray-7">{{ relativeTime(violation.at) }}</p>
+									<!--
+										Dismissing is the only way a flag clears other than the player rejoining
+										without the items — leaving the server deliberately doesn't clear it, or
+										the one person with a reason to erase it could do so by disconnecting.
+									-->
+									<button
+										v-if="canDismiss"
+										class="ml-2 p-1 rounded hover:bg-gray-5 disabled:opacity-50"
+										:disabled="dismissing"
+										:title="`Dismiss the flag on ${violation.player}`"
+										@click="onDismiss(violation.player)"
+									>
+										<Icon icon="checkmark" color="text-gray-7" size="3" />
+									</button>
+								</div>
 							</div>
 							<p class="mt-1 font-mono text-sm text-white-0">
 								{{ violation.itemCount }} flagged item{{ violation.itemCount === 1 ? '' : 's' }}
@@ -185,6 +211,12 @@ export default {
 		scanning() {
 			return this.serverStore.isScanningItems(this.instanceID);
 		},
+		canDismiss() {
+			return this.$checkPermissions(PERMISSIONS.server.player.inventory.violations.write);
+		},
+		dismissing() {
+			return this.serverStore.isDismissingViolations(this.instanceID);
+		},
 		flaggedList() {
 			// Newest first: the most recent join is the one someone is most likely acting on.
 			return Object.values(this.serverStore.getViolations(this.instanceID)).sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
@@ -268,6 +300,34 @@ export default {
 					this.$alert.error("Error queueing scan");
 					console.error(e);
 				}
+			}
+		},
+		async onDismiss(player) {
+			this.$validatePermissions(PERMISSIONS.server.player.inventory.violations.write);
+
+			try {
+				const dismissed = await this.serverStore.dismissViolations(this.instanceID, [player]);
+				// Empty means it was already gone — someone else cleared it, or the player rejoined
+				// clean in between. Reporting that plainly beats a success message for a no-op.
+				if (dismissed.length) {
+					this.$alert.success(`Dismissed the flag on ${player}`);
+				} else {
+					this.$alert.info(`${player} was no longer flagged`);
+				}
+			} catch (e) {
+				this.$alert.error("Error dismissing violation");
+				console.error(e);
+			}
+		},
+		async onDismissAll() {
+			this.$validatePermissions(PERMISSIONS.server.player.inventory.violations.write);
+
+			try {
+				const dismissed = await this.serverStore.dismissViolations(this.instanceID);
+				this.$alert.success(`Dismissed ${dismissed.length} flag${dismissed.length === 1 ? '' : 's'}`);
+			} catch (e) {
+				this.$alert.error("Error dismissing violations");
+				console.error(e);
 			}
 		},
 		async onToggleNotifications(enabled) {

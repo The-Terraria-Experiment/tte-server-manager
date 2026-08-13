@@ -53,7 +53,8 @@ export const useServerStore = defineStore("serverstore", {
 			inventory: {},
 			itemRules: {},
 			violations: {},
-			itemScan: {}
+			itemScan: {},
+			violationDismiss: {}
 		},
 	}),
 	getters: {
@@ -161,6 +162,7 @@ export const useServerStore = defineStore("serverstore", {
 		 * concurrent call rather than queueing it.
 		 */
 		isLoadingViolations: (state) => (instanceId) => state.loading.violations[instanceId] || false,
+		isDismissingViolations: (state) => (instanceId) => state.loading.violationDismiss[instanceId] || false,
 	},
 	actions: {
 		async fetchInstanceList() {
@@ -547,6 +549,45 @@ export const useServerStore = defineStore("serverstore", {
 				return await post(`/server/${instanceId}/items/scan`, PERMISSIONS.server.player.inventory.violations.read, {});
 			} finally {
 				this.loading.itemScan[instanceId] = false;
+			}
+		},
+		/**
+		 * Clears flags for players that have been dealt with.
+		 *
+		 * Applies the server's answer rather than the request: the response says which players were
+		 * actually flagged when the write landed, so a name someone else already cleared drops out
+		 * instead of this browser pretending it removed something. Removing them here rather than
+		 * refetching keeps the tile responsive — the socket event this publishes updates every *other*
+		 * browser, and its own refetch would only tell us what we already know.
+		 *
+		 * `players` omitted means "everything currently flagged", resolved server-side against the row
+		 * so it can't wipe a violation raised between the click and the write.
+		 */
+		async dismissViolations(instanceId, players = null) {
+			if (this.loading.violationDismiss[instanceId]) return [];
+			this.loading.violationDismiss[instanceId] = true;
+
+			try {
+				const body = players ? { players } : { all: true };
+				const data = await post(
+					`/server/${instanceId}/items/violations/dismiss`,
+					PERMISSIONS.server.player.inventory.violations.write,
+					body
+				);
+
+				const dismissed = data?.dismissed || [];
+				if (dismissed.length && this.violations[instanceId]) {
+					const next = { ...this.violations[instanceId] };
+					dismissed.forEach(player => delete next[player]);
+					this.violations[instanceId] = next;
+				}
+
+				return dismissed;
+			} catch (error) {
+				console.error("Error dismissing item violations:", error);
+				throw error;
+			} finally {
+				this.loading.violationDismiss[instanceId] = false;
 			}
 		},
 		evictDepartedInventories(instanceId, players) {

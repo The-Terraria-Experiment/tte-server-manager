@@ -30,6 +30,7 @@ import { getItemRules } from "./actions/getItemRules.js";
 import { putItemRules } from "./actions/putItemRules.js";
 import { getItemViolations } from "./actions/getItemViolations.js";
 import { queueItemScan } from "./actions/queueItemScan.js";
+import { dismissItemViolations } from "./actions/dismissItemViolations.js";
 import { scanInventorySnapshots } from "./actions/scanInventorySnapshots.js";
 import { INVENTORY_SCAN_REQUEST_TYPE, type InventoryScanRequestData } from "./shared/utils/jobs/ItemRuleScan.js";
 
@@ -121,6 +122,10 @@ const endpoints: EndpointList = {
 	"GET /server/{id}/items/violations": {
 		action: getItemViolations,
 		permRequired: PERMISSIONS.server.player.inventory.violations.read
+	},
+	"POST /server/{id}/items/violations/dismiss": {
+		action: dismissItemViolations,
+		permRequired: PERMISSIONS.server.player.inventory.violations.write
 	},
 	"POST /server/{id}/items/scan": {
 		action: queueItemScan,

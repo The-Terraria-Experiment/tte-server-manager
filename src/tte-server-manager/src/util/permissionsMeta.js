@@ -38,6 +38,7 @@ export const PermissionsMeta = {
 				},
 				violations: {
 					read: {value: "server.player.inventory.violations.read", description: pfx + "see which players joined carrying items the server's item rules forbid, and re-run the check"},
+					write: {value: "server.player.inventory.violations.write", description: pfx + "dismiss item rule violations"},
 				},
 			},
 		},

@@ -82,6 +82,13 @@ export const scanInventorySnapshots = async (
 	const violationsBefore = state?.violations ?? {};
 	let violations: Record<string, PlayerViolation> = { ...violationsBefore };
 
+	/**
+	 * Every player this drain reached a conclusion about, flagged or cleared. Only these are written
+	 * back, so a flag an operator dismissed while the drain was running is not resurrected by it —
+	 * see `writeScanResult`. Anyone this drain saw no capture for is simply left as they were.
+	 */
+	const affected = new Set<string>();
+
 	let joinsEvaluated = 0;
 	let leavesSkipped = 0;
 	let pagesDrained = 0;
@@ -137,6 +144,8 @@ export const scanInventorySnapshots = async (
 				joinsEvaluated++;
 				const offending = evaluateReport(snapshot.player, rules!);
 
+				affected.add(player);
+
 				if (!offending.length) {
 					// A clean join clears the flag. Without this, "latest per player" would mean "worst
 					// ever", and a player who dropped the item would stay marked forever.
@@ -162,11 +171,30 @@ export const scanInventorySnapshots = async (
 			}
 		}
 
+		// Pruning drops players this drain never saw, so those have to join the affected set too —
+		// otherwise the row keeps growing, since nothing else would ever write their removal.
+		const beforePrune = Object.keys(violations);
 		violations = pruneViolations(violations);
+		beforePrune.filter(player => !violations[player]).forEach(player => affected.add(player));
+
+		// Split the affected players by what they ended up as. A player flagged and then cleared
+		// within the same drain (joined dirty, rejoined clean) correctly lands in removals.
+		const upserts: Record<string, PlayerViolation> = {};
+		const removals: string[] = [];
+		for (const player of affected) {
+			const violation = violations[player];
+			if (violation) {
+				upserts[player] = violation;
+			} else {
+				removals.push(player);
+			}
+		}
+
 		await writeScanResult(instanceID, {
 			cursor,
 			head,
-			violations,
+			upserts,
+			removals,
 			status: truncated ? "truncated" : "ok",
 		});
 
