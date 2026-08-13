@@ -1,3 +1,5 @@
+import { RECORD_TYPE_INDEX } from "../../vars.js";
+
 /**
  * The WebSocket notification contract.
  *
@@ -83,14 +85,10 @@ export const REALTIME_CONN_PREFIX = "conn#";
 export const REALTIME_CONN_RECORD_TYPE = "conn";
 
 /**
- * Sparse GSI over `recordType` on the system tables. Sparse is the whole reason it is safe to add:
- * only items that carry a `recordType` attribute enter the index, so every pre-existing row
- * (`role#`, `patreontier#`, `shutdown#`, `worldgen#`, `autoshutoff#`) is invisible to it and there
- * was no backfill to get wrong.
- *
- * The corollary is the trap — a row that stops writing `recordType` silently vanishes from every
- * consumer of this index, with no error anywhere. Write it unconditionally.
+ * @deprecated Prefer {@link RECORD_TYPE_INDEX} in `vars.ts`. The index is no longer connection-only —
+ * the item preset library reads through it too — and this alias exists so the realtime call sites
+ * keep working rather than because the name is still accurate.
  */
-export const REALTIME_CONN_INDEX = "recordType-index";
+export const REALTIME_CONN_INDEX = RECORD_TYPE_INDEX;
 
 export const realtimeConnectionKey = (connectionId: string): string => `${REALTIME_CONN_PREFIX}${connectionId}`;

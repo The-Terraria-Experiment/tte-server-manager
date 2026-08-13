@@ -60,6 +60,31 @@ export const REALTIME_MANAGER_FUNCTION_ARN =
 export const REALTIME_TICKET_SECRET_NAME = process.env.REALTIME_TICKET_SECRET_NAME;
 export const ROLE_KEY_PREFIX = "role#";
 export const PATREON_TIERMAP_KEY_PREFIX = "patreontier#";
+/**
+ * The site-wide library of saved item rulesets. Sits beside the other site-wide entities above
+ * (hence the trailing `#` here, where the per-instance `ITEM_RULES_KEY` leaves it to its key builder).
+ * `ITEM_PRESET_RECORD_TYPE` is the partition key of the sparse `recordType-index` GSI — write it on
+ * every put *and* every update, since a row that stops carrying it leaves the index silently.
+ */
+export const ITEM_PRESET_KEY_PREFIX = "preset#";
+export const ITEM_PRESET_RECORD_TYPE = "itempreset";
+/**
+ * Sparse GSI over `recordType` on the system tables (PK `recordType`, SK `uid`). Sparse is the whole
+ * reason it was safe to add: only items that carry a `recordType` attribute enter the index, so every
+ * pre-existing row (`role#`, `patreontier#`, `shutdown#`, `worldgen#`, `autoshutoff#`) is invisible to
+ * it and there was no backfill to get wrong.
+ *
+ * The corollary is the trap — a row that stops writing `recordType` silently vanishes from every
+ * consumer of this index, with no error anywhere. Write it unconditionally.
+ *
+ * Its projection is `INCLUDE`, so it serves each record family only to the extent that family's
+ * listable attributes are named in it. **Adding a family means widening the projection, and a GSI
+ * projection cannot be widened in place** — the index has to be dropped and recreated, during which
+ * every consumer reads empty. Attributes projected today: the realtime connection set
+ * (`connectionId`, `expireAt`, `apiEndpoint`, `userSub`) and the item preset summary set
+ * (`presetId`, `name`, `mode`, `groups`, `itemCount`, `updatedAt`, `updatedBy`).
+ */
+export const RECORD_TYPE_INDEX = "recordType-index";
 export const PATREON_CODE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-patreon-oidc-codes" : "ttesm-patreon-oidc-codes-stage";
 export const PATREON_SHIM_BASE_URL =
 	process.env.ACTIVE_ENV === "prod"

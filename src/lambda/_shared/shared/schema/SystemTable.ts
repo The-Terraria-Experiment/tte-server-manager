@@ -147,6 +147,46 @@ export type ItemRulesEntry = {
 	updatedAt?: string,
 };
 
+/**
+ * A saved, reusable item ruleset (`preset#<presetId>`).
+ *
+ * Site-wide rather than per-instance: the point is to build a list once and load it onto whichever
+ * server needs it. "Site-wide" still means per-environment, like every other entity in this table —
+ * prod and stage have separate libraries.
+ *
+ * Applying a preset **copies** it into the target's `ItemRulesEntry`; nothing links the two
+ * afterwards. So editing a preset changes enforcement nowhere until someone loads it again, and the
+ * scan path never reads this row.
+ *
+ * Note the absent `enabled`: that is a per-server operational switch, not part of a ruleset, and
+ * loading a preset must not turn enforcement on (or off) underneath a running server.
+ */
+export type ItemPresetEntry = {
+	uid?: string,
+	/**
+	 * Always `"itempreset"`. GSI partition key for `recordType-index`, which is how the library is
+	 * listed — see the warning on `RealtimeConnectionEntry.recordType`, which applies verbatim.
+	 */
+	recordType?: string,
+	presetId?: string,
+	/** Operator-facing label, unique case-insensitively across the library. */
+	name?: string,
+	mode?: "whitelist" | "blacklist",
+	groups?: string[],
+	entries?: ItemRuleEntry[],
+	/**
+	 * `entries.length`, denormalized. The library is listed through `recordType-index`, which
+	 * deliberately does not project `entries` — projecting them would put the whole library on the
+	 * index and defeat the point of not scanning for it. So the count that the dropdown renders has to
+	 * be an attribute in its own right. Written by the same code that writes `entries`, never
+	 * separately.
+	 */
+	itemCount?: number,
+	createdAt?: string,
+	updatedAt?: string,
+	updatedBy?: string,
+};
+
 /** One flagged item, carrying enough position for the UI to ring the exact square it came from. */
 export type ViolationItem = {
 	netId: number,

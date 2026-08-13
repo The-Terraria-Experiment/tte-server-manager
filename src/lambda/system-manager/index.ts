@@ -20,6 +20,10 @@ import { readPatreonTierMap } from "./actions/readPatreonTierMap.js";
 import { writePatreonTierMap } from "./actions/writePatreonTierMap.js";
 import { deletePatreonTierMap } from "./actions/deletePatreonTierMap.js";
 import { createRealtimeTicket } from "./actions/createRealtimeTicket.js";
+import { readItemPresets } from "./actions/readItemPresets.js";
+import { readItemPreset } from "./actions/readItemPreset.js";
+import { writeItemPreset } from "./actions/writeItemPreset.js";
+import { deleteItemPreset } from "./actions/deleteItemPreset.js";
 
 const endpoints: EndpointList = {
 	"POST /system/postnotice": {
@@ -69,6 +73,25 @@ const endpoints: EndpointList = {
 	"POST /system/realtime/ticket": {
 		action: createRealtimeTicket,
 		permRequired: PERMISSIONS.access,
+	},
+	// The item rule preset library. Site-wide, so it lives here rather than in server-manager, but it
+	// reuses the per-server item-rule permissions: anyone who can set a server's rules can maintain the
+	// library those rules are built from.
+	"GET /system/items/presets": {
+		action: readItemPresets,
+		permRequired: PERMISSIONS.server.player.inventory.rules.read,
+	},
+	"GET /system/items/presets/{presetId}": {
+		action: readItemPreset,
+		permRequired: PERMISSIONS.server.player.inventory.rules.read,
+	},
+	"POST /system/items/presets": {
+		action: writeItemPreset,
+		permRequired: PERMISSIONS.server.player.inventory.rules.write,
+	},
+	"POST /system/items/presets/{presetId}/delete": {
+		action: deleteItemPreset,
+		permRequired: PERMISSIONS.server.player.inventory.rules.write,
 	},
 };
 

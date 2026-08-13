@@ -9,6 +9,90 @@
 		body-class="w-11/12 sm:w-3/4 lg:w-1/2 h-3/4"
 	>
 		<div class="p-4 h-full overflow-y-auto">
+			<!--
+				Presets are a site-wide library of saved rulesets. LOAD only fills the draft below — the
+				SAVE button is still what applies anything to this server, so nothing here changes
+				enforcement on its own. Hidden entirely without write permission: loading a preset into a
+				draft that can't be saved is a dead end.
+			-->
+			<div v-if="!disabled" class="mb-4 pb-4 border-b border-gray-5">
+				<p class="font-bold mb-1">Preset</p>
+				<div class="flex items-end gap-2">
+					<div class="grow min-w-0">
+						<Dropdown
+							v-model="selectedPresetId"
+							:options="presetOptions"
+							placeholder="Choose a saved ruleset…"
+							inputClass="bg-teal-3 text-white-1"
+							iconColor="text-white-1"
+							:disabled="presetsBusy || !presetOptions.length"
+						/>
+					</div>
+					<FlexButton
+						:variant="BTN_VARIANT.SECONDARY"
+						leftIcon="download"
+						:disabled="!selectedPresetId || presetsBusy"
+						:loading="loadingPreset"
+						@input="onLoadPreset"
+					>
+						LOAD
+					</FlexButton>
+					<div
+						v-if="selectedPresetId && !confirmingDelete"
+						class="cursor-pointer shrink-0 pb-2"
+						@click="confirmingDelete = true"
+					>
+						<Icon icon="trash-can" size="4" color="text-gray-7" />
+					</div>
+				</div>
+
+				<p v-if="!presetOptions.length && !presetsStore.loading" class="font-mono text-xs text-gray-7 mt-1">
+					No presets saved yet. Build a list below, then use SAVE AS PRESET to reuse it on other servers.
+				</p>
+
+				<!-- Inline rather than a nested Popup, which would stack a modal on a modal. -->
+				<div v-if="confirmingDelete" class="mt-2 flex items-center gap-2 flex-wrap">
+					<p class="font-mono text-xs text-yellow-2 grow">
+						Delete preset “{{ selectedPresetName }}”? Servers that already loaded it keep their rules.
+					</p>
+					<FlexButton :variant="BTN_VARIANT.SECONDARY" @input="confirmingDelete = false">CANCEL</FlexButton>
+					<FlexButton :variant="BTN_VARIANT.DANGER" :disabled="deletingPreset" @input="onDeletePreset">
+						<p class="font-main font-bold py-2 px-4">DELETE</p>
+					</FlexButton>
+				</div>
+
+				<div v-if="namingPreset" class="mt-2">
+					<div class="flex items-end gap-2">
+						<div class="grow">
+							<p class="font-mono text-xs text-gray-7 mb-1">Preset name</p>
+							<ValueInput
+								placeholder="e.g. Vanilla only"
+								v-model="presetName"
+								@keyup.enter="onSavePreset(null)"
+							/>
+						</div>
+						<FlexButton :variant="BTN_VARIANT.SECONDARY" @input="namingPreset = false">CANCEL</FlexButton>
+						<FlexButton :variant="BTN_VARIANT.SECONDARY" leftIcon="checkmark" :loading="savingPreset" @input="onSavePreset(null)">
+							SAVE
+						</FlexButton>
+					</div>
+				</div>
+				<div v-else class="mt-2 flex flex-wrap gap-2">
+					<FlexButton :variant="BTN_VARIANT.SECONDARY" leftIcon="plus" :disabled="presetsBusy" @input="onSaveAsClicked">
+						SAVE AS PRESET
+					</FlexButton>
+					<FlexButton
+						v-if="selectedPresetId"
+						:variant="BTN_VARIANT.SECONDARY"
+						:disabled="presetsBusy"
+						:loading="savingPreset"
+						@input="onSavePreset(selectedPresetId)"
+					>
+						UPDATE “{{ selectedPresetName }}”
+					</FlexButton>
+				</div>
+			</div>
+
 			<div class="flex items-start mb-4">
 				<Checkbox v-model="draft.enabled" :disabled="disabled" />
 				<div class="ml-2">
@@ -141,6 +225,9 @@ import FlexButton from '@/components/common/FlexButton.vue';
 import Icon from '@/components/common/Icon.vue';
 import InventorySlot from '../basic/players/InventorySlot.vue';
 import { useSpriteStore } from '@/stores/spriteStore';
+import { useItemPresetsStore } from '@/stores/itemPresetsStore';
+import { post } from '@/util/api';
+import { PERMISSIONS } from '@/util/permissionValues';
 import { similarity } from '@/util/fuzzyMatch';
 import { BTN_VARIANT } from '@/util/constants';
 
@@ -195,8 +282,16 @@ export default {
 			GROUPS,
 			MIN_QUERY,
 			spriteStore: useSpriteStore(),
+			presetsStore: useItemPresetsStore(),
 			searchQuery: "",
 			draftNetId: null,
+			selectedPresetId: null,
+			presetName: "",
+			namingPreset: false,
+			confirmingDelete: false,
+			loadingPreset: false,
+			savingPreset: false,
+			deletingPreset: false,
 			draft: {
 				enabled: false,
 				mode: "blacklist",
@@ -206,6 +301,23 @@ export default {
 		};
 	},
 	computed: {
+		/**
+		 * Mode and item count ride along in the label because a preset is chosen by name alone, and
+		 * "Event rules" as a 12-item blacklist and as a 200-item whitelist are very different things.
+		 */
+		presetOptions() {
+			return this.presetsStore.presets.map(preset => ({
+				id: preset.presetId,
+				text: `${preset.name} — ${preset.mode}, ${preset.itemCount} item${preset.itemCount === 1 ? '' : 's'}`,
+			}));
+		},
+		selectedPresetName() {
+			return this.presetsStore.getPreset(this.selectedPresetId)?.name || "";
+		},
+		/** One flag for every control in the bar, so a write in flight can't be raced by another. */
+		presetsBusy() {
+			return this.loadingPreset || this.savingPreset || this.deletingPreset || this.loading;
+		},
 		namesAvailable() {
 			return this.spriteStore.hasNames;
 		},
@@ -297,6 +409,17 @@ export default {
 			this.draftNetId = null;
 			this.searchQuery = "";
 		},
+		/**
+		 * Clears the preset bar's transient state on open. Separate from `resetDraft` because that also
+		 * runs whenever the stored rules change, and a re-fetch of the rules mid-edit should not close
+		 * a name box the operator is typing into.
+		 */
+		resetPresetBar() {
+			this.selectedPresetId = null;
+			this.presetName = "";
+			this.namingPreset = false;
+			this.confirmingDelete = false;
+		},
 		toggleGroup(id, checked) {
 			if (checked) {
 				if (!this.draft.groups.includes(id)) this.draft.groups.push(id);
@@ -346,18 +469,163 @@ export default {
 
 			this.$emit('apply', { ...this.draft, entries: this.draft.entries.map(entry => ({ ...entry })) });
 		},
+
+		/* ---- Presets ------------------------------------------------------------------------- */
+
+		/**
+		 * Fills the draft from a saved preset. Copies, never links — after this the server owns the
+		 * list, and editing the preset later changes nothing here.
+		 *
+		 * `draft.enabled` is pointedly left alone: it is this server's operational switch, not part of
+		 * the ruleset, and loading a list must not turn enforcement on or off underneath it.
+		 */
+		async onLoadPreset() {
+			if (!this.selectedPresetId || this.presetsBusy) return;
+
+			this.loadingPreset = true;
+			try {
+				const preset = await this.presetsStore.fetchPreset(this.selectedPresetId);
+				if (!preset) return;
+
+				this.draft.mode = preset.mode || "blacklist";
+				this.draft.groups = preset.groups?.length ? [...preset.groups] : GROUPS.map(group => group.id);
+				// Deep-copied for the same reason resetDraft does it: the store's copy must not be
+				// mutated by editing the draft, or cancel stops being a cancel.
+				this.draft.entries = (preset.entries || []).map(entry => ({ ...entry }));
+
+				this.$alert.info(`Loaded preset “${preset.name}” — press SAVE to apply it to this server`);
+			} catch (error) {
+				this.$alert.error(error.message || "Failed to load preset");
+			} finally {
+				this.loadingPreset = false;
+			}
+		},
+		/** The same guards `onApply` runs, so a preset can't be saved in a shape the server will reject. */
+		draftIsSaveable() {
+			if (!this.draft.groups.length) {
+				this.$alert.error("Pick at least one place to look");
+				return false;
+			}
+			if (!this.draft.entries.length) {
+				this.$alert.error("Add at least one item before saving a preset");
+				return false;
+			}
+			return true;
+		},
+		onSaveAsClicked() {
+			if (!this.draftIsSaveable()) return;
+			this.presetName = "";
+			this.confirmingDelete = false;
+			this.namingPreset = true;
+		},
+		/** `presetId` null saves a new preset; an id overwrites that one. */
+		async onSavePreset(presetId) {
+			if (this.presetsBusy) return;
+			if (!this.draftIsSaveable()) return;
+
+			const name = presetId ? this.selectedPresetName : this.presetName.trim();
+			if (!name) {
+				this.$alert.error("Give the preset a name");
+				return;
+			}
+
+			try {
+				this.$validatePermissions(PERMISSIONS.server.player.inventory.rules.write);
+			} catch {
+				return;
+			}
+
+			this.savingPreset = true;
+			try {
+				const data = await post('/system/items/presets', PERMISSIONS.server.player.inventory.rules.write, {
+					...(presetId ? { presetId } : {}),
+					name,
+					mode: this.draft.mode,
+					groups: this.draft.groups,
+					entries: this.draft.entries,
+				});
+
+				this.namingPreset = false;
+				this.presetName = "";
+				this.presetsStore.invalidate(data.preset?.presetId ?? presetId);
+				this.selectedPresetId = data.preset?.presetId ?? presetId;
+				this.$alert.success(presetId ? `Preset “${name}” updated` : `Preset “${name}” saved`);
+			} catch (error) {
+				// Both of these are states the operator can act on, so they get the server's own wording
+				// rather than a generic failure.
+				if (error.code === "PRESET_NAME_TAKEN" || error.code === "PRESET_LIMIT_REACHED") {
+					this.$alert.error(error.message);
+				} else {
+					this.$alert.error(error.message || "Failed to save preset");
+				}
+			} finally {
+				this.savingPreset = false;
+			}
+
+			await this.refreshPresets();
+		},
+		async onDeletePreset() {
+			if (!this.selectedPresetId || this.deletingPreset) return;
+
+			try {
+				this.$validatePermissions(PERMISSIONS.server.player.inventory.rules.write);
+			} catch {
+				return;
+			}
+
+			const deletedId = this.selectedPresetId;
+			const deletedName = this.selectedPresetName;
+
+			this.deletingPreset = true;
+			try {
+				await post(
+					`/system/items/presets/${encodeURIComponent(deletedId)}/delete`,
+					PERMISSIONS.server.player.inventory.rules.write,
+					{}
+				);
+
+				this.presetsStore.invalidate(deletedId);
+				this.selectedPresetId = null;
+				this.confirmingDelete = false;
+				this.$alert.success(`Preset “${deletedName}” deleted`);
+			} catch (error) {
+				this.$alert.error(error.message || "Failed to delete preset");
+			} finally {
+				this.deletingPreset = false;
+			}
+
+			await this.refreshPresets();
+		},
+		/** Re-reads the library after a write. Its own try/catch — a failed refresh isn't a failed write. */
+		async refreshPresets() {
+			try {
+				await this.presetsStore.fetchPresets();
+			} catch (error) {
+				console.error(error);
+			}
+		},
 	},
 	watch: {
 		rules() {
 			this.resetDraft();
 		},
+		/** A confirm belongs to the preset it was opened on; switching the selection cancels it. */
+		selectedPresetId() {
+			this.confirmingDelete = false;
+		},
 		open(isOpen) {
 			if (!isOpen) return;
 			this.resetDraft();
+			this.resetPresetBar();
 			// Fetched on open rather than on mount: this is the only screen that needs the name map, and
 			// it is a separate ~150KB object from the atlas. Both calls are idempotent.
 			this.spriteStore.loadAtlas();
 			this.spriteStore.loadItemNames();
+			// Same reasoning for the preset library, and skipped entirely without write permission —
+			// the bar it feeds is hidden in that case.
+			if (!this.disabled) {
+				this.refreshPresets();
+			}
 		},
 	},
 	mounted() {
