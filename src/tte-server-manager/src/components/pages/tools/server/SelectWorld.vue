@@ -1,6 +1,6 @@
 <template>
 	<StatusTile 
-		class="grow mt-2 gradient-tile"
+		class="grow gradient-tile"
 		collapsible
 		:perm-required="[PERMISSIONS.server.world.list, PERMISSIONS.server.world.launch]"
 		match-any-permission

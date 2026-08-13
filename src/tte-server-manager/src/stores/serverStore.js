@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { get } from '../util/api';
+import { get, post, put } from '../util/api';
 import { PERMISSIONS } from '../util/permissionValues';
 import { INSTANCE_STATES, WORLD_STATES } from '../util/constants.js';
 import { shutdownTaskId, useStatusStore } from './statusStore.js';
@@ -32,6 +32,17 @@ export const useServerStore = defineStore("serverstore", {
 		worldCreateStatus: {},
 		serverConfigs: {},
 		playerInventories: {}, // keyed `${instanceId}::${playerName}` — see inventoryKey
+		/** Per-instance item rule list, as `GET /server/{id}/items/rules` reports it. */
+		itemRules: {},
+		/**
+		 * Per-instance map of player name to their latest rule violation.
+		 *
+		 * Written only by fetchViolations. The socket event that triggers that fetch carries no
+		 * violation data of its own — it says the set changed, and this is where the actual answer is
+		 * read from, behind the same permission check every other read goes through.
+		 */
+		violations: {},
+		violationsMeta: {}, // per instance: { lastScanAt, lastScanStatus }
 		loading: {
 			list: false,
 			status: {},
@@ -39,7 +50,10 @@ export const useServerStore = defineStore("serverstore", {
 			serverStatus: {},
 			config: {},
 			worldLaunch: {},
-			inventory: {}
+			inventory: {},
+			itemRules: {},
+			violations: {},
+			itemScan: {}
 		},
 	}),
 	getters: {
@@ -132,6 +146,21 @@ export const useServerStore = defineStore("serverstore", {
 		 */
 		getPlayerInventory: (state) => (instanceId, playerName) => state.playerInventories[inventoryKey(instanceId, playerName)] || null,
 		isLoadingInventory: (state) => (instanceId, playerName) => state.loading.inventory[inventoryKey(instanceId, playerName)] || false,
+		/** The instance's item rule list, or null before it has been fetched. */
+		getItemRules: (state) => (instanceId) => state.itemRules[instanceId] || null,
+		isLoadingItemRules: (state) => (instanceId) => state.loading.itemRules[instanceId] || false,
+		isScanningItems: (state) => (instanceId) => state.loading.itemScan[instanceId] || false,
+		/** Map of player name to violation. Empty object, never null, so callers can index it freely. */
+		getViolations: (state) => (instanceId) => state.violations[instanceId] || {},
+		/** One player's latest violation, or null. Keyed on the same nickname the roster carries. */
+		getPlayerViolation: (state) => (instanceId, playerName) => state.violations[instanceId]?.[playerName] || null,
+		getViolationsMeta: (state) => (instanceId) => state.violationsMeta[instanceId] || null,
+		/**
+		 * Whether a violations fetch is in flight. Same purpose as isLoadingServerStatus: the socket
+		 * handler checks this before flushing and re-arms if it's set, because the fetch below drops a
+		 * concurrent call rather than queueing it.
+		 */
+		isLoadingViolations: (state) => (instanceId) => state.loading.violations[instanceId] || false,
 	},
 	actions: {
 		async fetchInstanceList() {
@@ -439,6 +468,87 @@ export const useServerStore = defineStore("serverstore", {
 		 * throw away entries for players who are still on. PlayerInventory.vue retains its own copy of
 		 * whatever it is displaying, so an eviction never blanks out an inventory someone is reading.
 		 */
+		/** Reads the instance's item rule list. */
+		async fetchItemRules(instanceId) {
+			if (this.loading.itemRules[instanceId]) return;
+			this.loading.itemRules[instanceId] = true;
+
+			try {
+				const data = await get(`/server/${instanceId}/items/rules`, PERMISSIONS.server.player.inventory.rules.read);
+				this.itemRules[instanceId] = { ...data.rules, configured: data.configured };
+				return this.itemRules[instanceId];
+			} catch (error) {
+				console.error("Error fetching item rules:", error);
+				throw error;
+			} finally {
+				this.loading.itemRules[instanceId] = false;
+			}
+		},
+		async saveItemRules(instanceId, rules) {
+			const data = await put(`/server/${instanceId}/items/rules`, PERMISSIONS.server.player.inventory.rules.write, {
+				enabled: rules.enabled,
+				mode: rules.mode,
+				groups: rules.groups,
+				entries: rules.entries,
+			});
+			this.itemRules[instanceId] = { ...data.rules, configured: true };
+			return this.itemRules[instanceId];
+		},
+		/**
+		 * Reads the current violation set.
+		 *
+		 * `notify` is off by default on purpose. This runs from three places — opening the page, a
+		 * socket event, and the reconnect refetch — and only the socket event means "something just
+		 * happened". Announcing the reconnect's results would fire a notification for a violation that
+		 * may be hours old, every time a laptop woke up.
+		 *
+		 * Returns the players newly flagged since the last fetch. The diff belongs here because this is
+		 * the only place that holds both the old set and the new one.
+		 */
+		async fetchViolations(instanceId, { notify = false } = {}) {
+			if (this.loading.violations[instanceId]) return [];
+			this.loading.violations[instanceId] = true;
+
+			const previous = this.violations[instanceId] || {};
+
+			try {
+				const data = await get(`/server/${instanceId}/items/violations`, PERMISSIONS.server.player.inventory.violations.read);
+				const next = data.violations || {};
+
+				// New to us if the player wasn't flagged before, or is flagged off a different snapshot —
+				// the second case is a player who rejoined still carrying something they shouldn't.
+				const fresh = Object.keys(next).filter(
+					player => previous[player]?.snapshotId !== next[player]?.snapshotId
+				);
+
+				this.violations[instanceId] = next;
+				this.violationsMeta[instanceId] = {
+					lastScanAt: data.lastScanAt ?? null,
+					lastScanStatus: data.lastScanStatus ?? null,
+				};
+
+				return notify ? fresh : [];
+			} catch (error) {
+				console.error("Error fetching item violations:", error);
+				throw error;
+			} finally {
+				this.loading.violations[instanceId] = false;
+			}
+		},
+		/**
+		 * Asks for an out-of-band drain. The response only says the job was queued — the results arrive
+		 * through the socket, or through the next fetch, exactly as they do for an event-driven scan.
+		 */
+		async requestItemScan(instanceId) {
+			if (this.loading.itemScan[instanceId]) return;
+			this.loading.itemScan[instanceId] = true;
+
+			try {
+				return await post(`/server/${instanceId}/items/scan`, PERMISSIONS.server.player.inventory.violations.read, {});
+			} finally {
+				this.loading.itemScan[instanceId] = false;
+			}
+		},
 		evictDepartedInventories(instanceId, players) {
 			if (!Array.isArray(players)) return;
 

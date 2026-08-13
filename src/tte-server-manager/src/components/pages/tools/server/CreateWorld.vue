@@ -1,7 +1,7 @@
 <template>
 	<div>
 		<StatusTile
-			class="grow mt-2 gradient-tile"
+			class="grow gradient-tile"
 			collapsible
 			:perm-required="PERMISSIONS.server.world.create"
 		>

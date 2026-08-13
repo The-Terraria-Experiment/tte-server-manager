@@ -180,6 +180,15 @@ export default {
 			type: Object,
 			default: null,
 		},
+		/**
+		 * This player's latest item-rule violation, or null. Passed in rather than read from the store
+		 * here because Players.vue already resolves it for the roster marker, and one lookup keeps the
+		 * marker and the rings from ever disagreeing.
+		 */
+		violation: {
+			type: [Object, null],
+			default: null,
+		},
 	},
 	data() {
 		return {
@@ -248,6 +257,22 @@ export default {
 				return false;
 			}
 			return this.serverStore.isLoadingInventory(this.instanceID, this.playerName);
+		},
+		/**
+		 * Flagged positions as `container::slot`, for the ring on the grid.
+		 *
+		 * Matched on position rather than item id so that only the offending copy is ringed — a player
+		 * carrying a banned item in the piggy bank and a permitted one in the main grid should not have
+		 * both lit up. Note the violation is from their last *join*, so an item moved since will ring
+		 * the slot it was in then; the flag describes what they arrived with, which is the question the
+		 * rules are asking.
+		 */
+		flaggedSlots() {
+			const flagged = new Set();
+			for (const item of this.violation?.items ?? []) {
+				flagged.add(`${item.container}::${item.slot}`);
+			}
+			return flagged;
 		},
 		/** Containers keyed by name, so a grid can look one up without scanning the array each cell. */
 		containers() {
@@ -340,13 +365,24 @@ export default {
 				this.error = e?.message || "Failed to read the player's inventory";
 			}
 		},
-		/** The item in a container's local slot index, or null. The plugin reports occupied slots only. */
+		/**
+		 * The item in a container's local slot index, or null. The plugin reports occupied slots only.
+		 *
+		 * Marks a rule violation here rather than at every one of the ~20 grid call sites, and on a copy
+		 * rather than the object itself — the item belongs to the store, and writing a display flag onto
+		 * it would leak into every other reader of that inventory.
+		 */
 		itemAt(containerName, index) {
 			const container = this.containers[containerName];
 			if (!container) {
 				return null;
 			}
-			return container.items.find(item => item.slot === index) ?? null;
+
+			const item = container.items.find(entry => entry.slot === index) ?? null;
+			if (!item || !this.flaggedSlots.has(`${containerName}::${index}`)) {
+				return item;
+			}
+			return { ...item, flagged: true };
 		},
 		armorLabel(index) {
 			return ARMOR_LABELS[index] ?? `Accessory ${index - 2}`;

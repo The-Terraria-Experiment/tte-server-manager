@@ -40,9 +40,30 @@ async function main() {
 	console.log(`Version:  ${version}`);
 	console.log(`Atlas:    ${atlas.w}x${atlas.h}, ${Object.keys(items).length} items, ${((await stat(atlasPngPath)).size / 1024 / 1024).toFixed(2)} MB\n`);
 
+	// The item-name map is optional and versioned separately, because it comes from a running game
+	// server rather than the game files (see the README). Publishing it under the same prefix means
+	// one env var still points the frontend at both, and a mismatched version is caught here rather
+	// than showing up as a search box that can't find anything.
+	let namesJson = null;
+	try {
+		namesJson = await readFile(path.join(OUT_DIR, "names.json"), "utf8");
+		const names = JSON.parse(namesJson);
+		if (names.version !== version) {
+			throw new Error(
+				`names.json is version ${names.version} but the atlas is ${version} -- ` +
+				`re-run 'npm run names' against a server on ${version}, or upload them separately.`,
+			);
+		}
+		console.log(`Names:    ${Object.keys(names.names).length} items`);
+	} catch (e) {
+		if (e.code !== "ENOENT") throw e;
+		console.log(`Names:    (no work/names.json -- skipping; the rule editor will show bare IDs)`);
+	}
+
 	for (const [key, body, contentType] of [
 		[`${base}/atlas.png`, atlasPng, "image/png"],
 		[`${base}/atlas.json`, atlasJson, "application/json"],
+		...(namesJson ? [[`${base}/names.json`, namesJson, "application/json"]] : []),
 	]) {
 		await client.send(new PutObjectCommand({
 			Bucket: BUCKET,

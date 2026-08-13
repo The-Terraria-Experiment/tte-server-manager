@@ -24,12 +24,22 @@ export const USER_ARCHIVE_TABLE = process.env.ACTIVE_ENV === "prod" ? "ttesm-use
 export const IGNORE_UNKNOWN_SOURCE_LOGS = process.env.IGNORE_UNKNOWN_SOURCE_LOGS === "true";
 export const WORLD_CREATE_KEY = "worldgen";
 export const SHUTDOWN_KEY = "shutdown";
+/** `uid` prefixes for the per-instance item rule list and its snapshot drain state. */
+export const ITEM_RULES_KEY = "itemrules";
+export const INVENTORY_SCAN_KEY = "invscan";
 // Alias-qualified ARN of instance-manager, so a cross-lambda async invoke lands on the same
 // environment's alias rather than $LATEST (whose ACTIVE_ENV is whichever branch deployed last).
 export const INSTANCE_MANAGER_FUNCTION_ARN =
 	process.env.ACTIVE_ENV === "prod"
 		? (process.env.INSTANCE_MANAGER_FUNCTION_ARN + ":prod")
 		: (process.env.INSTANCE_MANAGER_FUNCTION_ARN + ":stage");
+// Alias-qualified ARN of server-manager, which owns the inventory-snapshot drain worker.
+// logs-manager invokes it from `pushLog` on a roster event. Same qualification reasoning and the
+// same unset caveat as the others — callers check the raw env var before using this.
+export const SERVER_MANAGER_FUNCTION_ARN =
+	process.env.ACTIVE_ENV === "prod"
+		? (process.env.SERVER_MANAGER_FUNCTION_ARN + ":prod")
+		: (process.env.SERVER_MANAGER_FUNCTION_ARN + ":stage");
 // Alias-qualified ARN of tshock-proxy, the VPC-attached lambda that performs TShock REST calls.
 // Same qualification reasoning as above. Callers must check for the unset case themselves — an
 // absent env var concatenates to the literal "undefined:stage" rather than failing here.

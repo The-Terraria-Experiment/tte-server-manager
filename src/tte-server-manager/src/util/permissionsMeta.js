@@ -32,6 +32,13 @@ export const PermissionsMeta = {
 			mute: {value: "server.player.mute", description: pfx + "mute online players on Terraria servers"},
 			inventory: {
 				read: {value: "server.player.inventory.read", description: pfx + "read all information about an online player's Terraria inventory"},
+				rules: {
+					read: {value: "server.player.inventory.rules.read", description: pfx + "view the item whitelist/blacklist configured for a server"},
+					write: {value: "server.player.inventory.rules.write", description: pfx + "change the item whitelist/blacklist a server checks joining players against"},
+				},
+				violations: {
+					read: {value: "server.player.inventory.violations.read", description: pfx + "see which players joined carrying items the server's item rules forbid, and re-run the check"},
+				},
 			},
 		},
 		logs: {

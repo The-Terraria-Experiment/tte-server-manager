@@ -26,6 +26,12 @@ import { writeConfig } from "./actions/writeConfig.js";
 import { reloadConfig } from "./actions/reloadConfig.js";
 import { dropCache } from "./actions/dropCache.js";
 import { runCommand } from "./actions/runCommand.js";
+import { getItemRules } from "./actions/getItemRules.js";
+import { putItemRules } from "./actions/putItemRules.js";
+import { getItemViolations } from "./actions/getItemViolations.js";
+import { queueItemScan } from "./actions/queueItemScan.js";
+import { scanInventorySnapshots } from "./actions/scanInventorySnapshots.js";
+import { INVENTORY_SCAN_REQUEST_TYPE, type InventoryScanRequestData } from "./shared/utils/jobs/ItemRuleScan.js";
 
 const endpoints: EndpointList = {
 	// "GET /servers": {
@@ -104,6 +110,22 @@ const endpoints: EndpointList = {
 		action: readPlayerInventory,
 		permRequired: PERMISSIONS.server.player.inventory.read
 	},
+	"GET /server/{id}/items/rules": {
+		action: getItemRules,
+		permRequired: PERMISSIONS.server.player.inventory.rules.read
+	},
+	"PUT /server/{id}/items/rules": {
+		action: putItemRules,
+		permRequired: PERMISSIONS.server.player.inventory.rules.write
+	},
+	"GET /server/{id}/items/violations": {
+		action: getItemViolations,
+		permRequired: PERMISSIONS.server.player.inventory.violations.read
+	},
+	"POST /server/{id}/items/scan": {
+		action: queueItemScan,
+		permRequired: PERMISSIONS.server.player.inventory.violations.read
+	},
 	"GET /server/{id}/bans": {
 		action: getBans,
 		permRequired: PERMISSIONS.server.player.ban
@@ -133,6 +155,8 @@ export type NewWorldRequestData = {
 	requestedBy: string,
 	params: NewWorldRequestParams
 };
+
+type WorkerRequestData = NewWorldRequestData | InventoryScanRequestData;
 
 const hNormal = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	CWLogger.Action(FUNC_NAMES.SERV_MGR, {
@@ -204,11 +228,16 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 	return creationResult;
 }
 
-const h = async (event: AuthorizedEvent | NewWorldRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+const h = async (event: AuthorizedEvent | WorkerRequestData, context: Context): Promise<APIGatewayProxyResult> => {
 	let result: APIGatewayProxyResult;
-	
+
 	if ("requestType" in event && event.requestType === "new-world-request") {
 		result = await hWorker(event as NewWorldRequestData, context);
+	} else if ("requestType" in event && event.requestType === INVENTORY_SCAN_REQUEST_TYPE) {
+		// No wrapper equivalent to hWorker's failure recording: the scan owns no job row a frontend is
+		// polling, and its own catch block releases the lease and logs. There is nothing left to
+		// record here that would not be a duplicate.
+		result = await scanInventorySnapshots(event as InventoryScanRequestData, context);
 	} else {
 		result = await hNormal(event as AuthorizedEvent, context);
 	}

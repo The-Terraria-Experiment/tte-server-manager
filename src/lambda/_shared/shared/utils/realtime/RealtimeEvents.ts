@@ -35,6 +35,11 @@ export const REALTIME_EVENTS = {
 	SERVER_PLAYERS: "server.players",
 	/** Auto-shutoff countdown state changed in a user-visible way. */
 	SERVER_AUTOSHUTOFF: "server.autoshutoff",
+	/**
+	 * The set of players flagged by the item rules changed. Published only on a real change — every
+	 * join runs a scan, so an unconditional publish would be a refetch per join per browser.
+	 */
+	SERVER_VIOLATIONS: "server.violations",
 	/** A worldgen job was queued or changed phase. */
 	WORLD_CREATE: "world.create",
 } as const;

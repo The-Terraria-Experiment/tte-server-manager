@@ -1,7 +1,7 @@
 <template>
 	<div class="flex">
 		<StatusTile
-			:class="['sm:mt-2 grow h-auto!']"
+			:class="['grow h-auto!']"
 			:perm-required="PERMISSIONS.server.config.read"
 			:loading="loadingSaveConfig || loadingFile"
 		>

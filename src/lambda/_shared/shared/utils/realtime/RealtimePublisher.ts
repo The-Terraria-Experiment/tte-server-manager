@@ -107,6 +107,17 @@ export class Realtime {
 		return Realtime.Publish({ type: REALTIME_EVENTS.SERVER_AUTOSHUTOFF, instanceId, ...(hint ? { hint } : {}) });
 	}
 
+	/**
+	 * The item-rule violation set changed.
+	 *
+	 * Only call this when the set actually moved. The scanner runs on every join, and its `hint` is a
+	 * player count rather than a name — the client's response is a refetch of the violations endpoint,
+	 * which is where the permission check lives.
+	 */
+	public static async PublishServerViolations(instanceId: string, hint?: string): Promise<void> {
+		return Realtime.Publish({ type: REALTIME_EVENTS.SERVER_VIOLATIONS, instanceId, ...(hint ? { hint } : {}) });
+	}
+
 	/** A worldgen job was queued or changed phase. */
 	public static async PublishWorldCreate(instanceId: string, hint?: string): Promise<void> {
 		return Realtime.Publish({ type: REALTIME_EVENTS.WORLD_CREATE, instanceId, ...(hint ? { hint } : {}) });

@@ -3,7 +3,9 @@
 		class="relative shrink-0 rounded border flex items-center justify-center select-none"
 		:class="[
 			item ? 'bg-gray-3 border-gray-5' : 'bg-gray-2 border-gray-3',
-			item?.favorited ? 'ring-1 ring-yellow-1' : ''
+			item?.favorited ? 'ring-1 ring-yellow-1' : '',
+			// Rule violations get a heavier ring than a favorite, and win when an item is both.
+			item?.flagged ? 'ring-2 ring-red-5' : ''
 		]"
 		:style="{ width: `${size}px`, height: `${size}px` }"
 		:title="hoverText"
@@ -87,6 +89,9 @@ export default {
 			];
 			if (this.item.favorited) {
 				lines.push("Favorited");
+			}
+			if (this.item.flagged) {
+				lines.push("Breaks this server's item rules");
 			}
 			return lines.join("\n");
 		},

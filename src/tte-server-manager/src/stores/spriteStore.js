@@ -16,13 +16,33 @@ export const useSpriteStore = defineStore("spritestore", {
 		loading: false,
 		/** Set once a load has failed, so slots fall back to name-only rather than retrying per item. */
 		failed: false,
+		/**
+		 * { [itemId]: "Copper Pickaxe" }, published beside the atlas under the same version prefix.
+		 *
+		 * Loaded separately and only on demand, because only the item rule editor needs it — the
+		 * inventory grids get every name they render from the plugin's own report, and making them
+		 * wait on another ~150KB fetch would be paying for nothing.
+		 */
+		names: null,
+		namesLoading: false,
+		namesFailed: false,
 	}),
 	getters: {
 		/** False when the env vars aren't set — dev without the atlas published yet, mostly. */
 		isConfigured: () => Boolean(SPRITE_BASE_URL && SPRITE_VERSION),
 		atlasImageUrl: () => `${SPRITE_BASE_URL}/${SPRITE_VERSION}/atlas.png`,
 		atlasMapUrl: () => `${SPRITE_BASE_URL}/${SPRITE_VERSION}/atlas.json`,
+		itemNamesUrl: () => `${SPRITE_BASE_URL}/${SPRITE_VERSION}/names.json`,
 		isLoaded: (state) => Boolean(state.atlas),
+		hasNames: (state) => Boolean(state.names),
+		/**
+		 * An item's display name, or null when the map isn't published or doesn't know the id.
+		 *
+		 * Null is an ordinary answer, not an error: the map is optional (an older sprite version may
+		 * predate it), and an id newer than the published version is expected whenever Terraria updates
+		 * before we re-publish. Callers render the bare id.
+		 */
+		itemName: (state) => (itemId) => state.names?.[itemId] ?? null,
 		hasSprite: (state) => (itemId) => Boolean(state.atlas?.items?.[itemId]),
 		/**
 		 * CSS for a single sprite, drawn as a window onto the atlas.
@@ -107,6 +127,55 @@ export const useSpriteStore = defineStore("spritestore", {
 				return null;
 			} finally {
 				this.loading = false;
+			}
+		},
+
+		/**
+		 * Fetches the item-name map. Same idempotence and same supported-unset behaviour as the atlas.
+		 *
+		 * Called only by the item rule editor, and only when it opens. A 404 here is a normal state
+		 * rather than a fault: the map is produced from a running game server (`npm run names` in
+		 * src/sprite-tools), so a sprite version published before that step existed simply has no
+		 * names.json beside it, and the editor falls back to bare item IDs.
+		 */
+		async loadItemNames() {
+			if (this.names || this.namesLoading || this.namesFailed) {
+				return this.names;
+			}
+
+			if (!this.isConfigured) {
+				this.namesFailed = true;
+				return null;
+			}
+
+			this.namesLoading = true;
+
+			try {
+				// Bare fetch for the same reason loadAtlas uses one — a public CDN object, no token, no
+				// permission check. And no cache-busting retry here either: see the long note above.
+				const response = await fetch(this.itemNamesUrl);
+
+				if (response.status === 404) {
+					console.info(
+						`[spriteStore] no names.json published for sprite version ${SPRITE_VERSION} — ` +
+						"the item rule editor will show bare item IDs. See src/sprite-tools/README.md."
+					);
+					this.namesFailed = true;
+					return null;
+				}
+				if (!response.ok) {
+					throw new Error(`Item name map request failed: ${response.status}`);
+				}
+
+				const payload = await response.json();
+				this.names = payload.names ?? null;
+				return this.names;
+			} catch (error) {
+				console.error("Error loading item name map:", error);
+				this.namesFailed = true;
+				return null;
+			} finally {
+				this.namesLoading = false;
 			}
 		},
 	},

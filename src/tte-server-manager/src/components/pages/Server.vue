@@ -53,37 +53,36 @@
 		</template>
 	</StatusTile>
 
-	<MajorLoader 
-		v-else-if="serverStore.isLoadingList" 
+	<MajorLoader
+		v-else-if="serverStore.isLoadingList"
 		class="mt-4"
-		text="Loading Instances..." 
+		text="Loading Instances..."
 	/>
 
-	<BasicServerInfo 
-		v-if="selectedInstance"
-	/>
-
-	<SelectWorld 
-		v-if="selectWorldAllowed"
-	/>
-
-	<CreateWorld 
-		v-if="createWorldAllowed"
-		ref="createWorld"
-		@refresh="refresh"
-	/>
-
-	<BrowseLogs />
-
-	<TShockConsoleLogs />
-
-	<ServerConfig
-		v-if="selectedInstance && selectedInstanceData?.online"
-	/>
-
-	<RunTshockCommand
-		v-if="serverIsOnline"
-	/>
+	<div class="flex flex-col gap-2">
+		<BasicServerInfo
+			v-if="selectedInstance"
+		/>
+		<SelectWorld
+			v-if="selectWorldAllowed"
+		/>
+		<CreateWorld
+			v-if="createWorldAllowed"
+			ref="createWorld"
+			@refresh="refresh"
+		/>
+		<ItemRules
+			v-if="selectedInstance"
+		/>
+		<BrowseLogs />
+		<TShockConsoleLogs />
+		<ServerConfig
+			v-if="selectedInstance && selectedInstanceData?.online"
+		/>
+		<RunTshockCommand
+			v-if="serverIsOnline"
+		/>
+	</div>
 </template>
 
 <script>
@@ -105,6 +104,7 @@ import { TASK_IDS } from '../../stores/statusStore';
 import BrowseLogs from './tools/server/BrowseLogs.vue';
 import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
+import ItemRules from './tools/server/ItemRules.vue';
 
 // Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
 const STATUS_HANDLER_ID = "server-page-fetch-status";
@@ -124,6 +124,7 @@ export default {
 		BrowseLogs,
 		TShockConsoleLogs,
 		RunTshockCommand,
+		ItemRules,
 	},
 	props: {
 		

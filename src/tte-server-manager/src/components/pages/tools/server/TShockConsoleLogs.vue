@@ -1,7 +1,7 @@
 <template>
 	<div>
 		<StatusTile
-			class="grow mt-2 gradient-tile"
+			class="grow gradient-tile"
 			:perm-required="PERMISSIONS.server.logs.tshock.read"
 			:loading="loading"
 		>

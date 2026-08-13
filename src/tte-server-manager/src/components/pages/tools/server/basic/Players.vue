@@ -16,10 +16,15 @@
 		<template #content>
 			<div v-if="selectedServerData.players?.length" class="font-main font-semibold px-2 pb-2 text-teal-6 flex w-full flex-wrap max-h-100 overflow-y-auto">
 				<template v-for="player in selectedServerData.players">
-					<div 
-						class="px-4 py-2 bg-gray-5 text-teal-6 rounded-lg cursor-pointer mx-1 my-1 hover:bg-gray-6 transition-colors duration-100" 
+					<div
+						class="px-4 py-2 rounded-lg cursor-pointer mx-1 my-1 transition-colors duration-100 flex items-center"
+						:class="violationFor(player)
+							? 'bg-gray-5 text-yellow-2 border border-yellow-2 hover:bg-gray-6'
+							: 'bg-gray-5 text-teal-6 hover:bg-gray-6'"
+						:title="violationTitle(player)"
 						@click="openManagePlayerPopup(player)"
 					>
+						<Icon v-if="violationFor(player)" icon="warning" color="text-yellow-2" size="4" svgStyle="mr-2" />
 						{{ player.nickname }}
 					</div>
 				</template>
@@ -48,7 +53,7 @@
 					<ManagePlayer :selected-player="selectedPlayer" @refresh="refreshRoster" />
 				</div>
 				<div v-if="$checkPermissions(PERMISSIONS.server.player.inventory.read)" class="grow min-w-0 overflow-y-auto">
-					<PlayerInventory :selected-player="selectedPlayer" />
+					<PlayerInventory :selected-player="selectedPlayer" :violation="violationFor(selectedPlayer)" />
 				</div>
 			</div>
 		</div>
@@ -60,6 +65,7 @@ import { useServerStore } from '../../../../../stores/serverStore';
 import { BTN_VARIANT } from '../../../../../util/constants';
 import { PERMISSIONS } from '../../../../../util/permissionValues';
 import Popup from '../../../../common/Popup.vue';
+import Icon from '../../../../common/Icon.vue';
 import { plural } from '../../../../../util/format';
 import ManagePlayer from "./players/ManagePlayer.vue";
 import PlayerInventory from "./players/PlayerInventory.vue";
@@ -68,6 +74,7 @@ export default {
 	mixins: [],
 	components: {
 		Popup,
+		Icon,
 		ManagePlayer,
 		PlayerInventory,
 	},
@@ -98,6 +105,25 @@ export default {
 		},
 	},
 	methods: {
+		/**
+		 * This player's latest item-rule violation, or null.
+		 *
+		 * Read straight from the store rather than tracked here, so a socket-driven rescan updates the
+		 * marker without this component knowing the socket exists — the same arrangement that lets the
+		 * inventory popup refresh off the roster.
+		 */
+		violationFor(player) {
+			if (!player?.nickname) return null;
+			return this.serverStore.getPlayerViolation(this.selectedInstance, player.nickname);
+		},
+		violationTitle(player) {
+			const violation = this.violationFor(player);
+			if (!violation) return "";
+
+			const names = violation.items.slice(0, 5).map(item => item.name || `#${item.netId}`);
+			const extra = violation.itemCount > names.length ? `, +${violation.itemCount - names.length} more` : "";
+			return `Joined with ${violation.itemCount} flagged item${violation.itemCount === 1 ? "" : "s"}: ${names.join(", ")}${extra}`;
+		},
 		async openManagePlayerPopup(player) {
 			if (!this.$checkPermissions([
 				PERMISSIONS.server.player.ban, PERMISSIONS.server.player.kick, PERMISSIONS.server.player.kill, PERMISSIONS.server.player.mute,

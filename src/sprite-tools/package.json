@@ -8,6 +8,7 @@
 		"extract": "node extract.mjs",
 		"pack": "node pack.mjs",
 		"verify": "node verify.mjs",
+		"names": "node names.mjs",
 		"upload": "node upload.mjs",
 		"all": "node extract.mjs && node pack.mjs && node verify.mjs && node upload.mjs"
 	},

@@ -107,6 +107,115 @@ export type RealtimeConnectionEntry = {
 	expireAt?: number,
 };
 
+/**
+ * One entry in an instance's item rule list. `netId` is the Terraria item id and the only thing
+ * matched on; `name` is carried purely so the editor can render a readable list without needing the
+ * item-name map, and is refreshed opportunistically from whatever a snapshot last called that id.
+ */
+export type ItemRuleEntry = {
+	netId: number,
+	name?: string,
+	note?: string,
+};
+
+/**
+ * The per-instance item rule list (`itemrules#<instanceID>`).
+ *
+ * Per-environment, like `autoshutoff#`, even though the instance registry itself is shared — stage
+ * gets to trial a rule set without it applying to prod's players.
+ */
+export type ItemRulesEntry = {
+	uid?: string,
+	instanceID?: string,
+	/** `"whitelist"` flags anything *not* listed; `"blacklist"` flags anything listed. */
+	mode?: "whitelist" | "blacklist",
+	/**
+	 * Master switch. Read by `logs-manager` on every join/leave before it wakes the scanner, so
+	 * turning this off costs one GetItem per roster event and nothing else — no invoke, no TShock
+	 * round trip.
+	 */
+	enabled?: boolean,
+	/**
+	 * Container groups to scan, a subset of `core|storage|misc|loadouts`. Passed straight through as
+	 * the plugin's `include` param, so narrowing this to worn/carried gear makes the drain cheaper
+	 * rather than just filtering afterwards.
+	 */
+	groups?: string[],
+	entries?: ItemRuleEntry[],
+	updatedBy?: string,
+	createdAt?: string,
+	updatedAt?: string,
+};
+
+/** One flagged item, carrying enough position for the UI to ring the exact square it came from. */
+export type ViolationItem = {
+	netId: number,
+	name: string,
+	stack: number,
+	prefix: number,
+	container: string,
+	slot: number,
+	globalSlot: number,
+};
+
+/**
+ * The most recent rule violation for one player. Replaced wholesale by their next join, and deleted
+ * outright when that join comes back clean — "latest per player" only means something if a player
+ * who fixed their inventory stops being flagged.
+ */
+export type PlayerViolation = {
+	player: string,
+	account?: string,
+	/**
+	 * Which capture tripped it. Always `"join"` today — leave snapshots are drained but deliberately
+	 * not evaluated — and recorded anyway so a later leave-side check needn't migrate existing rows.
+	 */
+	kind: string,
+	/** Snapshot `CapturedAtUtc`, epoch ms. */
+	at: number,
+	snapshotId: number,
+	/** The mode in force when this was evaluated, so a stale flag can be read in its own terms. */
+	mode: string,
+	/** Capped; see `truncated`. Whitelist mode against an unlisted item can otherwise hit 350 entries. */
+	items: ViolationItem[],
+	/** Total offending items *before* the cap. */
+	itemCount: number,
+	truncated?: boolean,
+};
+
+/**
+ * Snapshot drain state for one instance (`invscan#<instanceID>`): where the cursor is, who is
+ * currently draining, and the latest violation per player.
+ *
+ * The cursor is the only record of what we have consumed — the plugin's snapshot store is
+ * non-destructive, has no ack, and lives in memory, so nothing on that side remembers us.
+ */
+export type InventoryScanEntry = {
+	uid?: string,
+	instanceID?: string,
+	/**
+	 * Exclusive id floor, sent back as the plugin's `since`. The plugin re-zeroes its ids on server
+	 * restart, so a `head` below this means a restart happened and the cursor must reset to 0 rather
+	 * than sit above every id the plugin will ever issue again.
+	 */
+	cursor?: number,
+	/** Highest id the plugin reported issuing, as of the last drain. Diagnostics. */
+	head?: number,
+	lastScanAt?: number,
+	lastScanStatus?: string,
+	/** Epoch ms until which a worker owns the drain. See `claimScanLease`. */
+	leaseUntil?: number,
+	leaseOwner?: string,
+	/**
+	 * Set by a worker that couldn't take the lease. The holder re-checks it before releasing and
+	 * drains again, which is how a join burst's later events still get scanned by the one drain.
+	 */
+	pending?: boolean,
+	/** Latest violation per player name. Pruned to the most recent entries; see `PLAYER_VIOLATION_CAP`. */
+	violations?: Record<string, PlayerViolation>,
+	updatedAt?: string,
+};
+
 export type AutoShutoffStateEntry = {
 	uid?: string,
 	serverId?: string,

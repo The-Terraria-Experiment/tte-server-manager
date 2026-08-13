@@ -33,9 +33,10 @@ npm install
 
 npm run extract   # Content/Images/Item_*.xnb -> work/png/*.png + work/manifest.json
 npm run pack      # -> work/atlas.png + work/atlas.json
+npm run names     # -> work/names.json   (optional; needs a running server, see below)
 npm run upload    # -> s3://$SPRITE_BUCKET/sprites/items/<version>/
 
-# or all three
+# extract + pack + verify + upload (not `names` — that one needs a live server)
 npm run all
 ```
 
@@ -209,6 +210,76 @@ served to another.
 
 ---
 
+## Item names (`names.mjs`)
+
+The item rule editor searches items by name, so the pipeline also publishes
+`names.json` — `{ version, names: { "3509": "Copper Pickaxe", ... } }` — beside the atlas, under the
+same immutable version prefix. `spriteStore.loadItemNames()` fetches it lazily, and only that editor
+ever asks for it.
+
+**The names do not come from the game files, and cannot.** This was investigated properly; the finding
+is recorded here so nobody spends the day on it twice.
+
+The game ships no localization files on disk at all — `Content/` is `Fonts`, `Images`, `Sounds` and a
+handful of XNBs. The strings live inside `Terraria.exe`, which is an ordinary un-obfuscated .NET
+assembly (PE32, `v4.0.30319`, five metadata streams, ~40k readable names). Its embedded resources
+include `Terraria.Localization.Content.en-US.Items.json` **as plain text**, and it really is the map
+you'd want:
+
+```json
+"ItemName": { "CopperPickaxe": "Copper Pickaxe", "Mug": "Mug", ... }
+```
+
+The problem is the key. That JSON is keyed by *internal* name, and so is every other data resource in
+the exe (the rarity table is `//ItemID\tRarityCategoryId` over `YellowPhasesaberOld`, not over
+numbers). The id ↔ internal-name mapping only ever existed as `ItemID`'s `public const short` fields —
+and **those are gone from the release build**. `ItemID` does not appear in the `#Strings` heap at all,
+nor do `NPCID`, `TileID`, `ProjectileID` or `BuffID`; the small ID classes that carry non-const members
+(`GoreID`, `WallID`, `MountID`, `PrefixID`) *are* present, as is the `Terraria.ID` namespace itself.
+That is exactly the shape you'd expect from a trimmer: C# inlines `const` at every call site, so a
+const-only class is dead metadata by the time the build finishes. No amount of metadata parsing gets
+past that, and a vendored community id→name table would need re-vendoring every release — the exact
+maintenance this pipeline exists to avoid.
+
+So the map comes from a **running game server** instead. The InventoryMonitor plugin exposes
+`GET /inventory/itemnames`, which is `Lang.GetItemNameValue(id)` over the id space — authoritative by
+construction for whatever version that server runs.
+
+```jsonc
+// GET /inventory/itemnames?token=…   (permission: invmonitor.rest.itemnames)
+{ "status": "200", "version": "1.4.5.6", "count": 5455,
+  "items": { "-48": "…", "1": "Iron Pickaxe", "2": "Dirt Block", … } }
+```
+
+Negative ids are included on purpose — they address Terraria's legacy item variants, the plugin
+reports them verbatim in inventories, and the rule list accepts them.
+
+### Running it
+
+The REST port is closed to everything outside the VPC (see the `tshock-proxy` notes in `CLAUDE.md`), so
+a workstation usually cannot reach it. Two inputs, same output:
+
+```bash
+# 1. from a saved response — run the curl on the instance, copy the JSON back
+curl -s "http://localhost:3891/inventory/itemnames?token=$TOKEN" > dump.json
+npm run names -- --file dump.json
+
+# 2. directly, when this machine can reach the server (on the box, or over a tunnel)
+TSHOCK_REST_URL=http://localhost:3891 TSHOCK_REST_TOKEN=… npm run names
+```
+
+It refuses to write a map with fewer than 3,000 names rather than publishing a partial one — a
+half-empty map still "works", and would leave the editor unable to find most items with nothing to
+explain why. It also cross-checks against `work/atlas.json` and reports sprites with no name and named
+ids with no sprite.
+
+`npm run upload` then publishes `names.json` alongside the atlas **only if the versions match**, and
+skips it with a note when the file is absent. It is deliberately *not* part of `npm run all`: that
+sequence runs offline against the local game install, and this step needs a live server.
+
+A sprite version published without a `names.json` is a supported state — the editor falls back to bare
+item IDs and logs one line saying so.
+
 ## Why not CI
 
 A GitHub Action would need the game's `Content/Images`, which means either committing Re-Logic's
@@ -222,7 +293,9 @@ locally once or twice a year.
 2. `npm run all`
 3. Check the run output: the decode failure count should be 0, the premultiply verdict unchanged, and
    the frame-strip count in the same ballpark (~100).
-4. Update `VITE_SPRITE_VERSION` in the frontend `.env` files and deploy.
+4. Once an instance is running the new version, `npm run names` and `npm run upload` again to publish
+   the matching name map. Skipping this leaves the rule editor on bare IDs for that version.
+5. Update `VITE_SPRITE_VERSION` in the frontend `.env` files and deploy.
 
 Old atlas versions can stay in the bucket indefinitely — they're ~1 MB each and keeping them means a
 frontend rollback doesn't 404.

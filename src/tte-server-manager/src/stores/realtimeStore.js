@@ -6,6 +6,7 @@ import { useUserStore } from "./userStore";
 import { useServerStore } from "./serverStore";
 import { TASK_IDS, useStatusStore } from "./statusStore";
 import { KNOWN_REALTIME_EVENTS, REALTIME_EVENTS } from "../util/realtimeEvents";
+import { notifyViolation } from "../util/notify";
 
 /**
  * The WebSocket notification pipeline.
@@ -55,6 +56,7 @@ const EVENT_FETCH_KINDS = {
 	[REALTIME_EVENTS.SERVER_PLAYERS]: "players",
 	[REALTIME_EVENTS.SERVER_STATE]: "serverStatus",
 	[REALTIME_EVENTS.SERVER_AUTOSHUTOFF]: "serverStatus",
+	[REALTIME_EVENTS.SERVER_VIOLATIONS]: "violations",
 	[REALTIME_EVENTS.INSTANCE_STATE]: "instanceStatus",
 	[REALTIME_EVENTS.INSTANCE_SHUTDOWN]: "instanceStatus",
 	[REALTIME_EVENTS.WORLD_CREATE]: "worldCreate",
@@ -278,7 +280,9 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 				// "players" shares the server-status flag deliberately — see fetchPlayerList.
 				const busy = (kind === "serverStatus" || kind === "players")
 					? serverStore.isLoadingServerStatus(instanceId)
-					: serverStore.isLoadingStatus(instanceId);
+					: kind === "violations"
+						? serverStore.isLoadingViolations(instanceId)
+						: serverStore.isLoadingStatus(instanceId);
 
 				if (busy) {
 					this.scheduleFlush(kind, instanceId, BUSY_RETRY_MS);
@@ -293,6 +297,8 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 					await serverStore.fetchPlayerList(instanceId);
 				} else if (kind === "serverStatus") {
 					await serverStore.fetchServerStatus(instanceId);
+				} else if (kind === "violations") {
+					await this.announceViolations(instanceId);
 				} else if (kind === "worldCreate") {
 					await this.trackWorldCreate(instanceId);
 				} else {
@@ -306,6 +312,48 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 			// Events that arrived while the fetch was running.
 			if (this.dirty[key]) {
 				this.scheduleFlush(kind, instanceId, DEBOUNCE_MS);
+			}
+		},
+
+		/**
+		 * Refetches the violation set and announces whoever is newly flagged.
+		 *
+		 * Emphatically does **not** start a poller, unlike `trackWorldCreate`. The distinction is what
+		 * bounds the event's frequency: a worldgen job fires a handful of events against one fixed task
+		 * ID, whereas this fires on player activity — five joins against a 5s poller would be a hundred
+		 * requests, each reaching the game server. The event *is* the trigger here; there is nothing to
+		 * poll for afterwards.
+		 *
+		 * The notification is driven by the refetched data, never by the event: the event carries only a
+		 * count as its hint, and a name arriving over the socket would be display data on a channel with
+		 * no per-resource permission check behind it.
+		 */
+		async announceViolations(instanceId) {
+			const serverStore = useServerStore();
+			const userStore = useUserStore();
+
+			if (!userStore.hasPermissions(PERMISSIONS.server.player.inventory.violations.read, false)) {
+				return;
+			}
+
+			const fresh = await serverStore.fetchViolations(instanceId, { notify: true });
+			if (!fresh?.length) return;
+
+			const violations = serverStore.getViolations(instanceId);
+
+			for (const player of fresh) {
+				const violation = violations[player];
+				if (!violation) continue;
+
+				const itemCount = violation.itemCount ?? violation.items?.length ?? 0;
+				const first = violation.items?.[0]?.name;
+
+				notifyViolation({
+					title: "Item rule violation",
+					body: `${player} joined with ${itemCount} flagged item${itemCount === 1 ? "" : "s"}${first ? ` (${first}${itemCount > 1 ? ", …" : ""})` : ""}.`,
+					// One notification per player rather than one per rescan of the same offence.
+					tag: `violation:${instanceId}:${player}`,
+				});
 			}
 		},
 
@@ -371,6 +419,12 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 				// the guard correct across a reconnect rather than only from the event that opened it.
 				if (userStore.hasPermissions(PERMISSIONS.server.world.create, false)) {
 					await this.trackWorldCreate(instanceId);
+				}
+				// Deliberately without `notify`: a reconnect happens whenever a laptop wakes or a tab is
+				// refocused, and announcing whatever the set already contained would fire notifications
+				// for violations that are hours old.
+				if (userStore.hasPermissions(PERMISSIONS.server.player.inventory.violations.read, false)) {
+					await serverStore.fetchViolations(instanceId);
 				}
 			} catch (error) {
 				console.warn("[realtime] reconnect refetch failed:", error?.message || error);

@@ -21,6 +21,7 @@ export const REALTIME_EVENTS = {
 	SERVER_STATE: "server.state",
 	SERVER_PLAYERS: "server.players",
 	SERVER_AUTOSHUTOFF: "server.autoshutoff",
+	SERVER_VIOLATIONS: "server.violations",
 	WORLD_CREATE: "world.create",
 };
 
