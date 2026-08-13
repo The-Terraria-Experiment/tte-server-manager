@@ -8,6 +8,18 @@ import alertsPlugin from './plugins/alerts'
 import permissionsPlugin from './plugins/permissions'
 import { VERSION } from './util/version'
 import { Amplify } from 'aws-amplify'
+// Registers Amplify's OAuth completion listener on the entry chunk. This import is normally
+// pulled in as a side effect of `signInWithRedirect`, which only Login.vue reaches - and since
+// the routes became dynamic imports, Login.vue's chunk isn't loaded on the pages that need it.
+// Two things break without it, both because the hosted-UI callback lands on "/" (getRedirectUrl
+// matches the bare-domain entry in redirect_sign_in_uri, not "/login") where that chunk never
+// loads: (1) the ?code= is never exchanged for tokens, so federated sign-in silently never
+// completes; (2) the `inflightOAuth` localStorage flag set before the redirect is never cleared,
+// and TokenOrchestrator.waitForInflightOAuth blocks getCurrentUser/fetchAuthSession on a promise
+// only this listener can resolve - no network call, no error, no timeout. That deadlocks the
+// router guard's loadUser() before it can redirect to /login, so the one chunk that would clear
+// the flag can never load. Recovery was deleting the key by hand.
+import "aws-amplify/auth/enable-oauth-listener"
 import outputs from "../amplify_outputs.json"
 import StatusTile from './components/common/StatusTile.vue'
 import Spinner from './components/common/Spinner.vue'
