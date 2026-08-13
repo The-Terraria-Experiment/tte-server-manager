@@ -83,7 +83,7 @@ export default {
 		if (!this.$checkPermissions(PERMISSIONS.access) && this.userStore.isAuthenticated) {
 			this.$alert.warning(`You have not been granted site access.
 			If you believe this is in error, please contact Experiment or Havoc in Discord.`, {duration: 0});;
-		} else if (!this.userStore.user.displayName) {
+		} else if (this.userStore.isAuthenticated && !this.userStore.user.displayName) {
 			this.$refs.namepopup.openPopup();
 		}
 

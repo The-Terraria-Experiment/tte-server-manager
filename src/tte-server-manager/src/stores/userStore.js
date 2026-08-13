@@ -11,6 +11,9 @@ const CACHE_KEY = "ttesm-user-cache";
  */
 const TOKEN_MIN_REMAINING_MS = 60 * 1000;
 
+/** How long `ensureUserFetched` waits before giving up and reporting signed-out. */
+const USER_FETCH_TIMEOUT_MS = 15 * 1000;
+
 /**
  * True when the stored token is expired, nearly expired, or unreadable.
  *
@@ -76,7 +79,13 @@ export const useUserStore = defineStore("userstore", {
 	},
 	actions: {
 		async loadUser(forceReload = false) {
-			if (this.user && !forceReload) return;
+			// Flush before the early return too, not just in the finally below. A waiter registered
+			// while `user` was still null is otherwise stranded by the next call that short-circuits
+			// here, and nothing else ever resolves it.
+			if (this.user && !forceReload) {
+				this.__flushUserFetched();
+				return;
+			}
 
 			try {
 				const user = await getCurrentUser();
@@ -90,9 +99,12 @@ export const useUserStore = defineStore("userstore", {
 				this.idToken = null;
 				this.permissions = [];
 			} finally {
-				this.__userFetchedCallbacks.forEach(cb => cb());
-				this.__userFetchedCallbacks = [];
+				this.__flushUserFetched();
 			}
+		},
+		__flushUserFetched() {
+			this.__userFetchedCallbacks.forEach(cb => cb());
+			this.__userFetchedCallbacks = [];
 		},
 		async loadPermissions() {
 			try {
@@ -184,7 +196,7 @@ export const useUserStore = defineStore("userstore", {
 		},
 		async ensureUserFetched() {
 			if (!!this.user) return true;
-			
+
 			let waiterResolve;
 			const waiter = new Promise((resolve) => {
 				waiterResolve = resolve;
@@ -192,7 +204,21 @@ export const useUserStore = defineStore("userstore", {
 
 			this.__userFetchedCallbacks.push(waiterResolve);
 
-			return waiter;
+			// Bounded, because this promise gates the whole app behind App.vue's loading state and
+			// its only resolver is loadUser() reaching a flush. Anything that hangs inside Amplify's
+			// session resolution - which it can do with no network call, no error and no timeout of
+			// its own - otherwise leaves every route stuck on "Loading user data..." forever. Timing
+			// out here degrades to signed-out, which the router already handles. Generous on purpose:
+			// a real session resolution is one token round trip, so this should never fire in normal
+			// use, and a slow network shouldn't get treated as a hang.
+			const timeout = new Promise((resolve) => {
+				setTimeout(() => {
+					if (!this.user) console.warn("[auth] user fetch timed out; continuing signed-out");
+					resolve(false);
+				}, USER_FETCH_TIMEOUT_MS);
+			});
+
+			return Promise.race([waiter, timeout]);
 		}
 	}
 });
