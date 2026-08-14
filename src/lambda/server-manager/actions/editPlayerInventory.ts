@@ -9,7 +9,7 @@ import { Assert } from "../shared/utils/core/Assert.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
-import { isRefusedConnectionEnvelope, normalizeReport, type InventoryReport } from "../shared/utils/tshock/InventoryReport.js";
+import { isPlayerFound, isRefusedConnectionEnvelope, normalizeReport, type InventoryReport } from "../shared/utils/tshock/InventoryReport.js";
 import {
 	clearScope,
 	isClearScope,
@@ -51,9 +51,11 @@ type EditOperation =
 /**
  * Reads the player's current inventory, or an error response explaining why it couldn't.
  *
- * Both failure shapes are lifted from `readPlayerInventory` on purpose: an empty container list means
- * the plugin is missing or the REST group lacks `invmonitor.rest.*`, which is a very different fix
- * from the server being down, and an operator debugging a failed removal needs to be told which.
+ * The failure shapes match `readPlayerInventory` on purpose — the server being down, the plugin
+ * rejecting the name, and the plugin being absent are three different fixes and the operator needs
+ * to be told which. Note what is deliberately *not* a failure: a report with zero containers. This
+ * is the one caller that routinely produces one, since clearing an inventory is exactly what it
+ * does, and treating it as an error made a successful clear report itself as a broken plugin.
  */
 async function readInventory(tshock: TShockAPI, userID: string, playerID: string): Promise<
 	{ ok: true, inventory: InventoryReport } | { ok: false, response: APIGatewayProxyResult }
@@ -70,11 +72,15 @@ async function readInventory(tshock: TShockAPI, userID: string, playerID: string
 	const rawReport = (result.player ?? result.Player ?? result) as Record<string, any>;
 	const inventory = normalizeReport(rawReport);
 
-	if (!inventory.containers.length) {
+	if (!isPlayerFound(inventory)) {
+		const pluginError = typeof result?.error === "string" ? result.error : null;
+
 		return {
 			ok: false,
 			response: ResponseUtil.Error(
-				`No inventory data returned for '${playerID}'. Check that the InventoryMonitor plugin is installed and the REST group has 'invmonitor.rest.*'.`,
+				pluginError
+					? `The InventoryMonitor plugin rejected the read for '${playerID}': ${pluginError}`
+					: `No inventory data returned for '${playerID}'. Check that the InventoryMonitor plugin is installed and the REST group has 'invmonitor.rest.*'.`,
 				502,
 				"INVENTORY_UNAVAILABLE",
 			),
@@ -239,11 +245,19 @@ export const editPlayerInventory = async (event: AuthorizedEvent, context: Conte
 			};
 		}
 
-		// Authoritative post-state. The plugin answers `removed: true` before its own retry-verify pass
-		// has run, and on a non-SSC server the client can put the item straight back — so what the
-		// operator is shown next comes from a fresh read, never from assuming the removal stuck.
+		// Post-removal state — but read carefully, this is **not** proof the items are gone.
+		//
+		// Without ServerSideCharacters the client owns its inventory and the server holds only a shadow
+		// copy that the client pushes updates into. A removal clears that shadow copy and sends a
+		// `PlayerSlot` packet; a vanilla client is under no obligation to honour it, and only
+		// re-broadcasts a slot when *it* changes one. So this read reflects what the server believes,
+		// which after a removal is exactly what we just wrote — it confirms our own write, not the
+		// player's actual inventory, and the item reappears the moment the client next syncs that slot.
+		// `serverSideCharacter` rides along on the outcome so the UI can say so rather than implying a
+		// permanence this cannot deliver.
 		const after = await readInventory(TShock, userID!, playerID);
 		const inventory = after.ok ? after.inventory : before.inventory;
+		outcome.serverSideCharacter = inventory.serverSideCharacter;
 
 		// Unlike `readPlayerInventory`, which logs counts only, this records every destroyed item in
 		// full. Irreversibly destroying someone's property is the exact thing an audit log is for.
@@ -259,6 +273,9 @@ export const editPlayerInventory = async (event: AuthorizedEvent, context: Conte
 				scope: outcome.scope ?? null,
 				destroyed: destroyed.map(auditItem),
 				destroyedCount: destroyed.length,
+				// False means the removal is advisory — worth having on the audit record, because it is
+				// the difference between "these items were destroyed" and "we asked the client nicely".
+				serverSideCharacter: inventory.serverSideCharacter,
 				failed: outcome.failed,
 				skippedEmpty: outcome.skippedEmpty,
 				skippedChanged: outcome.skippedChanged,

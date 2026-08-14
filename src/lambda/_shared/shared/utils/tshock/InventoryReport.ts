@@ -102,3 +102,24 @@ export const normalizeReport = (raw: Record<string, any>): InventoryReport => {
  */
 export const isRefusedConnectionEnvelope = (result: Record<string, any>): boolean =>
 	typeof result?.statusCode === "number" && typeof result?.body === "string";
+
+/**
+ * Did the plugin actually hand us a player?
+ *
+ * **An empty `containers` array does not mean failure.** The plugin emits only occupied slots and
+ * drops any container with zero items entirely (`if (container.Items.Count > 0)` in its
+ * `InventoryReader.BuildReport`), so a player carrying nothing at all reports *no containers*. That
+ * used to be unreachable in practice — every Terraria character spawns with copper tools — until we
+ * shipped a button that empties an inventory, which manufactures exactly that state. Treating it as
+ * "the plugin is missing" made a successful full clear report itself as a broken install.
+ *
+ * Identity is the reliable signal instead: `Index`, `Name`, `Stats` and `Buffs` are populated on
+ * every report regardless of inventory contents, while a *failure* comes back as a `RestObject`
+ * carrying `error` and no player fields at all — which normalizes to an empty name and `index: -1`.
+ */
+export const isPlayerFound = (report: InventoryReport): boolean =>
+	Boolean(report.name) || report.index >= 0;
+
+/** Total items across every container. Zero is a legitimate, fully-cleared inventory. */
+export const countItems = (report: InventoryReport): number =>
+	report.containers.reduce((total, container) => total + container.items.length, 0);

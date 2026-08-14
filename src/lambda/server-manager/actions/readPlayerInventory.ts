@@ -8,7 +8,7 @@ import { Parsers } from "../shared/utils/core/Parsers.js";
 import { Assert } from "../shared/utils/core/Assert.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
-import { isRefusedConnectionEnvelope, normalizeReport } from "../shared/utils/tshock/InventoryReport.js";
+import { isPlayerFound, isRefusedConnectionEnvelope, normalizeReport } from "../shared/utils/tshock/InventoryReport.js";
 
 export const readPlayerInventory = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	void context;
@@ -51,12 +51,16 @@ export const readPlayerInventory = async (event: AuthorizedEvent, context: Conte
 		const rawReport = (result.player ?? result.Player ?? result) as Record<string, any>;
 		const inventory = normalizeReport(rawReport);
 
-		if (!inventory.containers.length) {
-			// A player who genuinely exists always has containers, even if every slot is empty. An empty
-			// list means the plugin isn't installed, or the REST group is missing `invmonitor.rest.read`
-			// and TShock answered with a permission object rather than a report.
+		if (!isPlayerFound(inventory)) {
+			// The plugin answers a bad player name with a RestObject carrying `error`, so quote it when
+			// it's there — "not found" and "plugin missing" are different fixes and used to be reported
+			// with the same message. Note an *empty* inventory is not this case: see `isPlayerFound`.
+			const pluginError = typeof result?.error === "string" ? result.error : null;
+
 			return ResponseUtil.Error(
-				`No inventory data returned for '${playerID}'. Check that the InventoryMonitor plugin is installed and the REST group has 'invmonitor.rest.*'.`,
+				pluginError
+					? `The InventoryMonitor plugin rejected the read for '${playerID}': ${pluginError}`
+					: `No inventory data returned for '${playerID}'. Check that the InventoryMonitor plugin is installed and the REST group has 'invmonitor.rest.*'.`,
 				502,
 				"INVENTORY_UNAVAILABLE",
 			);

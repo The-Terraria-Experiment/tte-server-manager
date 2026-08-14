@@ -14,11 +14,11 @@
 					<p class="font-main font-bold text-gray-6">INVENTORY</p>
 				</div>
 				<div class="flex items-center gap-2">
-					<FlexButton v-if="canEdit" :variant="BTN_VARIANT.SECONDARY" @input="toggleEditing">
+					<!-- <FlexButton v-if="canEdit" :variant="BTN_VARIANT.SECONDARY" @input="toggleEditing">
 						<p class="font-main font-bold" :class="'text-teal-3'">
 							{{ editing ? "DONE" : "REMOVE ITEMS" }}
 						</p>
-					</FlexButton>
+					</FlexButton> -->
 					<RefreshButton v-if="canRead && !playerLeft" :loading="loading" @input="loadInventory" />
 				</div>
 			</div>
@@ -136,9 +136,20 @@
 					<p v-for="failure in outcome.failed ?? []" :key="failure.globalSlot" class="font-main text-sm text-red-5">
 						Slot {{ failure.globalSlot }} failed: {{ failure.error }}
 					</p>
-					<p class="font-main text-xs text-gray-7 italic mt-0.5">
-						Without server-side characters the client owns its inventory, so a determined cheat client
-						can put an item back. This shows a fresh read taken after the removal.
+					<!--
+						The honest caveat, and it is not a footnote. With SSC off the server holds only a
+						shadow copy of the inventory; clearing it is not binding on the client, which
+						re-broadcasts the slot the next time it touches it. The grid below shows the
+						server's belief, so it will read as empty whether the removal stuck or not — and
+						reporting that as success is exactly what made the first version misleading.
+					-->
+					<p v-if="outcome.serverSideCharacter === false" class="font-main text-sm text-yellow-1 mt-0.5">
+						This server has server-side characters <span class="font-bold">off</span>, so the client owns its
+						inventory. The items were cleared from the server's copy, but the player's game can put them
+						straight back and the grid below cannot tell the difference. Removal is only reliable with SSC on.
+					</p>
+					<p v-else class="font-main text-xs text-gray-7 italic mt-0.5">
+						This shows a fresh read taken after the removal.
 					</p>
 				</div>
 
