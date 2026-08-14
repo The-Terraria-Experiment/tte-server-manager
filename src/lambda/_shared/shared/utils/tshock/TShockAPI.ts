@@ -47,11 +47,15 @@ import { TSHOCK_PROXY_REQUEST_TYPE, type TShockCredential, type TShockProxyReque
  * | `/v3/bans/*`            | `tshock.rest.bans.*`      |
  * | `/inventory/read`       | `invmonitor.rest.read`      |
  * | `/inventory/snapshots`  | `invmonitor.rest.snapshots` |
+ * | `/inventory/removeslot` | `invmonitor.rest.remove`    |
+ * | `/inventory/clear`      | `invmonitor.rest.clear`     |
  *
  * `/inventory/*` is served by the InventoryMonitor plugin rather than TShock itself, so its
  * permissions sit under their own prefix — the blanket `tshock.*` grant does not cover them.
- * `REST_PERMS` grants `invmonitor.rest.*`, so the wildcard already covers `snapshots`; a box
- * provisioned before that entry existed needs it added by hand.
+ * `REST_PERMS` grants `invmonitor.rest.*`, so the wildcard already covers `snapshots`, `remove` and
+ * `clear` — **`REST_PERMS` needs no change for the destructive inventory endpoints**, on new or
+ * existing instances. A box provisioned before the `invmonitor.rest.*` entry existed needs it added
+ * by hand.
  *
  * One plugin endpoint is deliberately absent from this table: `/inventory/itemnames` is called by the
  * `src/sprite-tools` pipeline by hand, never from a lambda, because its output is published to

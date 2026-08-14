@@ -69,7 +69,7 @@
 			<div class="flex justify-end mt-6">
 				<Spinner v-if="managePlayerStatus.killLoading" class="h-6 w-6 text-teal-4 mr-4 mb-2" />
 				<FlexButton :variant="BTN_VARIANT.DANGER" @input="killPlayer" v-else>
-					<p class="font-main font-bold py-2 px-4 md:px-10">EXECUTE</p>
+					<p class="font-main font-bold py-2 px-4 md:px-10">KILL</p>
 				</FlexButton>
 			</div>
 		</div>

@@ -5,10 +5,15 @@
 			item ? 'bg-gray-3 border-gray-5' : 'bg-gray-2 border-gray-3',
 			item?.favorited ? 'ring-1 ring-yellow-1' : '',
 			// Rule violations get a heavier ring than a favorite, and win when an item is both.
-			item?.flagged ? 'ring-2 ring-red-5' : ''
+			item?.flagged ? 'ring-2 ring-red-5' : '',
+			// Selection outranks both: it is the only one describing something about to be destroyed,
+			// and it uses an offset ring so a flagged item stays visibly flagged while selected.
+			item?.selected ? 'ring-2 ring-offset-2 ring-offset-gray-1 ring-teal-4' : '',
+			item?.selectable ? 'cursor-pointer hover:brightness-125' : ''
 		]"
 		:style="{ width: `${size}px`, height: `${size}px` }"
 		:title="hoverText"
+		@click="onClick"
 	>
 		<!-- The sprite is a window onto the shared atlas, so a full inventory costs no extra requests. -->
 		<div v-if="spriteStyle" class="sprite" :style="spriteStyle"></div>
@@ -39,10 +44,15 @@
 import { useSpriteStore } from '../../../../../../stores/spriteStore';
 
 export default {
+	emits: ["select"],
 	props: {
 		/**
 		 * A slot entry from the InventoryMonitor report, or null for an empty slot. The plugin only
 		 * reports occupied slots, so the parent builds fixed-size grids and passes null for the rest.
+		 *
+		 * `flagged`, `selected` and `selectable` arrive as display flags on a copy made by the grid's
+		 * `itemAt`, rather than as props of their own — there are ~10 slot call sites and threading
+		 * three more bindings through every one of them is how they drift apart.
 		 */
 		item: {
 			type: Object,
@@ -93,7 +103,21 @@ export default {
 			if (this.item.flagged) {
 				lines.push("Breaks this server's item rules");
 			}
+			if (this.item.selectable) {
+				lines.push(this.item.selected ? "Selected for removal — click to deselect" : "Click to select for removal");
+			}
 			return lines.join("\n");
+		},
+	},
+	methods: {
+		/**
+		 * Empty slots are inert: there is nothing to destroy, and letting them toggle would build
+		 * selections the backend can only answer with `skippedEmpty`.
+		 */
+		onClick() {
+			if (this.item) {
+				this.$emit("select", this.item);
+			}
 		},
 	},
 };

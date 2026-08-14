@@ -17,6 +17,7 @@ import { launchWorld } from "./actions/launchWorld.js";
 import { managePlayer } from "./actions/managePlayer.js";
 import { readPlayer } from "./actions/readPlayer.js";
 import { readPlayerInventory } from "./actions/readPlayerInventory.js";
+import { editPlayerInventory } from "./actions/editPlayerInventory.js";
 import { getBans } from "./actions/getBans.js";
 import { deleteBan } from "./actions/deleteBan.js";
 import { getStatus } from "./actions/getStatus.js";
@@ -115,6 +116,10 @@ const endpoints: EndpointList = {
 	"GET /server/{id}/players/{player}/inventory": {
 		action: readPlayerInventory,
 		permRequired: PERMISSIONS.server.player.inventory.read
+	},
+	"POST /server/{id}/players/{player}/inventory": {
+		action: editPlayerInventory,
+		permRequired: PERMISSIONS.server.player.inventory.write
 	},
 	"GET /server/{id}/items/rules": {
 		action: getItemRules,

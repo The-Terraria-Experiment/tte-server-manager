@@ -469,6 +469,35 @@ export const useServerStore = defineStore("serverstore", {
 			}
 		},
 		/**
+		 * Destroys items in a player's live inventory. Removal only.
+		 *
+		 * Takes either `{ op: "remove-slots", slots: [{ globalSlot, netId }] }` or
+		 * `{ op: "clear", scope }`. The `netId` on each slot is what lets the backend refuse a slot
+		 * whose contents changed since the operator looked at it, so callers must send it rather than
+		 * a bare slot number — see `resolveRemovalTargets` on the lambda side.
+		 *
+		 * The response carries a fresh read taken *after* the removals, and that is what gets cached.
+		 * The plugin reports success before its own retry-verify pass has finished, and on a non-SSC
+		 * server the client can put an item straight back, so an optimistic local delete here would
+		 * routinely show items as destroyed that are still in the player's hands.
+		 */
+		async editPlayerInventory(instanceId, playerName, payload) {
+			const key = inventoryKey(instanceId, playerName);
+
+			try {
+				const data = await post(
+					`/server/${instanceId}/players/${encodeURIComponent(playerName)}/inventory`,
+					PERMISSIONS.server.player.inventory.write,
+					payload
+				);
+				this.playerInventories[key] = data.inventory;
+				return data.outcome;
+			} catch (error) {
+				console.error("Error editing player inventory:", error);
+				throw error;
+			}
+		},
+		/**
 		 * Drops cached inventories for players no longer on the roster.
 		 *
 		 * Called from fetchServerStatus because that is the only place the roster is written, so the
