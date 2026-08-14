@@ -52,6 +52,63 @@ export type SystemShutdownEntry = {
 	taskOutcomes?: Record<string, string>
 };
 
+/**
+ * How a session came to exist. `"launch"` means we started the server and know exactly when;
+ * `"detected"` means one was already running (or had restarted) when something went looking, and the
+ * start time is the earliest activity we saw rather than the real one.
+ */
+export type ServerSessionSource = "launch" | "detected";
+
+export type ServerSessionEndReason = "stop" | "shutdown" | "restart-detected" | "superseded";
+
+/**
+ * One run of a TShock server on an instance.
+ *
+ * This is deliberately a general record rather than part of any one feature: "which run of the game
+ * server was this?" is the missing axis between an instance and an event, and the inventory snapshot
+ * archive is only its first consumer. Nothing here knows about snapshots, item rules or S3.
+ *
+ * `sessionId` is `<ISO start, punctuation dashed>-<zero-padded seq>` — sortable lexicographically,
+ * readable in an S3 key, and unique because `seq` is incremented atomically per instance.
+ */
+export type ServerSession = {
+	sessionId: string,
+	instanceID: string,
+	/** Monotonic per instance. The half of `sessionId` that makes two sessions in the same second distinct. */
+	seq: number,
+	startedAt: number,
+	/** Cognito sub of whoever launched it, or `"[detected]"` when it was inferred rather than requested. */
+	startedBy: string,
+	source: ServerSessionSource,
+	worldFilePath?: string,
+	port?: number,
+	maxPlayers?: number,
+	endedAt?: number,
+	endedBy?: string,
+	endReason?: ServerSessionEndReason,
+};
+
+/**
+ * The session record for one instance (`session#<instanceID>`).
+ *
+ * `recent` is a bounded ring rather than one row per session on purpose. A per-session record family
+ * would need a `recordType` to be listable, and adding a family to the sparse `recordType-index`
+ * means widening an `INCLUDE` projection — which cannot be done in place, so the index would have to
+ * be dropped and recreated while every existing consumer read empty. A capped array on one row buys
+ * the same history for a list this small.
+ */
+export type SystemServerSessionEntry = {
+	uid?: string,
+	instanceID?: string,
+	/** Highest `seq` ever issued for this instance. Incremented with `ADD`, never recomputed. */
+	seq?: number,
+	/** The open session, or null when no server is known to be running. */
+	current?: ServerSession | null,
+	/** Ended sessions, newest first, capped at `SESSION_HISTORY_CAP`. */
+	recent?: ServerSession[],
+	updatedAt?: string,
+};
+
 export type RoleEntry = {
 	uid?: string,
 	roleId?: string,
@@ -69,6 +126,244 @@ export type PatreonTierMapEntry = {
 	tierName?: string,
 	roleId?: string,
 	createdAt?: string,
+	updatedAt?: string,
+};
+
+/**
+ * One live WebSocket connection (`conn#<connectionId>`). Per-environment on purpose: the system
+ * table is per-env and a connection belongs to exactly one API Gateway stage, unlike the instance
+ * table which is shared prod/stage.
+ *
+ * Read back through the sparse `recordType-index` GSI rather than a prefix scan, so fan-out cost
+ * scales with the number of connections instead of the size of the whole table.
+ */
+export type RealtimeConnectionEntry = {
+	uid?: string,
+	/**
+	 * Always `"conn"`. This is the GSI partition key — a row that omits it is invisible to fan-out
+	 * with no error anywhere, so it is written unconditionally on every put.
+	 */
+	recordType?: string,
+	connectionId?: string,
+	/** Cognito sub, from the verified connect ticket. Diagnostics today; the hook for per-connection permission filtering later. */
+	userSub?: string,
+	/**
+	 * `https://<domainName>/<stage>` for the callback API, taken straight off the `$connect` event
+	 * rather than an env var — it is then automatically correct for both stages and for a custom
+	 * domain, and it is one less piece of hand-set out-of-band configuration.
+	 */
+	apiEndpoint?: string,
+	connectedAt?: number,
+	/** Touched by `$default` pings. Deliberately NOT projected into the GSI, so a ping doesn't rewrite the index. */
+	lastSeenAt?: number,
+	/**
+	 * Dynamo TTL, epoch **seconds**. A backstop only: `$disconnect` and the `GoneException` delete on
+	 * publish are the real cleanup paths. API Gateway hard-kills a connection at 2h, so a row still
+	 * present at 3h is definitionally garbage.
+	 */
+	expireAt?: number,
+};
+
+/**
+ * One entry in an instance's item rule list. `netId` is the Terraria item id and the only thing
+ * matched on; `name` is carried purely so the editor can render a readable list without needing the
+ * item-name map, and is refreshed opportunistically from whatever a snapshot last called that id.
+ */
+export type ItemRuleEntry = {
+	netId: number,
+	name?: string,
+	note?: string,
+};
+
+/**
+ * The per-instance item rule list (`itemrules#<instanceID>`).
+ *
+ * Per-environment, like `autoshutoff#`, even though the instance registry itself is shared — stage
+ * gets to trial a rule set without it applying to prod's players.
+ */
+export type ItemRulesEntry = {
+	uid?: string,
+	instanceID?: string,
+	/** `"whitelist"` flags anything *not* listed; `"blacklist"` flags anything listed. */
+	mode?: "whitelist" | "blacklist",
+	/**
+	 * Master switch. Read by `logs-manager` on every join/leave before it wakes the scanner, so
+	 * turning this off costs one GetItem per roster event and nothing else — no invoke, no TShock
+	 * round trip.
+	 */
+	enabled?: boolean,
+	/**
+	 * Container groups to scan, a subset of `core|storage|misc|loadouts`. Passed straight through as
+	 * the plugin's `include` param, so narrowing this to worn/carried gear makes the drain cheaper
+	 * rather than just filtering afterwards.
+	 */
+	groups?: string[],
+	entries?: ItemRuleEntry[],
+	/**
+	 * Snapshot archiving. Independent of the rules above: with `enabled` true and no rule list at all,
+	 * the drain still runs and every capture is persisted to S3, flagging nobody. `hasActiveRules`
+	 * gates *evaluation*; `isScanActive` gates *draining*, and reads this.
+	 *
+	 * Kept on this row rather than one of its own so `pushLog`'s precheck — which runs on every single
+	 * join and leave — stays at exactly one `GetItem`.
+	 */
+	archive?: ItemArchiveConfig,
+	/**
+	 * What happens to a player who breaks the rules, beyond being flagged. Absent means the original
+	 * behaviour: report the violation and leave it to a moderator.
+	 *
+	 * Written by `putItemRules` alongside the list itself, because the consequence of a rule is part of
+	 * the rule as far as an operator is concerned. Deliberately *not* part of a preset, for the same
+	 * reason `enabled` and `archive` aren't: loading a saved list must not arm or disarm automated
+	 * moderation underneath a running server.
+	 */
+	enforcement?: ItemEnforcementConfig,
+	updatedBy?: string,
+	createdAt?: string,
+	updatedAt?: string,
+};
+
+/** Per-instance snapshot archive settings. `kinds` is which captures are persisted, not which are judged. */
+export type ItemArchiveConfig = {
+	enabled?: boolean,
+	kinds?: string[],
+};
+
+/**
+ * Automated response to a violation.
+ *
+ * Gated by `hasActiveRules` as well as its own switch — enforcement with nothing to enforce is not a
+ * state that can do anything, and an empty list is never evaluated in the first place.
+ */
+export type ItemEnforcementConfig = {
+	/** Kick the player on the join that tripped the rules. */
+	kick?: boolean,
+	/** Shown to the kicked player. The offending item names are appended to it; see `buildKickReason`. */
+	kickReason?: string,
+};
+
+/**
+ * A saved, reusable item ruleset (`preset#<presetId>`).
+ *
+ * Site-wide rather than per-instance: the point is to build a list once and load it onto whichever
+ * server needs it. "Site-wide" still means per-environment, like every other entity in this table —
+ * prod and stage have separate libraries.
+ *
+ * Applying a preset **copies** it into the target's `ItemRulesEntry`; nothing links the two
+ * afterwards. So editing a preset changes enforcement nowhere until someone loads it again, and the
+ * scan path never reads this row.
+ *
+ * Note the absent `enabled`: that is a per-server operational switch, not part of a ruleset, and
+ * loading a preset must not turn enforcement on (or off) underneath a running server.
+ */
+export type ItemPresetEntry = {
+	uid?: string,
+	/**
+	 * Always `"itempreset"`. GSI partition key for `recordType-index`, which is how the library is
+	 * listed — see the warning on `RealtimeConnectionEntry.recordType`, which applies verbatim.
+	 */
+	recordType?: string,
+	presetId?: string,
+	/** Operator-facing label, unique case-insensitively across the library. */
+	name?: string,
+	mode?: "whitelist" | "blacklist",
+	groups?: string[],
+	entries?: ItemRuleEntry[],
+	/**
+	 * `entries.length`, denormalized. The library is listed through `recordType-index`, which
+	 * deliberately does not project `entries` — projecting them would put the whole library on the
+	 * index and defeat the point of not scanning for it. So the count that the dropdown renders has to
+	 * be an attribute in its own right. Written by the same code that writes `entries`, never
+	 * separately.
+	 */
+	itemCount?: number,
+	createdAt?: string,
+	updatedAt?: string,
+	updatedBy?: string,
+};
+
+/** One flagged item, carrying enough position for the UI to ring the exact square it came from. */
+export type ViolationItem = {
+	netId: number,
+	name: string,
+	stack: number,
+	prefix: number,
+	container: string,
+	slot: number,
+	globalSlot: number,
+};
+
+/**
+ * The most recent rule violation for one player. Replaced wholesale by their next join, and deleted
+ * outright when that join comes back clean — "latest per player" only means something if a player
+ * who fixed their inventory stops being flagged.
+ */
+export type PlayerViolation = {
+	player: string,
+	account?: string,
+	/**
+	 * Which capture tripped it. Always `"join"` today — leave snapshots are drained but deliberately
+	 * not evaluated — and recorded anyway so a later leave-side check needn't migrate existing rows.
+	 */
+	kind: string,
+	/** Snapshot `CapturedAtUtc`, epoch ms. */
+	at: number,
+	snapshotId: number,
+	/** The mode in force when this was evaluated, so a stale flag can be read in its own terms. */
+	mode: string,
+	/** Capped; see `truncated`. Whitelist mode against an unlisted item can otherwise hit 350 entries. */
+	items: ViolationItem[],
+	/** Total offending items *before* the cap. */
+	itemCount: number,
+	truncated?: boolean,
+	/**
+	 * What auto-kick did about *this* violation, when it was armed. Absent means no automated action
+	 * was attempted — either the switch is off, or this flag predates it.
+	 *
+	 * Recorded whether the kick succeeded or not, because a failure is the thing an operator most needs
+	 * to know: it means the player is flagged, was supposed to be removed, and wasn't.
+	 */
+	kick?: ViolationKickResult,
+};
+
+/** The outcome of one automated kick, stored on the violation that caused it. */
+export type ViolationKickResult = {
+	at: number,
+	ok: boolean,
+	/** Present only on a failure — TShock's message, or why the attempt was skipped. */
+	error?: string,
+};
+
+/**
+ * Snapshot drain state for one instance (`invscan#<instanceID>`): where the cursor is, who is
+ * currently draining, and the latest violation per player.
+ *
+ * The cursor is the only record of what we have consumed — the plugin's snapshot store is
+ * non-destructive, has no ack, and lives in memory, so nothing on that side remembers us.
+ */
+export type InventoryScanEntry = {
+	uid?: string,
+	instanceID?: string,
+	/**
+	 * Exclusive id floor, sent back as the plugin's `since`. The plugin re-zeroes its ids on server
+	 * restart, so a `head` below this means a restart happened and the cursor must reset to 0 rather
+	 * than sit above every id the plugin will ever issue again.
+	 */
+	cursor?: number,
+	/** Highest id the plugin reported issuing, as of the last drain. Diagnostics. */
+	head?: number,
+	lastScanAt?: number,
+	lastScanStatus?: string,
+	/** Epoch ms until which a worker owns the drain. See `claimScanLease`. */
+	leaseUntil?: number,
+	leaseOwner?: string,
+	/**
+	 * Set by a worker that couldn't take the lease. The holder re-checks it before releasing and
+	 * drains again, which is how a join burst's later events still get scanned by the one drain.
+	 */
+	pending?: boolean,
+	/** Latest violation per player name. Pruned to the most recent entries; see `PLAYER_VIOLATION_CAP`. */
+	violations?: Record<string, PlayerViolation>,
 	updatedAt?: string,
 };
 

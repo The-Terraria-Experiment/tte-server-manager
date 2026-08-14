@@ -19,6 +19,11 @@ import { deleteRole } from "./actions/deleteRole.js";
 import { readPatreonTierMap } from "./actions/readPatreonTierMap.js";
 import { writePatreonTierMap } from "./actions/writePatreonTierMap.js";
 import { deletePatreonTierMap } from "./actions/deletePatreonTierMap.js";
+import { createRealtimeTicket } from "./actions/createRealtimeTicket.js";
+import { readItemPresets } from "./actions/readItemPresets.js";
+import { readItemPreset } from "./actions/readItemPreset.js";
+import { writeItemPreset } from "./actions/writeItemPreset.js";
+import { deleteItemPreset } from "./actions/deleteItemPreset.js";
 
 const endpoints: EndpointList = {
 	"POST /system/postnotice": {
@@ -65,6 +70,29 @@ const endpoints: EndpointList = {
 		action: deletePatreonTierMap,
 		permRequired: PERMISSIONS.users.permissions.write,
 	},
+	"POST /system/realtime/ticket": {
+		action: createRealtimeTicket,
+		permRequired: PERMISSIONS.access,
+	},
+	// The item rule preset library. Site-wide, so it lives here rather than in server-manager, but it
+	// reuses the per-server item-rule permissions: anyone who can set a server's rules can maintain the
+	// library those rules are built from.
+	"GET /system/items/presets": {
+		action: readItemPresets,
+		permRequired: PERMISSIONS.server.player.inventory.rules.read,
+	},
+	"GET /system/items/presets/{presetId}": {
+		action: readItemPreset,
+		permRequired: PERMISSIONS.server.player.inventory.rules.read,
+	},
+	"POST /system/items/presets": {
+		action: writeItemPreset,
+		permRequired: PERMISSIONS.server.player.inventory.rules.write,
+	},
+	"POST /system/items/presets/{presetId}/delete": {
+		action: deleteItemPreset,
+		permRequired: PERMISSIONS.server.player.inventory.rules.write,
+	},
 };
 
 const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
@@ -87,6 +115,14 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 		userId: Parsers.GetUserSub(event),
 		action: "invoke-action",
 		status: "permission-validated",
+		resource: routeKey,
+	});
+
+	// Full event/context dump — only worth the log volume when actively debugging a specific
+	// request. LOG_LEVEL is off by default, so this costs nothing on the hot path.
+	CWLogger.CAction(4, FUNC_NAMES.SYS_MGR, {
+		userId: Parsers.GetUserSub(event),
+		action: "invoke-action-detail",
 		resource: routeKey,
 		details: { context, event },
 	});

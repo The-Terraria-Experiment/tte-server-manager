@@ -80,7 +80,15 @@ const h = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayPr
 		action: "invoke-action",
 		status: "permission validated",
 		resource: routeKey,
-		details: { context, event }
+	});
+
+	// Full event/context dump — only worth the log volume when actively debugging a specific
+	// request. LOG_LEVEL is off by default, so this costs nothing on the hot path.
+	CWLogger.CAction(4, FUNC_NAMES.USER_MGR, {
+		userId: Parsers.GetUserSub(event),
+		action: "invoke-action-detail",
+		resource: routeKey,
+		details: { context, event },
 	});
 
 	const result = endpointDetails.action(event, context);

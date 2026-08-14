@@ -1,0 +1,8 @@
+{
+  "name": "realtime-manager",
+  "version": "1.0.0",
+  "description": "WebSocket connection lifecycle and event fan-out for live UI updates",
+  "type": "module",
+  "main": "index.js",
+  "dependencies": {}
+}

@@ -15,6 +15,8 @@ import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 import { ensureLogDirsCommand, joinLaunchSteps, tshockProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { beginServerSession } from "../shared/utils/tshock/ServerSession.js";
+import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 
 const validateLaunchParams = (body: Record<PropertyKey, any>) => {
 	const { worldFilePath, port, maxPlayers, password } = body;
@@ -225,6 +227,21 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 				lastUpdatedAt: Date.now(),
 			},
 		});
+
+		// The authoritative session mint. This is the only place that knows the real start time, the
+		// world, and who asked — everything else can at best infer a session after the fact from a
+		// side effect. Anything that needs to say "which run of the server was this" keys off it.
+		await beginServerSession(instanceID, {
+			startedBy: Parsers.GetUserSub(event) ?? "",
+			source: "launch",
+			worldFilePath,
+			port: Number(port),
+			maxPlayers: Number(maxPlayers),
+		});
+
+		// The launch is dispatched, not finished — systemd-run reports success as soon as the unit starts.
+		// So this tells other operators the server is coming up; their own poller observes it arriving.
+		await Realtime.PublishServerState(instanceID, "launching");
 
 		return ResponseUtil.Success({
 			message: " TShock server starting",

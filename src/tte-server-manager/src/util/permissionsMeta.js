@@ -31,7 +31,20 @@ export const PermissionsMeta = {
 			kill: {value: "server.player.kill", description: pfx + "kill online players on Terraria servers"},
 			mute: {value: "server.player.mute", description: pfx + "mute online players on Terraria servers"},
 			inventory: {
-				read: {value: "server.player.inventory.read", description: pfx + "read all information about an online player's Terraria inventory", used: false},
+				read: {value: "server.player.inventory.read", description: pfx + "read all information about an online player's Terraria inventory"},
+					write: {value: "server.player.inventory.write", description: pfx + "destroy items in an online player's Terraria inventory"},
+				rules: {
+					read: {value: "server.player.inventory.rules.read", description: pfx + "view the item whitelist/blacklist configured for a server"},
+					write: {value: "server.player.inventory.rules.write", description: pfx + "change a server's item whitelist/blacklist"},
+				},
+				violations: {
+					read: {value: "server.player.inventory.violations.read", description: pfx + "see violations of server item rulesets"},
+					write: {value: "server.player.inventory.violations.write", description: pfx + "dismiss server item ruleset violations"},
+				},
+				snapshots: {
+					read: {value: "server.player.inventory.snapshots.read", description: pfx + "browse the archive of player inventory snapshots"},
+					write: {value: "server.player.inventory.snapshots.write", description: pfx + "toggle player inventory snapshot archiving"},
+				},
 			},
 		},
 		logs: {
@@ -88,7 +101,7 @@ export const PermissionsMeta = {
 		instances: {
 			list: {
 				read: {value: "system.instances.list.read", description: pfx + "view which EC2 instances are registered and which environments they serve"},
-				write: {value: "system.instances.list.write", description: pfx + "register, move between environments, and remove EC2 instances"},
+				write: {value: "system.instances.list.write", description: pfx + "register, edit, and remove EC2 instances"},
 			},
 		},
 	},

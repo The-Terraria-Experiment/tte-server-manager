@@ -9,6 +9,7 @@ import { Permissions } from "../shared/utils/core/Perms.js";
 import { Parsers } from "../shared/utils/core/Parsers.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 
 const EC2 = new Ec2Dao();
 
@@ -37,6 +38,11 @@ export const start = async (event: AuthorizedEvent, context: Context) => {
 			lastUpdatedAt: Date.now(),
 		},
 	});
+
+	// Announces that a start was *requested*, not that the box is running: nothing in AWS watches EC2
+	// state transitions for us, so `pollInstanceState` in the UI is still what observes `running`. This
+	// event is what flips other operators' tiles to a transitional state immediately.
+	await Realtime.PublishInstanceState(instanceId, "pending");
 
 	await CWLogger.Action(FUNC_NAMES.INST_MGR, {
 		userId: Parsers.GetUserSub(event),

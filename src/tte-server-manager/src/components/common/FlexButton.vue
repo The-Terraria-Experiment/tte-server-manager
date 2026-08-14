@@ -99,7 +99,7 @@ export default {
 }
 
 .btn-secondary {
-	@apply bg-gray-4 hover:bg-gray-2 w-max pl-4 pr-6 py-2 cursor-pointer;
+	@apply bg-gray-4 hover:bg-gray-3 w-max pl-4 pr-6 py-2 cursor-pointer;
 }
 
 .btn-secondary-disabled {

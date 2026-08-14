@@ -53,37 +53,39 @@
 		</template>
 	</StatusTile>
 
-	<MajorLoader 
-		v-else-if="serverStore.isLoadingList" 
+	<MajorLoader
+		v-else-if="serverStore.isLoadingList"
 		class="mt-4"
-		text="Loading Instances..." 
+		text="Loading Instances..."
 	/>
 
-	<BasicServerInfo 
-		v-if="selectedInstance"
-	/>
-
-	<SelectWorld 
-		v-if="selectWorldAllowed"
-	/>
-
-	<CreateWorld 
-		v-if="createWorldAllowed"
-		ref="createWorld"
-		@refresh="refresh"
-	/>
-
-	<BrowseLogs />
-
-	<TShockConsoleLogs />
-
-	<ServerConfig
-		v-if="selectedInstance && selectedInstanceData?.online"
-	/>
-
-	<RunTshockCommand
-		v-if="serverIsOnline"
-	/>
+	<div class="flex flex-col gap-2">
+		<BasicServerInfo
+			v-if="selectedInstance"
+		/>
+		<SelectWorld
+			v-if="selectWorldAllowed"
+		/>
+		<CreateWorld
+			v-if="createWorldAllowed"
+			ref="createWorld"
+			@refresh="refresh"
+		/>
+		<ItemRules
+			v-if="selectedInstance"
+		/>
+		<InventorySnapshots
+			v-if="selectedInstance"
+		/>
+		<BrowseLogs />
+		<TShockConsoleLogs />
+		<ServerConfig
+			v-if="selectedInstance && selectedInstanceData?.online"
+		/>
+		<RunTshockCommand
+			v-if="serverIsOnline"
+		/>
+	</div>
 </template>
 
 <script>
@@ -96,7 +98,7 @@ import BasicServerInfo from './tools/server/BasicServerInfo.vue';
 import SelectWorld from './tools/server/SelectWorld.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import FlexButton from '../common/FlexButton.vue';
-import { get, post } from '../../util/api';
+import { post } from '../../util/api';
 import CreateWorld from './tools/server/CreateWorld.vue';
 import ManageBans from './tools/server/ManageBans.vue';
 import ServerConfig from './tools/server/ServerConfig.vue';
@@ -105,6 +107,8 @@ import { TASK_IDS } from '../../stores/statusStore';
 import BrowseLogs from './tools/server/BrowseLogs.vue';
 import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
+import ItemRules from './tools/server/ItemRules.vue';
+import InventorySnapshots from './tools/server/InventorySnapshots.vue';
 
 // Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
 const STATUS_HANDLER_ID = "server-page-fetch-status";
@@ -124,6 +128,8 @@ export default {
 		BrowseLogs,
 		TShockConsoleLogs,
 		RunTshockCommand,
+		ItemRules,
+		InventorySnapshots,
 	},
 	props: {
 		
@@ -228,12 +234,14 @@ export default {
 
 		async fetchWorldCreationStatus() {
 			try {
-				const status = await get(`/server/${this.selectedInstance}/world/create/alljobs/status`, PERMISSIONS.server.world.create);
+				// Through the store so the worldgen guard (SelectWorld's launch button) sees the same
+				// state this poller does. Returns null when there is no job row.
+				const status = await this.serverStore.fetchWorldCreateStatus(this.selectedInstance);
 
 				// Only pick up a job that's actually still going. A finished — or abandoned — row
 				// sticks around until someone starts the next creation, and attaching the poller to
 				// it would replay its outcome as a fresh alert on every page load.
-				if (status && status.found !== false && !status.isDone) {
+				if (status && !status.isDone) {
 					this.serverStore.worldStatusData[this.selectedInstance] = WORLD_STATES.CREATING;
 					this.$refs.createWorld.startWorldCreatePolling(status);
 				}

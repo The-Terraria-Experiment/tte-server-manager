@@ -1,6 +1,6 @@
 <template>
 	<StatusTile
-		:class="['mt-2']"
+		:class="[]"
 		:perm-required="PERMISSIONS.server.tshock.execute"
 		:loading="loadingResult"
 		collapsible

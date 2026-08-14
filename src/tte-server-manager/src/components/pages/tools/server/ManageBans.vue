@@ -1,6 +1,6 @@
 <template>
 	<StatusTile 
-		class="grow mt-2 gradient-tile"
+		class="grow gradient-tile"
 		:collapsible="!!banData.length"
 		:perm-required="PERMISSIONS.server.status.read"
 		:loading="loadingEntries"

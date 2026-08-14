@@ -12,6 +12,13 @@ import { CWLogger } from "./CloudWatch.js";
 import { Assert } from "../utils/core/Assert.js";
 import { CW_LOG_GENERAL } from "../constants.js";
 
+/**
+ * An item key. A bare `string` is shorthand for `{ uid: <string> }` — every table in this project
+ * uses a single `uid` partition key, so that is the overwhelmingly common case and stays the
+ * default. Pass a full attribute map for a table or index whose key is anything else.
+ */
+export type ItemKey = string | Record<string, unknown>;
+
 export interface UpdateConfig {
 	updates?: Record<string, unknown>;
 	UpdateExpression?: string;
@@ -38,8 +45,10 @@ export interface QueryResult {
 }
 
 export interface ScanConfig {
-	/** Return only items whose `uid` begins with this string. */
+	/** Return only items whose key attribute (see `attribute`) begins with this string. */
 	prefix?: string;
+	/** Attribute the `prefix` filter applies to. Defaults to `uid`. */
+	attribute?: string;
 }
 
 export class DynamoDao {
@@ -62,15 +71,13 @@ export class DynamoDao {
 		DynamoDao.instance = this;
 	}
 
-	public async GetItem(tableName: string, key: string): Promise<Record<string, unknown> | null> {
+	public async GetItem(tableName: string, key: ItemKey): Promise<Record<string, unknown> | null> {
 		Assert.IsTruthyString(tableName, "Table name required for get");
-		Assert.IsTruthyString(key, "Key required for get");
+		DynamoDao.AssertKey(key, "Key required for get");
 
 		const cmd = new GetCommand({
 			TableName: tableName,
-			Key: {
-				uid: key,
-			},
+			Key: DynamoDao.ToKey(key),
 		});
 
 		await CWLogger.CAction(3, CW_LOG_GENERAL, {
@@ -123,16 +130,14 @@ export class DynamoDao {
 		return false;
 	}
 
-	public async DeleteItem(tableName: string, key: string): Promise<boolean>
+	public async DeleteItem(tableName: string, key: ItemKey): Promise<boolean>
 	{
 		Assert.IsTruthyString(tableName, "Table name required for delete");
-		Assert.IsTruthyString(key, "Key required for delete");
+		DynamoDao.AssertKey(key, "Key required for delete");
 
 		const cmd = new DeleteCommand({
 			TableName: tableName,
-			Key: {
-				uid: key
-			}
+			Key: DynamoDao.ToKey(key)
 		});
 
 		await CWLogger.CAction(3, CW_LOG_GENERAL, {
@@ -208,11 +213,11 @@ export class DynamoDao {
 
 	public async UpdateItem(
 		tableName: string,
-		key: string,
+		key: ItemKey,
 		updateConfig: UpdateConfig,
 	): Promise<Record<string, unknown> | null> {
 		Assert.IsTruthyString(tableName, "Table name required for update");
-		Assert.IsTruthyString(key, "Key is required for update");
+		DynamoDao.AssertKey(key, "Key is required for update");
 		Assert.Some(
 			[
 				() => Assert.ObjectHasTruthyKey(updateConfig, "updates", "Invalid update config"),
@@ -245,7 +250,7 @@ export class DynamoDao {
 
 		const params: {
 			TableName: string;
-			Key: { uid: string };
+			Key: Record<string, unknown>;
 			UpdateExpression: string;
 			ReturnValues: NonNullable<UpdateConfig["ReturnValues"]>;
 			ExpressionAttributeNames?: Record<string, string>;
@@ -253,7 +258,7 @@ export class DynamoDao {
 			ConditionExpression?: string;
 		} = {
 			TableName: tableName,
-			Key: { uid: key },
+			Key: DynamoDao.ToKey(key),
 			UpdateExpression: updateExpression,
 			ReturnValues: updateConfig.ReturnValues || "ALL_NEW",
 		};
@@ -297,10 +302,12 @@ export class DynamoDao {
 	 * fewer rows than it does.
 	 *
 	 * @param tableName - Table to scan
-	 * @param config - Optional `prefix` to return only items whose `uid` begins with it. Applied as a
-	 *   Dynamo FilterExpression, which runs *after* the read — it trims the payload, not the RCUs.
-	 *   These tables mix record types under one bare `uid` partition key, so a `begins_with` on a
-	 *   Query is not available as an alternative.
+	 * @param config - Optional `prefix` to return only items whose key attribute (`uid` by default,
+	 *   or `config.attribute`) begins with it. Applied as a Dynamo FilterExpression, which runs
+	 *   *after* the read — it trims the payload, not the RCUs. These tables mix record types under
+	 *   one bare `uid` partition key, so `begins_with` on a Query of the table itself is not an
+	 *   alternative; a GSI over a record-type attribute is (see `QueryConfig.indexName`), and is the
+	 *   right move for any record family read often enough for the RCUs to matter.
 	 */
 	public async ScanTable(tableName: string, config: ScanConfig = {}): Promise<Record<string, unknown>[]> {
 		Assert.IsTruthyString(tableName, "Table name required for scan");
@@ -309,23 +316,25 @@ export class DynamoDao {
 			userId: null,
 			action: "shared-dynamo-scan-table",
 			resource: null,
-			details: { tableName, prefix: config.prefix ?? null },
+			details: { tableName, prefix: config.prefix ?? null, attribute: config.attribute ?? null },
 		});
 
 		const items: Record<string, unknown>[] = [];
 		let exclusiveStartKey: Record<string, unknown> | undefined = undefined;
 
+		const prefixFilter = config.prefix
+			? {
+					FilterExpression: "begins_with(#pfxattr, :prefix)",
+					ExpressionAttributeNames: { "#pfxattr": config.attribute || "uid" },
+					ExpressionAttributeValues: { ":prefix": config.prefix },
+				}
+			: {};
+
 		try {
 			do {
 				const cmd: ScanCommand = new ScanCommand({
 					TableName: tableName,
-					...(config.prefix
-						? {
-								FilterExpression: "begins_with(#uid, :prefix)",
-								ExpressionAttributeNames: { "#uid": "uid" },
-								ExpressionAttributeValues: { ":prefix": config.prefix },
-							}
-						: {}),
+					...prefixFilter,
 					...(exclusiveStartKey ? { ExclusiveStartKey: exclusiveStartKey } : {}),
 				});
 
@@ -343,6 +352,29 @@ export class DynamoDao {
 			});
 			return [];
 		}
+	}
+
+	/** Expands the `string` shorthand into the default single-attribute `uid` key. */
+	private static ToKey(key: ItemKey): Record<string, unknown> {
+		return typeof key === "string" ? { uid: key } : key;
+	}
+
+	/**
+	 * Accepts either form of `ItemKey`. Kept as an assertion rather than letting Dynamo reject it,
+	 * because an empty key otherwise surfaces as a validation error from the SDK with no indication
+	 * of which of our call sites produced it.
+	 */
+	private static AssertKey(key: ItemKey, failMessage: string): void {
+		Assert.Some(
+			[
+				() => Assert.IsTruthyString(key, failMessage),
+				() => {
+					Assert.IsTruthy(key && typeof key === "object", failMessage);
+					Assert.IsTruthy(Object.keys(key as Record<string, unknown>).length > 0, failMessage);
+				},
+			],
+			failMessage,
+		);
 	}
 
 	private static BuildUpdateExpression(updates: Record<string, unknown>): {

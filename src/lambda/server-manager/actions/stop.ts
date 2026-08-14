@@ -8,6 +8,8 @@ import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
 import { Assert } from "../shared/utils/core/Assert.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { endServerSession } from "../shared/utils/tshock/ServerSession.js";
+import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 
 export const stop = async (event: AuthorizedEvent) => {
 	const serverId = event.pathParameters?.id;
@@ -34,6 +36,16 @@ export const stop = async (event: AuthorizedEvent) => {
 		Assert.IsTruthyString(userId, "No user ID");
 		const tshock = new TShockAPI(ip);
 		const result = await tshock.APIRequest(userId!, "/v2/server/off", { confirm: true, message: "Server stopping..." });
+
+		// Closed on the same terms as the publish below, and for the same reason: a refused connection
+		// means the server was already gone, so closing the session records what is true either way.
+		// A no-op when nothing was open.
+		await endServerSession(serverId, { endedBy: userId!, reason: "stop" });
+
+		// Published unconditionally on a non-throwing call. A refused connection comes back as a wrapped
+		// `{ server: { status: false } }` rather than an error, and that case means the server is already
+		// down — which is still news to any other operator whose tile says otherwise.
+		await Realtime.PublishServerState(serverId, "stopping");
 
 		await CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 			userId,

@@ -31,6 +31,19 @@ export const PERMISSIONS = {
 			mute: "server.player.mute",
 			inventory: {
 				read: "server.player.inventory.read",
+					write: "server.player.inventory.write",
+				rules: {
+					read: "server.player.inventory.rules.read",
+					write: "server.player.inventory.rules.write",
+				},
+				violations: {
+					read: "server.player.inventory.violations.read",
+					write: "server.player.inventory.violations.write",
+				},
+				snapshots: {
+					read: "server.player.inventory.snapshots.read",
+					write: "server.player.inventory.snapshots.write",
+				},
 			},
 		},
 		logs: {

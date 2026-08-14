@@ -5,6 +5,7 @@ import { LambdaDao } from "../../aws/Lambda.js";
 import { SHUTDOWN_KEY, SYSTEM_TABLE } from "../../vars.js";
 import { ResponseUtil } from "../core/APIResponse.js";
 import { isJobAbandoned, isJobBlocking, isJobTerminal, jobIdleForMs } from "./AsyncJob.js";
+import { Realtime } from "../realtime/RealtimePublisher.js";
 
 /**
  * Shared read model for the single in-flight instance-shutdown row (`shutdown#<instanceID>`).
@@ -128,6 +129,26 @@ export type ShutdownRequestData = {
 };
 
 /**
+ * Writes a shutdown progress update and notifies watchers.
+ *
+ * Use this rather than `UpdateItem` directly for anything that advances the job. A progress write that
+ * isn't published is a tile that stops moving until someone's poller happens to catch it, and pairing
+ * the two here is what stops the write sites and the publish sites drifting apart as tasks are added.
+ *
+ * Deliberately *not* used for the worker's claim write: that one is conditional on
+ * `attribute_not_exists(workerStartedAt)` and is not a progress update, so publishing on it would
+ * announce progress on behalf of a retry invocation that is about to correctly no-op.
+ *
+ * Publishes after the write, never before — the client reacts by refetching, so an event that outran
+ * its own write would have every browser read pre-write state and receive no second event.
+ */
+export async function writeShutdownProgress(instanceId: string, updates: SystemShutdownEntry): Promise<void> {
+	const DB = new DynamoDao();
+	await DB.UpdateItem(SYSTEM_TABLE, shutdownJobKey(instanceId), { updates });
+	await Realtime.PublishInstanceShutdown(instanceId, updates.step);
+}
+
+/**
  * Creates the `shutdown#<id>` job row and hands it to the worker. Shared by the interactive stop and
  * the auto-shutoff countdown so both produce an identical job — the caller is only responsible for
  * deciding *whether* to shut down, never for what a shutdown consists of.
@@ -169,6 +190,11 @@ export async function queueShutdownJob(
 	};
 	await DB.PutItem(SYSTEM_TABLE, job);
 
+	// Note whose benefit this is for: the browser that pressed STOP already seeded this optimistically
+	// (`markShutdownQueued`) and is already polling. The event is what tells *everyone else's* page that
+	// the instance is going down — including on the auto-shutoff path, where nobody pressed anything.
+	await Realtime.PublishInstanceShutdown(instanceId, job.step);
+
 	try {
 		const Lambda = new LambdaDao();
 		const payload: ShutdownRequestData = {
@@ -188,7 +214,7 @@ export async function queueShutdownJob(
 			failureReason: "The shutdown could not be started",
 			updatedAt: new Date().toISOString(),
 		};
-		await DB.UpdateItem(SYSTEM_TABLE, jobKey, { updates: failure });
+		await writeShutdownProgress(instanceId, failure);
 		throw error;
 	}
 

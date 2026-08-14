@@ -1,7 +1,7 @@
 <template>
-	<div class="h-full w-full flex flex-col gap-4">
+	<div class="h-full w-full flex flex-col gap-2">
 		<div 
-			class="p-2 bg-gray-4 rounded-xl" 
+			class="p-2 bg-gray-2 border border-gray-5 rounded-xl" 
 			v-if="$checkPermissions(PERMISSIONS.server.player.ban)"
 		>
 			<div class="flex items-center mb-2">
@@ -28,20 +28,20 @@
 				</div>
 			</div>
 			<label class="py-2 px-3 bg-gray-3 rounded-md font-main font-bold text-white-0 my-2 flex items-center select-none">
-				<Checkbox v-model="manageOptions.includeIpBan" class="h-5 w-5 mr-2" />
+				<Checkbox v-model="manageOptions.includeIpBan" class="h-4 w-4 mr-2" />
 				IP Ban
 			</label>
 			<ValueInput class="w-full" placeholder="Ban Reason (optional)" v-model="manageOptions.banReason" />
 			<div class="flex justify-end mt-6">
 				<Spinner v-if="managePlayerStatus.banLoading" class="h-6 w-6 text-teal-4 mr-4 mb-2" />
 				<FlexButton :variant="BTN_VARIANT.DANGER" @input="banPlayer" v-else>
-					<p class="font-main font-bold py-2 px-4 md:px-10">DELIVER BAN</p>
+					<p class="font-main font-bold py-2 px-4 md:px-10">BAN</p>
 				</FlexButton>
 			</div>
 		</div>
 
 		<div 
-			class="p-2 bg-gray-4 rounded-xl"
+			class="p-2 bg-gray-2 border border-gray-5 rounded-xl"
 			v-if="$checkPermissions(PERMISSIONS.server.player.kick)"
 		>
 			<div class="flex items-center mb-2">
@@ -52,13 +52,13 @@
 			<div class="flex justify-end mt-6">
 				<Spinner v-if="managePlayerStatus.kickLoading" class="h-6 w-6 text-teal-4 mr-4 mb-2" />
 				<FlexButton :variant="BTN_VARIANT.DANGER" @input="kickPlayer" v-else>
-					<p class="font-main font-bold py-2 px-4 md:px-10">PERFORM KICK</p>
+					<p class="font-main font-bold py-2 px-4 md:px-10">KICK</p>
 				</FlexButton>
 			</div>
 		</div>
 
 		<div 
-			class="p-2 bg-gray-4 rounded-xl"
+			class="p-2 bg-gray-2 border border-gray-5 rounded-xl"
 			v-if="$checkPermissions(PERMISSIONS.server.player.kill)"
 		>
 			<div class="flex items-center mb-2">
@@ -69,13 +69,13 @@
 			<div class="flex justify-end mt-6">
 				<Spinner v-if="managePlayerStatus.killLoading" class="h-6 w-6 text-teal-4 mr-4 mb-2" />
 				<FlexButton :variant="BTN_VARIANT.DANGER" @input="killPlayer" v-else>
-					<p class="font-main font-bold py-2 px-4 md:px-10">EXECUTE</p>
+					<p class="font-main font-bold py-2 px-4 md:px-10">KILL</p>
 				</FlexButton>
 			</div>
 		</div>
 
 		<div 
-			class="p-2 bg-gray-4 rounded-xl"
+			class="p-2 bg-gray-2 border border-gray-5 rounded-xl"
 			v-if="$checkPermissions(PERMISSIONS.server.player.mute)"
 		>
 			<div class="flex items-center mb-2">
@@ -85,7 +85,7 @@
 			<div class="flex justify-end mt-6">
 				<Spinner v-if="managePlayerStatus.banLoading" class="h-6 w-6 text-teal-4 mr-4 mb-2" />
 				<FlexButton :variant="BTN_VARIANT.DANGER" @input="mutePlayer" v-else>
-					<p class="font-main font-bold py-2 px-4 md:px-10">SILENCE FROM YOU</p>
+					<p class="font-main font-bold py-2 px-4 md:px-10">MUTE</p>
 				</FlexButton>
 			</div>
 		</div>

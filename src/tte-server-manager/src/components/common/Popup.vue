@@ -14,7 +14,7 @@
 				:class="[
 					'fixed left-0 top-0 right-0 bottom-0 m-auto flex flex-col overflow-hidden shadow-gray-0 shadow-lg rounded-lg bg-gray-3',
 					zLayers[Number(layer)]?.dialog,
-					bodyClass
+					...(Array.isArray(bodyClass) ? bodyClass : [bodyClass])
 				]"
 			>
 				<div class="w-full h-12 flex justify-between items-center px-4 bg-gray-4">
@@ -35,10 +35,10 @@
 					<template v-for="button in buttons">
 						<FlexButton
 							v-if="button"
-							:variant="button.variant"
+							:variant="button.variant !== BTN_VARIANT.SECONDARY ? button.variant : null"
 							:disabled="button.loading || button.disabled"
 							@input="doClick(button)"
-							class="ml-4 text-sm sm:text-md"
+							:class="['ml-4 text-sm sm:text-md', { 'bg-gray-3 text-teal-3': button.variant === BTN_VARIANT.SECONDARY }]"
 						>
 							<div v-if="button.loading" class="flex items-center justify-center">
 								<Spinner class="h-4 w-4 mr-2 ml-6" />
@@ -55,6 +55,7 @@
 </template>
 
 <script>
+import { BTN_VARIANT } from '@/util/constants.js';
 import FlexButton from './FlexButton.vue';
 import Icon from './Icon.vue';
 import Spinner from './Spinner.vue';
@@ -75,7 +76,7 @@ export default {
 			validator: (val) => Number.isInteger(parseInt(val)) && parseInt(val) >= 0 && parseInt(val) <= 3
 		},
 		bodyClass: {
-			type: String,
+			type: [String, Array],
 			default: "w-11/12 sm:w-1/2 h-1/2"
 		},
 		headerText: {
@@ -121,7 +122,8 @@ export default {
 				{ backdrop: "z-50", dialog: "z-51" },
 				{ backdrop: "z-60", dialog: "z-61" },
 			],
-			preModifiedState: null
+			preModifiedState: null,
+			BTN_VARIANT,
 		}
 	},
 	computed: {

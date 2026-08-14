@@ -1,7 +1,8 @@
 <template>
-	<div 
-		ref="wrapper" 
-		class="bg-gray-2 cursor-crosshair" 
+	<div
+		ref="wrapper"
+		v-bind="$attrs"
+		class="bg-gray-2 cursor-crosshair"
 		@mouseenter="hovering = true"
 		@mouseleave="mouseleave"
 		@mousemove="hovered"
@@ -10,17 +11,42 @@
 	>
 		<canvas ref="canvas">Graph could not be rendered.</canvas>
 	</div>
+	<!--
+		Rendered only while zoomed, so it doubles as the indicator that the graph is
+		showing a subrange at all.
+
+		A sibling of the canvas box rather than a child: callers size and frame that
+		box (a fixed height, a border, overflow-hidden), so a child would both be
+		clipped by it and eat into the height they set. `inheritAttrs` is off for the
+		same reason - those classes have to reach the box, not this two-node root.
+	-->
+	<button
+		v-if="zoomRange"
+		type="button"
+		class="group flex items-center gap-2 mt-2 font-main font-semibold text-sm text-blue-2 hover:text-blue-1 cursor-pointer"
+		@click="resetZoom"
+	>
+		<!-- Given the hover color too, so the icon doesn't stay behind the label. -->
+		<Icon icon="expand" color="text-blue-2 group-hover:text-blue-1" size="4" />
+		RESET ZOOM
+	</button>
 </template>
 
 <script>
+import Icon from './Icon.vue';
 
 const pointDistance = (point1, point2) => Math.sqrt((point2.x - point1.x) ** 2 + (point2.y - point1.y) ** 2);
 
 export default {
 	mixins: [],
 	components: {
-		
+		Icon
 	},
+	// The template has two roots (the canvas box and the reset button), so a
+	// caller's class/style would have nowhere to land. Bound explicitly to the
+	// canvas box instead, which is what callers are describing when they size or
+	// frame "the graph".
+	inheritAttrs: false,
 	props: {
 		/**
 		 * Array of points of shape { x: Number, y: Number, group?: Number, series?: String|Number }
@@ -433,14 +459,17 @@ export default {
 		normalizePoints(points) {
 			const normalizedPoints = [];
 
-			let xMin, xMax, yMin, yMax, xRange, yRange;
+			// Reads `points`, not `this.effectivePoints`. It used to read the latter
+			// regardless of what it was handed, which was invisible while the two
+			// were the same array and wrong the moment they weren't.
+			let xMin, xMax, yMin, yMax;
 			if (this.bounds === null) {
-				xMin = this.effectivePoints.reduce((val, point) => Math.min(val, point.x), Number.POSITIVE_INFINITY);
-				xMax = this.effectivePoints.reduce((val, point) => Math.max(val, point.x), Number.NEGATIVE_INFINITY);
-				yMin = this.effectivePoints.reduce((val, point) => Math.min(val, point.y), Number.POSITIVE_INFINITY);
-				yMax = this.effectivePoints.reduce((val, point) => Math.max(val, point.y), Number.NEGATIVE_INFINITY);
+				xMin = points.reduce((val, point) => Math.min(val, point.x), Number.POSITIVE_INFINITY);
+				xMax = points.reduce((val, point) => Math.max(val, point.x), Number.NEGATIVE_INFINITY);
+				yMin = points.reduce((val, point) => Math.min(val, point.y), Number.POSITIVE_INFINITY);
+				yMax = points.reduce((val, point) => Math.max(val, point.y), Number.NEGATIVE_INFINITY);
 
-				if (this.autoDetectBoundsIncludeZero && this.effectivePoints.length) {
+				if (this.autoDetectBoundsIncludeZero && points.length) {
 					yMin = Math.min(0, yMin);
 					yMax = Math.max(0, yMax);
 				}
@@ -453,10 +482,7 @@ export default {
 
 			this.dataBounds = { xMin, xMax, yMin, yMax };
 
-			xRange = xMax - xMin;
-			yRange = yMax - yMin;
-
-			this.effectivePoints.forEach(point => {
+			points.forEach(point => {
 				normalizedPoints.push({
 					position: this.valueToNormalized(point),
 					raw: point
@@ -479,15 +505,27 @@ export default {
 
 			return normalizedPoints;
 		},
+		// The points a zoom window selects, in x-value space. Shared with endZoom so
+		// a range can't be accepted against one rule and then applied under another.
+		pointsInRange(range) {
+			return this.points.filter(pt => pt.x >= range[0] && pt.x <= range[1]);
+		},
 		getEffectivePoints() {
 			if (!this.zoomRange) {
 				this.effectivePoints = this.points;
 			} else {
-				const zoomedPoints = this.normalizePoints(this.points).filter(pt => pt.position.x >= this.zoomRange[0] && pt.position.x <= this.zoomRange[1]).map(pt => pt.raw);
+				// Re-derives the window from whatever `points` currently holds, which is
+				// why the range is kept in x values. Selecting against normalized
+				// positions instead meant re-cropping the already-cropped set on every
+				// points change, each one narrowing the view further.
+				const zoomedPoints = this.pointsInRange(this.zoomRange);
 				if (zoomedPoints.length < 2) {
-					this.zoomStartPos = null;
-					this.zoomEndPos = null;
-					return;
+					// Not the rejected-selection case - endZoom refuses those before they
+					// are ever committed. Only reachable when the caller swaps in points
+					// that no longer reach this window, where holding the zoom would
+					// leave a blank canvas with no obvious way back out.
+					this.zoomRange = null;
+					this.effectivePoints = this.points;
 				} else {
 					this.effectivePoints = zoomedPoints;
 				}
@@ -525,6 +563,12 @@ export default {
 				this.$refs.canvas.height = this.dim.y = entries[0].contentRect.height;
 			}
 
+			this.draw(true);
+		},
+		// Click-to-reset on the canvas still works and is unchanged; this is the
+		// discoverable version of it.
+		resetZoom() {
+			this.zoomRange = null;
 			this.draw(true);
 		},
 		startZoom(event) {
@@ -594,6 +638,14 @@ export default {
 			return this.normalizedToValue(this.pixelToNormalized(pos));
 		},
 		endZoom(event) {
+			// A release with no matching press on the canvas - the drag began on the
+			// reset button, or off the graph entirely. There is no selection to
+			// resolve, and the distance check below would dereference the missing
+			// start point.
+			if (!this.zoomStartPos) {
+				return;
+			}
+
 			const rect = this.$refs.canvas.getBoundingClientRect();
 			this.zoomEndPos = {
 				x: event.clientX - rect.x,
@@ -602,19 +654,36 @@ export default {
 
 			const distance = pointDistance(this.zoomEndPos, this.zoomStartPos);
 			if (distance < 5) {
-				this.zoomStartPos = null;
-				this.zoomEndPos = null;
 				this.zoomRange = null;
-				this.draw(true);
 			} else {
-				this.zoomRange = [
-					this.pixelToNormalized(this.zoomStartPos).x,
-					this.pixelToNormalized(this.zoomEndPos).x
-				].sort();
-				this.zoomStartPos = null;
-				this.zoomEndPos = null;
-				this.draw(true);
+				// Kept as x VALUES rather than normalized positions. Normalized space is
+				// relative to whatever is on screen, so a range stored in it quietly
+				// means something else as soon as the bounds move: a second zoom would
+				// be applied against the full extent instead of the view it was drawn
+				// on, and a caller swapping its `points` would re-crop what was already
+				// cropped. Values are absolute, so neither can happen.
+				//
+				// Compared numerically - a bare sort() orders lexicographically, which
+				// for values of differing digit counts puts them in the wrong order and
+				// inverts the window.
+				const candidate = [
+					this.pixelToValue(this.zoomStartPos).x,
+					this.pixelToValue(this.zoomEndPos).x
+				].sort((a, b) => a - b);
+
+				// A selection covering fewer than two points has no line to draw, so it
+				// is rejected outright and the current view is left exactly as it was.
+				// Tested before committing rather than after: zoomRange then always
+				// describes what is actually on screen, instead of holding a window the
+				// renderer has to know to ignore.
+				if (this.pointsInRange(candidate).length >= 2) {
+					this.zoomRange = candidate;
+				}
 			}
+
+			this.zoomStartPos = null;
+			this.zoomEndPos = null;
+			this.draw(true);
 		},
 		hovered(event) {
 			const rect = this.$refs.canvas.getBoundingClientRect();
