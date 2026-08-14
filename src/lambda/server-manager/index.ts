@@ -212,6 +212,14 @@ const hNormal = async (event: AuthorizedEvent, context: Context): Promise<APIGat
 		action: "invoke-action",
 		status: "permission-validated",
 		resource: routeKey,
+	});
+
+	// Full event/context dump — only worth the log volume when actively debugging a specific
+	// request. LOG_LEVEL is off by default, so this costs nothing on the hot path.
+	CWLogger.CAction(4, FUNC_NAMES.SERV_MGR, {
+		userId: Parsers.GetUserSub(event),
+		action: "invoke-action-detail",
+		resource: routeKey,
 		details: { context, event },
 	});
 
@@ -223,7 +231,13 @@ const hWorker = async (event: NewWorldRequestData, context: Context): Promise<AP
 		userId: event.requestedBy,
 		action: "invoke-worker",
 		resource: null,
-		details: { context, event }
+	});
+
+	CWLogger.CAction(4, FUNC_NAMES.SERV_MGR, {
+		userId: event.requestedBy,
+		action: "invoke-worker-detail",
+		resource: null,
+		details: { context, event },
 	});
 
 	let creationResult;

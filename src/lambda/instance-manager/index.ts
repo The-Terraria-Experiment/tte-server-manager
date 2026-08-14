@@ -158,7 +158,15 @@ const hNormal = async (event: AuthorizedEvent, context: Context): Promise<APIGat
 		action: "invoke-action",
 		status: "permission validated",
 		resource: routeKey,
-		details: { context, event }
+	});
+
+	// Full event/context dump — only worth the log volume when actively debugging a specific
+	// request. LOG_LEVEL is off by default, so this costs nothing on the hot path.
+	CWLogger.CAction(4, FUNC_NAMES.INST_MGR, {
+		userId: Parsers.GetUserSub(event),
+		action: "invoke-action-detail",
+		resource: routeKey,
+		details: { context, event },
 	});
 
 	return endpointDetails.action(event, context);
@@ -169,7 +177,13 @@ const hWorker = async (event: ShutdownRequestData, context: Context): Promise<AP
 		userId: event.requestedBy,
 		action: "invoke-worker",
 		resource: event.instanceID,
-		details: { event }
+	});
+
+	CWLogger.CAction(4, FUNC_NAMES.INST_MGR, {
+		userId: event.requestedBy,
+		action: "invoke-worker-detail",
+		resource: event.instanceID,
+		details: { event },
 	});
 
 	return shutdownWorker(event, context);
