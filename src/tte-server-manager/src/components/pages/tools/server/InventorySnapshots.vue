@@ -6,7 +6,7 @@
 			:loading="sessionsLoading"
 		>
 			<template #header>
-				<Icon icon="scroll" color="text-gray-6" size="4" />
+				<Icon icon="camera" color="text-gray-6" size="5" />
 				<p class="text-gray-6 ml-2 text-lg">Inventory Snapshots</p>
 			</template>
 			<template #content>
@@ -17,45 +17,47 @@
 							<p v-if="!archiveConfigured" class="font-main text-sm text-gray-6 italic">Not configured</p>
 						</div>
 
-						<p class="font-main text-sm text-gray-6 mb-3">
+						<!-- <p class="font-main text-sm text-gray-6 mb-3">
 							Records every captured inventory to long-term storage, organized by server session and
 							player. Independent of the item rules &mdash; captures are kept whether or not anything
 							is being enforced. Retained for 30 days.
-						</p>
+						</p> -->
 
-						<div class="flex flex-wrap gap-2 items-center">
-							<div
-								class="flex items-center px-2 py-1 rounded-md"
-								:class="canWrite ? 'bg-blue-0 cursor-pointer hover:bg-blue-1' : 'bg-gray-3'"
-								@click="canWrite && (draft.enabled = !draft.enabled)"
-							>
-								<Checkbox class="h-4 w-4" :value="draft.enabled" />
-								<span class="ml-2 font-main font-bold text-white-1">Archive snapshots</span>
+						<div class="flex flex-col sm:flex-row sm:justify-between">
+							<div class="flex flex-wrap gap-2 items-center">
+								<div
+									class="flex items-center px-2 py-1 rounded-md"
+									:class="canWrite ? 'bg-blue-0 cursor-pointer hover:bg-blue-1' : 'bg-gray-3'"
+									@click="canWrite && (draft.enabled = !draft.enabled)"
+								>
+									<Checkbox class="h-4 w-4" :value="draft.enabled" />
+									<span class="ml-2 font-main font-bold text-white-1">Archive snapshots</span>
+								</div>
+								<div
+									v-for="kind in KINDS"
+									:key="kind.id"
+									class="flex items-center px-2 py-1 rounded-md"
+									:class="canWrite && draft.enabled ? 'bg-blue-0 cursor-pointer hover:bg-blue-1' : 'bg-gray-3'"
+									@click="canWrite && draft.enabled && toggleKind(kind.id)"
+								>
+									<Checkbox class="h-4 w-4" :value="draft.kinds.includes(kind.id)" :disabled="!(canWrite && draft.enabled)" />
+									<span class="ml-2 font-main font-bold text-white-1">{{ kind.label }}</span>
+								</div>
 							</div>
-							<div
-								v-for="kind in KINDS"
-								:key="kind.id"
-								class="flex items-center px-2 py-1 rounded-md"
-								:class="canWrite && draft.enabled ? 'bg-blue-0 cursor-pointer hover:bg-blue-1' : 'bg-gray-3'"
-								@click="canWrite && draft.enabled && toggleKind(kind.id)"
+
+							<FlexButton
+								v-if="canWrite"
+								class="h-max mt-4 sm:mt-0"
+								:variant="BTN_VARIANT.SECONDARY"
+								leftIcon="checkmark"
+								leftIconSize="4"
+								:disabled="savingArchive || !archiveDirty"
+								:loading="savingArchive"
+								@input="saveArchive"
 							>
-								<Checkbox class="h-4 w-4" :value="draft.kinds.includes(kind.id)" />
-								<span class="ml-2 font-main font-bold text-white-1">{{ kind.label }}</span>
-							</div>
+								SAVE
+							</FlexButton>
 						</div>
-
-						<FlexButton
-							v-if="canWrite"
-							class="mt-3"
-							:variant="BTN_VARIANT.SECONDARY"
-							leftIcon="checkmark"
-							leftIconSize="4"
-							:disabled="savingArchive || !archiveDirty"
-							:loading="savingArchive"
-							@input="saveArchive"
-						>
-							SAVE
-						</FlexButton>
 					</div>
 
 					<div class="bg-gray-1 px-4 pb-4 pt-2 rounded-md mt-4">
@@ -112,13 +114,13 @@
 			:open="popupOpen"
 			@xClicked="popupOpen = false"
 		>
-			<div class="px-4 pb-4 flex gap-3 h-full min-h-0">
+			<div class="p-2 contents sm:flex flex-col sm:flex-row gap-2 h-full min-h-0">
 				<!--
 					Players and their captures share one scrolling column. Both lists are short, and the
 					grid beside them needs every pixel it can get -- 350 slots at 34px is not negotiable.
 				-->
-				<div class="w-72 shrink-0 flex flex-col gap-3 min-h-0">
-					<div class="bg-gray-4 rounded-xl p-2 flex flex-col min-h-0">
+				<div class="w-full sm:w-72 shrink-0 flex flex-col gap-2 min-h-0 p-2 sm:p-0">
+					<div class="bg-gray-2 border border-gray-5 rounded-xl p-2 flex flex-col min-h-0 max-h-1/4 sm:max-h-full">
 						<p class="font-main font-bold text-gray-6 mb-2">PLAYERS</p>
 						<p v-if="sessionMeta?.worldFilePath" class="font-main text-xs text-gray-7 mb-2 break-all">
 							{{ sessionMeta.worldFilePath.split('/').pop() }}
@@ -126,7 +128,7 @@
 						<p v-if="!playersLoading && !players.length" class="font-main text-gray-7 italic text-sm">
 							No captures in this session.
 						</p>
-						<div class="overflow-auto min-h-0">
+						<div class="overflow-auto min-h-0 max-h-24 sm:max-h-full">
 							<div
 								v-for="player in players"
 								:key="player"
@@ -139,9 +141,9 @@
 						</div>
 					</div>
 
-					<div v-if="selectedPlayer" class="bg-gray-4 rounded-xl p-2 flex flex-col grow min-h-0">
+					<div v-if="selectedPlayer" class="bg-gray-2 border border-gray-5 rounded-xl p-2 flex flex-col grow min-h-0 max-h-1/4 overflow-y-auto sm:max-h-full">
 						<p class="font-main font-bold text-gray-6 mb-2">CAPTURES</p>
-						<div class="overflow-auto min-h-0">
+						<div class="overflow-auto min-h-0 max-h-24 sm:max-h-full">
 							<div
 								v-for="capture in captures"
 								:key="capture.snapshotId"
@@ -159,12 +161,12 @@
 					</div>
 				</div>
 
-				<div class="grow overflow-auto min-h-0">
+				<div class="grow overflow-auto min-h-0 px-2 pb-2 sm:p-0">
 					<InventoryGrid :inventory="snapshot?.player ?? null" :flagged-slots="flaggedSlots">
 						<template #header>
 							<div class="flex items-center justify-between mb-2">
-								<div class="flex items-center">
-									<Icon icon="gamepad" color="text-gray-6" size="5" />
+								<div :class="['flex items-center']">
+									<Icon v-if="selectedPlayer" icon="user" color="text-gray-6" size="4" />
 									<p class="font-main font-bold text-gray-6 ml-2">
 										{{ selectedPlayer ? selectedPlayer.toUpperCase() : 'SNAPSHOT' }}
 									</p>
@@ -193,8 +195,7 @@
 									rules in force at capture time.
 								</p>
 								<p v-if="snapshot.stale" class="font-main text-orange-4 px-1 py-2 text-sm italic">
-									Server-side characters were off, so this is last-known client state rather than an
-									authoritative record.
+									SSC was disabled, so the state displayed is what was last synced with the server at capture time and may possibly be incorrect
 								</p>
 							</template>
 						</template>

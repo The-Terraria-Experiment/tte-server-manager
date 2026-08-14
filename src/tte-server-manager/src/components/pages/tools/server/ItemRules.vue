@@ -6,7 +6,7 @@
 		collapsible
 	>
 		<template #header>
-			<Icon :icon="flaggedCount ? 'warning' : 'gavel'" :color="flaggedCount ? 'text-yellow-2' : 'text-gray-6'" size="4" />
+			<Icon :icon="flaggedCount ? 'warning' : 'gavel'" :color="flaggedCount ? 'text-yellow-2' : 'text-gray-6'" size="5" />
 			<p class="ml-2 text-lg" :class="flaggedCount ? 'text-yellow-2' : 'text-gray-6'">Item Rules</p>
 		</template>
 		<template #summary>
@@ -73,7 +73,7 @@
 										:title="`Dismiss the flag on ${violation.player}`"
 										@click="onDismiss(violation.player)"
 									>
-										<Icon icon="checkmark" color="text-gray-7" size="3" />
+										<Icon icon="xmark" color="text-gray-7" size="3" />
 									</button>
 								</div>
 							</div>
@@ -142,7 +142,7 @@
 					</FlexButton>
 					<FlexButton
 						v-if="$checkPermissions(PERMISSIONS.server.player.inventory.violations.read)"
-						:variant="BTN_VARIANT.SUBTLE"
+						:variant="BTN_VARIANT.SECONDARY"
 						leftIcon="sync"
 						:loading="scanning"
 						@input="onScan"
@@ -156,19 +156,21 @@
 					prompt requires one, and an AudioContext created outside one starts suspended and stays
 					silent. Enabling from this click is what licenses both.
 				-->
-				<div v-if="$checkPermissions(PERMISSIONS.server.player.inventory.violations.read)" class="mt-4 flex items-start">
-					<Checkbox :modelValue="notificationsOn" @update:modelValue="onToggleNotifications" />
-					<div class="ml-2">
-						<p class="font-main font-semibold text-sm text-white-0">Notify me about violations</p>
-						<p class="font-mono text-xs text-gray-7">
-							Plays a sound and raises a desktop notification when someone joins this server with a
-							flagged item. Applies to this browser only.
-						</p>
-						<p v-if="notificationsOn && permissionState === 'denied'" class="font-mono text-xs text-yellow-2 mt-1">
-							This browser is blocking notifications — the sound will still play. Allow notifications
-							for this site in your browser settings to see them.
-						</p>
+				<div v-if="$checkPermissions(PERMISSIONS.server.player.inventory.violations.read)" class="mt-4 grid collapsed-grid-cols w-max">
+					<div>
+						<Checkbox :modelValue="notificationsOn" @update:modelValue="onToggleNotifications" class="mr-2" />
 					</div>
+					<p class="font-main font-semibold text-sm text-white-0 cursor-pointer mt-0.5" @click="onToggleNotifications(!notificationsOn)">Notify me about violations</p>
+					<div></div>
+					<p class="font-mono text-xs text-gray-7">
+						Plays a sound and sends a desktop notification when someone joins this server with a
+						flagged item. Applies to this browser only.
+					</p>
+					
+					<p v-if="notificationsOn && permissionState === 'denied'" class="font-mono text-xs text-yellow-2 mt-1">
+						This browser is blocking notifications — the sound will still play. Allow notifications
+						for this site in your browser settings to see them.
+					</p>
 				</div>
 			</div>
 		</template>
@@ -397,5 +399,7 @@ export default {
 </script>
 
 <style scoped>
-
+.collapsed-grid-cols {
+	grid-template-columns: repeat(2, minmax(0, auto));
+}
 </style>

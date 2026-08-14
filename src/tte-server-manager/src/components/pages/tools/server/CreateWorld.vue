@@ -36,9 +36,9 @@
 			</template>
 			<template #content v-else>
 				<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
-				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3 gap-4 mx-4">
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">World Size</p>
+				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3 gap-2 mx-4">
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">World Size</p>
 						<Dropdown
 							inputClass="bg-teal-3 text-white-1"
 							iconColor="text-white-1"
@@ -46,8 +46,8 @@
 							v-model="newWorldData.size"
 						/>
 					</div>
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">World Evil</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">World Evil</p>
 						<Dropdown
 							inputClass="bg-teal-3 text-white-1"
 							iconColor="text-white-1"
@@ -55,8 +55,8 @@
 							v-model="newWorldData.evil"
 						/>
 					</div>
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Difficulty</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">Difficulty</p>
 						<Dropdown
 							inputClass="bg-teal-3 text-white-1"
 							iconColor="text-white-1"
@@ -64,15 +64,15 @@
 							v-model="newWorldData.difficulty"
 						/>
 					</div>
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">World Name</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">World Name</p>
 						<ValueInput
 							placeholder="World name"
 							v-model="newWorldData.name"
 						/>
 					</div>
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">World File Location</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">World File Location</p>
 						<Dropdown
 							inputClass="bg-teal-3 text-white-1"
 							iconColor="text-white-1"
@@ -80,16 +80,16 @@
 							v-model="newWorldData.worldFileLocation"
 						/>
 					</div>
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">World Seed</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">World Seed</p>
 						<ValueInput
 							placeholder="Seed value"
 							maxlength="50"
 							v-model="newWorldData.seed"
 						/>
 					</div>
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">Max Players</p>
 						<ValueInput
 							type="number"
 							max="500"
@@ -98,8 +98,8 @@
 							v-model="newWorldData.maxPlayers"
 						/>
 					</div>
-					<div class="bg-gray-5 rounded-lg p-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">Password</p>
 						<ValueInput
 							maxlength="25"
 							placeholder="Leave blank to use config file"

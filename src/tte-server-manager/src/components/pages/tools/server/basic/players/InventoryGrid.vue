@@ -1,6 +1,6 @@
 <template>
-	<div class="h-full w-full flex flex-col gap-3 min-w-0">
-		<div class="p-2 bg-gray-4 rounded-xl">
+	<div class="h-full w-full flex flex-col gap-2 min-w-0">
+		<div class="p-2 bg-gray-2 rounded-xl border border-gray-5">
 			<slot name="header" />
 			<slot name="status" />
 
@@ -25,9 +25,9 @@
 
 				<!-- Core: the arrangement the player actually sees in game. -->
 				<div class="flex flex-wrap gap-4 px-1 pb-1">
-					<div>
+					<div class="max-w-full">
 						<p class="font-main text-xs text-gray-7 mb-1">MAIN</p>
-						<div class="flex flex-col gap-1">
+						<div class="flex flex-col gap-1 max-w-full overflow-x-auto">
 							<div v-for="row in 5" :key="`main-${row}`" class="flex gap-1">
 								<InventorySlot
 									v-for="col in 10"
@@ -38,7 +38,7 @@
 							</div>
 						</div>
 
-						<div class="flex gap-4 mt-2">
+						<div class="flex gap-4 mt-2 max-w-full overflow-x-auto">
 							<div>
 								<p class="font-main text-xs text-gray-7 mb-1">COINS</p>
 								<div class="flex gap-1">
@@ -63,7 +63,7 @@
 						counterpart, its dye. The Armor container packs those as 0-9 worn (helm, chest,
 						legs, then 7 accessories) and 10-19 vanity, so a row is [i, i+10] plus dye i.
 					-->
-					<div>
+					<div class="max-w-full overflow-x-auto">
 						<p class="font-main text-xs text-gray-7 mb-1">EQUIPPED / VANITY / DYE</p>
 						<div class="flex flex-col gap-1">
 							<div v-for="i in 10" :key="`eq-${i}`" class="flex gap-1">
@@ -93,7 +93,7 @@
 			interesting one still announces itself without being expanded.
 		-->
 		<template v-if="inventory">
-			<div v-for="section in sections" :key="section.name" class="bg-gray-4 rounded-xl">
+			<div v-for="section in sections" :key="section.name" class="bg-gray-2 rounded-xl border border-gray-5">
 				<div
 					class="flex items-center p-2 cursor-pointer select-none"
 					@click="toggle(section.name)"
@@ -112,9 +112,9 @@
 				</div>
 
 				<div v-if="open[section.name]" class="flex flex-wrap gap-4 px-3 pb-3">
-					<div v-for="group in section.groups" :key="group.title">
+					<div v-for="group in section.groups" :key="group.title" class="max-w-full">
 						<p class="font-main text-xs text-gray-7 mb-1">{{ group.title }}</p>
-						<div class="flex flex-col gap-1">
+						<div class="flex flex-col gap-1 max-w-full overflow-x-auto">
 							<div v-for="row in group.rows" :key="`${group.title}-${row}`" class="flex gap-1">
 								<InventorySlot
 									v-for="col in Math.min(group.columns, group.size - (row - 1) * group.columns)"

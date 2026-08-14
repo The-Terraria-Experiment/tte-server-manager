@@ -17,7 +17,7 @@
 			-->
 			<div v-if="!disabled" class="mb-4 pb-4 border-b border-gray-5">
 				<p class="font-bold mb-1">Preset</p>
-				<div class="flex items-end gap-2">
+				<div class="flex flex-wrap sm:flex-nowrap items-end gap-2">
 					<div class="grow min-w-0">
 						<Dropdown
 							v-model="selectedPresetId"
@@ -38,28 +38,17 @@
 						LOAD
 					</FlexButton>
 					<div
-						v-if="selectedPresetId && !confirmingDelete"
-						class="cursor-pointer shrink-0 pb-2"
+						v-if="selectedPresetId"
+						class="cursor-pointer shrink-0 self-center"
 						@click="confirmingDelete = true"
 					>
 						<Icon icon="trash-can" size="4" color="text-gray-7" />
 					</div>
 				</div>
 
-				<p v-if="!presetOptions.length && !presetsStore.loading" class="font-mono text-xs text-gray-7 mt-1">
+				<p v-if="!presetOptions.length && !presetsStore.loading" class="font-mono text-xs text-gray-7 mt-1 ml-2">
 					No presets saved yet. Build a list below, then use SAVE AS PRESET to reuse it on other servers.
 				</p>
-
-				<!-- Inline rather than a nested Popup, which would stack a modal on a modal. -->
-				<div v-if="confirmingDelete" class="mt-2 flex items-center gap-2 flex-wrap">
-					<p class="font-mono text-xs text-yellow-2 grow">
-						Delete preset “{{ selectedPresetName }}”? Servers that already loaded it keep their rules.
-					</p>
-					<FlexButton :variant="BTN_VARIANT.SECONDARY" @input="confirmingDelete = false">CANCEL</FlexButton>
-					<FlexButton :variant="BTN_VARIANT.DANGER" :disabled="deletingPreset" @input="onDeletePreset">
-						<p class="font-main font-bold py-2 px-4">DELETE</p>
-					</FlexButton>
-				</div>
 
 				<div v-if="namingPreset" class="mt-2">
 					<div class="flex items-end gap-2">
@@ -93,15 +82,15 @@
 				</div>
 			</div>
 
-			<div class="flex items-start mb-4">
-				<Checkbox v-model="draft.enabled" :disabled="disabled" />
-				<div class="ml-2">
-					<p class="font-main font-semibold text-white-0">Check joining players against this list</p>
-					<p class="font-mono text-xs text-gray-7">
-						Players are checked when they join. Nothing is ever removed from an inventory — violations
-						are reported here and on the player.
-					</p>
+			<div class="grid collapsed-grid-cols mb-4 w-max">
+				<div>
+					<Checkbox v-model="draft.enabled" :disabled="disabled" class="mr-2" />
 				</div>
+				<p class="font-main font-semibold text-white-0 cursor-pointer" @click="!disabled && (draft.enabled = !draft.enabled)">Enable this ruleset</p>
+				<div></div>
+				<p class="font-mono text-xs text-gray-7">
+					Players are checked when they join. Items are not removed automatically.
+				</p>
 			</div>
 
 			<!--
@@ -111,26 +100,27 @@
 			-->
 			<div class="mb-4">
 				<p class="font-bold mb-1">When someone breaks the rules</p>
-				<div class="flex items-start">
-					<Checkbox v-model="draft.enforcement.kick" :disabled="disabled" />
-					<div class="ml-2">
-						<p class="font-main font-semibold text-white-0">Kick them automatically</p>
-						<p class="font-mono text-xs" :class="draft.enforcement.kick ? 'text-yellow-2' : 'text-gray-7'">
-							{{ kickHint }}
-						</p>
+				<div class="grid collapsed-grid-cols w-max">
+					<div>
+						<Checkbox v-model="draft.enforcement.kick" :disabled="disabled" class="mr-2" />
 					</div>
+					<p class="font-main font-semibold text-white-0 cursor-pointer" @click="!disabled && (draft.enforcement.kick = !draft.enforcement.kick)">Kick them automatically</p>
+					<div></div>
+					<p class="font-mono text-xs" :class="draft.enforcement.kick ? 'text-yellow-2' : 'text-gray-7'">
+						{{ kickHint }}
+					</p>
 				</div>
 
 				<div v-if="draft.enforcement.kick" class="mt-2">
-					<p class="font-mono text-xs text-gray-7 mb-1">Message shown to the player</p>
+					<p class="font-mono text-xs text-gray-7 mb-1">Kick message shown to the player:</p>
 					<ValueInput
 						:placeholder="DEFAULT_KICK_REASON"
 						v-model="draft.enforcement.kickReason"
 						:disabled="disabled"
+						class="w-full"
 					/>
 					<p class="font-mono text-xs text-gray-7 mt-1">
-						The flagged item names are added to this automatically — a player who isn't told what
-						tripped it just rejoins with the same inventory.
+						Flagged item names are added to this message automatically.
 					</p>
 				</div>
 			</div>
@@ -151,19 +141,24 @@
 
 			<div class="mb-4">
 				<p class="font-bold mb-1">Where to look</p>
-				<div class="flex flex-wrap gap-4">
+				<div class="flex flex-col sm:flex-row flex-wrap gap-x-4 gap-y-2 sm:gap-y-4">
 					<div v-for="group in GROUPS" :key="group.id" class="flex items-center">
 						<Checkbox
 							:modelValue="draft.groups.includes(group.id)"
 							:disabled="disabled"
 							@update:modelValue="toggleGroup(group.id, $event)"
 						/>
-						<p class="ml-2 font-main text-sm text-white-0">{{ group.label }}</p>
+						<p 
+							class="ml-2 font-main text-sm text-white-0 cursor-pointer" 
+							@click="!disabled && toggleGroup(group.id, !draft.groups.includes(group.id))"
+						>
+							{{ group.label }}
+						</p>
 					</div>
 				</div>
-				<p class="font-mono text-xs text-gray-7 mt-1">
+				<!-- <p class="font-mono text-xs text-gray-7 mt-1">
 					Narrowing this makes each check cheaper, since the server only reports the containers asked for.
-				</p>
+				</p> -->
 			</div>
 
 			<div v-if="!disabled" class="mb-4">
@@ -180,8 +175,7 @@
 					v-model="searchQuery"
 				/>
 				<p v-else class="font-mono text-xs text-yellow-2 mb-1">
-					No item-name list published for this sprite version — add by ID below. See
-					src/sprite-tools/README.md to publish one.
+					No item-name list has been published for this sprite version — add by ID below.
 				</p>
 
 				<div v-if="searchResults.length" class="mt-2 max-h-64 overflow-y-auto rounded-lg border border-gray-5">
@@ -225,7 +219,7 @@
 				<span class="font-mono text-sm text-gray-7">({{ draft.entries.length }})</span>
 			</p>
 			<p v-if="!draft.entries.length" class="font-mono text-sm text-gray-8 mb-4">
-				Nothing listed yet. An empty list is never enforced, whichever mode is selected.
+				Nothing listed yet. An empty list is not enforced.
 			</p>
 			<div class="flex flex-wrap gap-2">
 				<div
@@ -243,6 +237,25 @@
 					</div>
 				</div>
 			</div>
+		</div>
+	</Popup>
+
+	<Popup
+		body-class="h-1/3 w-11/12 sm:w-1/2 lg:w-1/4"
+		header-text="CONFIRM"
+		layer="1"
+		:open="confirmingDelete"
+		:x-disabled="deletingPreset"
+		:close-when-bg-clicked="!deletingPreset"
+		@x-clicked="confirmingDelete = false"
+		:buttons="[
+			{ variant: BTN_VARIANT.SECONDARY, text: 'CANCEL', onClick: () => { confirmingDelete = false }, disabled: deletingPreset },
+			{ variant: BTN_VARIANT.DANGER, text: 'DELETE', onClick: onDeletePreset, loading: deletingPreset },
+		]"
+	>
+		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
+			<p class="text-white-0 py-2">Delete preset “{{ selectedPresetName }}”?</p>
+			<p class="font-mono text-xs text-yellow-2 py-2">Servers that already loaded it keep their rules.</p>
 		</div>
 	</Popup>
 </template>
@@ -407,19 +420,19 @@ export default {
 		 */
 		kickHint() {
 			if (!this.draft.enforcement.kick) {
-				return "Violations are reported here and left for a moderator to act on.";
+				return "Violations are reported here and left for a moderator to handle.";
 			}
 			if (!this.draft.enabled) {
 				return "Nobody will be kicked until the check above is turned on.";
 			}
 			if (this.draft.mode === 'whitelist') {
-				return "Whitelist mode flags everything not on the list — with this on, anyone carrying an unlisted item is removed a few seconds after joining.";
+				return "Be careful - whitelist mode flags EVERYTHING not on the list, and will kick any offending players.";
 			}
 			return "Players carrying a listed item are removed a few seconds after joining, and still flagged here.";
 		},
 		modeHint() {
 			return this.draft.mode === "whitelist"
-				? "Every item a player carries that is not on this list will be flagged. On a normal survival server that is most of what anyone holds."
+				? "Every item a player carries that is not on this list will be flagged."
 				: "Only the items on this list will be flagged.";
 		},
 		popupButtons() {
@@ -702,5 +715,8 @@ export default {
 </script>
 
 <style scoped>
-
+.collapsed-grid-cols {
+	grid-template-columns: repeat(2, minmax(0, auto));
+	@apply max-w-full;
+}
 </style>

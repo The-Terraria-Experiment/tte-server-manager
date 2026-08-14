@@ -54,8 +54,17 @@ export default {
 	},
 	methods: {
 		input(e) {
+			// `change` fires only after the browser has already flipped `checked` natively --
+			// undo that immediately and unconditionally, synchronously, before deciding anything
+			// else. This can't be left for a later re-render to fix: Vue only repatches `checked`
+			// when the bound prop itself changes, and if the emit below goes unheeded -- a caller
+			// forgot `:disabled`, or a guard elsewhere blocked the mutation -- nothing reactive
+			// changes here at all, so no re-render would ever come along to correct it. Forcing the
+			// DOM back to the true value ourselves, right here, is what makes a native toggle nobody
+			// agreed to impossible to see, even for a single frame.
+			e.target.checked = this.isChecked;
 			if (this.disabled) return;
-			const next = e.target.checked;
+			const next = !this.isChecked;
 			this.$emit('input', next);
 			this.$emit('update:modelValue', next);
 		}

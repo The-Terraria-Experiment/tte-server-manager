@@ -2,9 +2,9 @@
 	<InventoryGrid :inventory="inventory" :flagged-slots="flaggedSlots" :slot-size="slotSize">
 		<template #header>
 			<div class="flex items-center justify-between mb-2">
-				<div class="flex items-center">
-					<Icon icon="gamepad" color="text-gray-6" size="5" />
-					<p class="font-main font-bold text-gray-6 ml-2">INVENTORY</p>
+				<div class="flex items-center self-start mx-2 my-1">
+					<!-- <Icon icon="gamepad" color="text-gray-6" size="5" class="mr-2" /> -->
+					<p class="font-main font-bold text-gray-6">INVENTORY</p>
 				</div>
 				<RefreshButton v-if="canRead && !playerLeft" :loading="loading" @input="loadInventory" />
 			</div>

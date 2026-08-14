@@ -43,11 +43,11 @@
 		@x-clicked="closeManagePlayerPopup"
 	>
 		<div class="p-2">
-			<div class="font-main font-bold p-2 bg-gray-4 rounded-xl pl-3 mb-4">
+			<div class="font-main font-bold p-2 bg-gray-2 border border-gray-5 rounded-xl pl-3 mb-2">
 				<span class="italic text-gray-7 mr-2">Player:</span>
 				<span class="text-teal-5">{{ selectedPlayer.nickname }}</span>
 			</div>
-			<div class="flex flex-col sm:flex-row gap-4">
+			<div class="flex flex-col sm:flex-row gap-2">
 				<!-- Management actions keep a fixed column; the inventory takes the rest and scrolls. -->
 				<div :class="[$checkPermissions(PERMISSIONS.server.player.inventory.read) ? 'sm:w-80 shrink-0' : 'w-full']">
 					<ManagePlayer :selected-player="selectedPlayer" @refresh="refreshRoster" />

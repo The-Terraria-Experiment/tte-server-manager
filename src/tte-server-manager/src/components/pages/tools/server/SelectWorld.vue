@@ -43,7 +43,7 @@
 
 			<template v-if="canLaunch">
 				<p class="font-main font-bold text-gray-7 px-5">WORLD OPTIONS</p>
-				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3">
+				<div class="mb-4 mt-1 rounded-lg flex flex-col sm:grid grid-cols-3 gap-2 px-4">
 					<!-- <div class="bg-gray-5 rounded-lg p-4 flex flex-col">
 						<p class="font-mono font-semibold text-teal-6 mb-2">Port</p>
 						<ValueInput
@@ -55,8 +55,8 @@
 						/>
 					</div> -->
 
-					<div class="bg-gray-5 rounded-lg p-4 my-0 mx-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Max Players</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 my-0 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">Max Players</p>
 						<ValueInput
 							type="number"
 							max="500"
@@ -66,8 +66,8 @@
 						/>
 					</div>
 
-					<div class="bg-gray-5 rounded-lg p-4 my-0 mx-4 flex flex-col">
-						<p class="font-mono font-semibold text-teal-6 mb-2">Password</p>
+					<div class="bg-gray-2 border border-gray-5 rounded-lg p-4 my-0 flex flex-col">
+						<p class="font-mono font-semibold text-teal-4 mb-2">Password</p>
 						<ValueInput
 							maxlength="25"
 							placeholder="Leave blank to use config file"
