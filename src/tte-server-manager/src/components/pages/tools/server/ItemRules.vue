@@ -43,7 +43,22 @@
 							class="rounded-lg border border-yellow-2 bg-gray-4 p-3 w-full sm:w-72"
 						>
 							<div class="flex items-center justify-between">
-								<p class="font-main font-bold text-yellow-2 break-all">{{ violation.player }}</p>
+								<div class="flex items-center min-w-0">
+									<p class="font-main font-bold text-yellow-2 break-all">{{ violation.player }}</p>
+									<!--
+										Only shown when auto-kick actually ran for this violation. A failed kick is
+										the case worth drawing attention to: the player was judged, was supposed to
+										be removed, and as far as we know is still on the server.
+									-->
+									<p
+										v-if="violation.kick"
+										class="ml-2 shrink-0 font-mono text-xs rounded px-1"
+										:class="violation.kick.ok ? 'bg-gray-5 text-gray-7' : 'bg-red-3 text-white-0'"
+										:title="violation.kick.ok ? 'Kicked automatically' : `Auto-kick failed: ${violation.kick.error || 'unknown error'}`"
+									>
+										{{ violation.kick.ok ? 'KICKED' : 'KICK FAILED' }}
+									</p>
+								</div>
 								<div class="flex items-center ml-2 shrink-0">
 									<p class="font-mono text-xs text-gray-7">{{ relativeTime(violation.at) }}</p>
 									<!--
@@ -97,6 +112,13 @@
 						·
 						Status:
 						<span :class="rules?.enabled ? 'text-teal-4' : 'text-gray-8'">{{ rules?.enabled ? 'enabled' : 'disabled' }}</span>
+						·
+						Auto-kick:
+						<!--
+							Off is the ordinary state and reads as such; on is worth calling out, because it means
+							this server removes people without anyone pressing anything.
+						-->
+						<span :class="autoKickOn ? 'text-yellow-2' : 'text-gray-8'">{{ autoKickOn ? 'on' : 'off' }}</span>
 					</p>
 					<p v-if="canReadRules && !rules?.configured" class="text-gray-8 mt-1">
 						No rules configured for this server — values shown are defaults.
@@ -104,7 +126,7 @@
 					<p v-if="meta?.lastScanAt" class="mt-1">
 						Last checked <span class="text-white-0">{{ relativeTime(meta.lastScanAt) }}</span>
 						<span v-if="meta.lastScanStatus && meta.lastScanStatus !== 'ok'" class="text-yellow-2">
-							({{ meta.lastScanStatus }})
+							({{ scanStatusText(meta.lastScanStatus) }})
 						</span>
 					</p>
 				</div>
@@ -211,6 +233,14 @@ export default {
 		scanning() {
 			return this.serverStore.isScanningItems(this.instanceID);
 		},
+		/**
+		 * Mirrors `isAutoKickActive` on the backend: the switch alone isn't enough, since a list that
+		 * isn't being enforced is never evaluated and so can never produce a kick. Reporting "on" for
+		 * that combination would claim the server is ejecting people when it isn't.
+		 */
+		autoKickOn() {
+			return Boolean(this.rules?.enforcement?.kick && this.rules?.enabled && this.rules?.entries?.length);
+		},
 		canDismiss() {
 			return this.$checkPermissions(PERMISSIONS.server.player.inventory.violations.write);
 		},
@@ -235,6 +265,16 @@ export default {
 		},
 	},
 	methods: {
+		/**
+		 * The scan writes machine-readable statuses; only the ones an operator can act on are worth
+		 * spelling out. Anything else falls through verbatim rather than being hidden — a status this
+		 * doesn't know about is still a signal.
+		 */
+		scanStatusText(status) {
+			if (status === 'kick-unreachable') return "server unreachable — auto-kick not delivered";
+			if (status === 'truncated') return "truncated — more snapshots pending";
+			return status;
+		},
 		relativeTime(timestamp) {
 			if (!timestamp) return 'never';
 

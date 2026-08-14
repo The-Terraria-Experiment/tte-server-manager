@@ -348,9 +348,15 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 				const itemCount = violation.itemCount ?? violation.items?.length ?? 0;
 				const first = violation.items?.[0]?.name;
 
+				// Whether auto-kick dealt with it changes what this notification is *for*: a successful
+				// kick is a report, a failed one is a request to go and do it by hand.
+				let outcome = "";
+				if (violation.kick?.ok) outcome = " They were kicked.";
+				else if (violation.kick) outcome = " Auto-kick failed — they may still be on the server.";
+
 				notifyViolation({
 					title: "Item rule violation",
-					body: `${player} joined with ${itemCount} flagged item${itemCount === 1 ? "" : "s"}${first ? ` (${first}${itemCount > 1 ? ", …" : ""})` : ""}.`,
+					body: `${player} joined with ${itemCount} flagged item${itemCount === 1 ? "" : "s"}${first ? ` (${first}${itemCount > 1 ? ", …" : ""})` : ""}.${outcome}`,
 					// One notification per player rather than one per rescan of the same offence.
 					tag: `violation:${instanceId}:${player}`,
 				});

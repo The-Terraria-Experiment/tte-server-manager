@@ -9,8 +9,8 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { itemRulesKey, readItemRules } from "../shared/utils/jobs/ItemRuleScan.js";
 // Shared with the preset writer in `system-manager` so the two can't drift — see ItemRuleShape.ts.
-import { normalizeEntries, normalizeGroups, normalizeMode } from "../shared/utils/jobs/ItemRuleShape.js";
-import type { ItemRuleEntry, ItemRulesEntry } from "../shared/schema/SystemTable.js";
+import { normalizeEnforcement, normalizeEntries, normalizeGroups, normalizeMode } from "../shared/utils/jobs/ItemRuleShape.js";
+import type { ItemEnforcementConfig, ItemRuleEntry, ItemRulesEntry } from "../shared/schema/SystemTable.js";
 
 export const putItemRules = async (event: AuthorizedEvent, context: Context): Promise<APIGatewayProxyResult> => {
 	void context;
@@ -30,10 +30,16 @@ export const putItemRules = async (event: AuthorizedEvent, context: Context): Pr
 	let mode: "whitelist" | "blacklist";
 	let entries: ItemRuleEntry[];
 	let groups: string[];
+	let enforcement: ItemEnforcementConfig;
 	try {
 		mode = normalizeMode(body.mode);
 		entries = normalizeEntries(body.entries ?? []);
 		groups = normalizeGroups(body.groups);
+		// Saved with the list rather than through an endpoint of its own: the consequence of breaking a
+		// rule is part of the rule from the operator's side, and both are `rules.write`. That is the
+		// opposite call from `archive`, which is switched independently of the ruleset and therefore has
+		// its own permission and its own writer.
+		enforcement = normalizeEnforcement(body.enforcement);
 	} catch (e: any) {
 		return ResponseUtil.ValidationError(e?.message ?? "Invalid rules payload");
 	}
@@ -48,6 +54,7 @@ export const putItemRules = async (event: AuthorizedEvent, context: Context): Pr
 		enabled: Boolean(body.enabled),
 		groups,
 		entries,
+		enforcement,
 		updatedBy: userID ?? "unknown",
 		updatedAt: now,
 		...(existing?.createdAt ? {} : { createdAt: now }),
@@ -71,6 +78,9 @@ export const putItemRules = async (event: AuthorizedEvent, context: Context): Pr
 			enabled: updates.enabled,
 			groups,
 			entryCount: entries.length,
+			// Arming automated moderation is the part of this write that acts on players by itself, so it
+			// is named in the audit line rather than left inside the payload.
+			autoKick: Boolean(enforcement.kick),
 		},
 	});
 

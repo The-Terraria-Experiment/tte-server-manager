@@ -502,6 +502,9 @@ export const useServerStore = defineStore("serverstore", {
 				mode: rules.mode,
 				groups: rules.groups,
 				entries: rules.entries,
+				// Sent with the list rather than through a call of its own: same permission, same form, and
+				// the consequence of a rule is part of the rule. Contrast saveArchiveSettings below.
+				enforcement: rules.enforcement,
 			});
 			this.itemRules[instanceId] = { ...data.rules, configured: true };
 			return this.itemRules[instanceId];

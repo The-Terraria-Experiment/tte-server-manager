@@ -208,6 +208,16 @@ export type ItemRulesEntry = {
 	 * join and leave — stays at exactly one `GetItem`.
 	 */
 	archive?: ItemArchiveConfig,
+	/**
+	 * What happens to a player who breaks the rules, beyond being flagged. Absent means the original
+	 * behaviour: report the violation and leave it to a moderator.
+	 *
+	 * Written by `putItemRules` alongside the list itself, because the consequence of a rule is part of
+	 * the rule as far as an operator is concerned. Deliberately *not* part of a preset, for the same
+	 * reason `enabled` and `archive` aren't: loading a saved list must not arm or disarm automated
+	 * moderation underneath a running server.
+	 */
+	enforcement?: ItemEnforcementConfig,
 	updatedBy?: string,
 	createdAt?: string,
 	updatedAt?: string,
@@ -217,6 +227,19 @@ export type ItemRulesEntry = {
 export type ItemArchiveConfig = {
 	enabled?: boolean,
 	kinds?: string[],
+};
+
+/**
+ * Automated response to a violation.
+ *
+ * Gated by `hasActiveRules` as well as its own switch — enforcement with nothing to enforce is not a
+ * state that can do anything, and an empty list is never evaluated in the first place.
+ */
+export type ItemEnforcementConfig = {
+	/** Kick the player on the join that tripped the rules. */
+	kick?: boolean,
+	/** Shown to the kicked player. The offending item names are appended to it; see `buildKickReason`. */
+	kickReason?: string,
 };
 
 /**
@@ -293,6 +316,22 @@ export type PlayerViolation = {
 	/** Total offending items *before* the cap. */
 	itemCount: number,
 	truncated?: boolean,
+	/**
+	 * What auto-kick did about *this* violation, when it was armed. Absent means no automated action
+	 * was attempted — either the switch is off, or this flag predates it.
+	 *
+	 * Recorded whether the kick succeeded or not, because a failure is the thing an operator most needs
+	 * to know: it means the player is flagged, was supposed to be removed, and wasn't.
+	 */
+	kick?: ViolationKickResult,
+};
+
+/** The outcome of one automated kick, stored on the violation that caused it. */
+export type ViolationKickResult = {
+	at: number,
+	ok: boolean,
+	/** Present only on a failure — TShock's message, or why the attempt was skipped. */
+	error?: string,
 };
 
 /**

@@ -46,10 +46,11 @@ export const INVENTORY_SCAN_REQUEST_TYPE = "inventory-scan-request";
  * data — the next drain re-reads from where the dead one started.
  *
  * Raised from 90s when snapshot archiving was added: a pass is now the join-capture delay, the drain
- * budget *and* an archive budget, which put the three-pass worst case around 80s — close enough to
- * the old ceiling that a slow S3 could have made a live job look abandoned. `server-manager` runs at
- * 900s, so the function timeout is not the constraint here. Change this and the per-pass budgets in
- * `scanInventorySnapshots` together; that is the invariant, not either number on its own.
+ * budget, an archive budget *and* a kick budget, which puts the three-pass worst case near 95s —
+ * close enough to the old 90s ceiling that a slow S3 could have made a live job look abandoned.
+ * `server-manager` runs at 900s, so the function timeout is not the constraint here. Change this and
+ * the per-pass budgets in `scanInventorySnapshots` / `ItemRuleEnforcement` together; that is the
+ * invariant, not any one number on its own.
  */
 export const SCAN_LEASE_MS = 150 * 1000;
 
@@ -108,6 +109,19 @@ export function isScanActive(rules: ItemRulesEntry | null): boolean {
 /** Whether captures are being persisted, independent of whether anything is being judged. */
 export function isArchiveActive(rules: ItemRulesEntry | null): boolean {
 	return Boolean(rules?.archive?.enabled);
+}
+
+/**
+ * Whether a violation should get the player kicked as well as flagged.
+ *
+ * Deliberately built on {@link hasActiveRules} rather than on the switch alone. Archiving can run
+ * without a rule list because storing a capture concludes nothing about anybody; kicking cannot,
+ * because there is no violation to act on until something is being evaluated. Anchoring it here also
+ * means the empty-whitelist guard covers auto-kick for free — the one configuration where "enforce"
+ * would otherwise mean "kick everyone who joins".
+ */
+export function isAutoKickActive(rules: ItemRulesEntry | null): boolean {
+	return hasActiveRules(rules) && Boolean(rules?.enforcement?.kick);
 }
 
 /**

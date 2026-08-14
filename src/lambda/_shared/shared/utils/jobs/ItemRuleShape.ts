@@ -1,6 +1,6 @@
 import { SNAPSHOT_GROUPS } from "../tshock/InventorySnapshots.js";
 import type { SnapshotKind } from "../tshock/InventorySnapshots.js";
-import type { ItemArchiveConfig, ItemRuleEntry } from "../../schema/SystemTable.js";
+import type { ItemArchiveConfig, ItemEnforcementConfig, ItemRuleEntry } from "../../schema/SystemTable.js";
 
 /**
  * Validation for the shape an item ruleset takes on the wire.
@@ -95,6 +95,43 @@ export const normalizeMode = (raw: unknown): "whitelist" | "blacklist" => {
 		throw new Error("Mode must be 'whitelist' or 'blacklist'");
 	}
 	return mode as "whitelist" | "blacklist";
+};
+
+/**
+ * Shown to a player auto-kicked for a rule violation, when the operator has not written their own.
+ *
+ * Deliberately says what happened and what to do about it: a kick with no explanation is
+ * indistinguishable from the server being broken, and the player is the only one who can fix it.
+ */
+export const DEFAULT_KICK_REASON = "Your inventory contains items that are not allowed on this server.";
+
+/** Longest custom kick message. TShock passes this straight to the client's disconnect screen. */
+export const MAX_KICK_REASON = 200;
+
+/**
+ * Normalizes the automated-enforcement settings.
+ *
+ * Not part of a preset, like `enabled` and `archive`: a preset is a list of items, and arming the
+ * automated response to that list is an operational decision about one box. Loading a saved ruleset
+ * must never start kicking people underneath a running server.
+ */
+export const normalizeEnforcement = (raw: unknown): ItemEnforcementConfig => {
+	if (raw === undefined || raw === null) {
+		return { kick: false, kickReason: DEFAULT_KICK_REASON };
+	}
+	if (typeof raw !== "object" || Array.isArray(raw)) {
+		throw new Error("Enforcement settings must be an object");
+	}
+
+	const config = raw as Record<string, unknown>;
+	const reason = String(config.kickReason ?? "").trim().slice(0, MAX_KICK_REASON);
+
+	return {
+		kick: Boolean(config.kick),
+		// An empty message is normalized to the default rather than stored, so a player never gets a
+		// kick screen with nothing on it because someone cleared the box.
+		kickReason: reason || DEFAULT_KICK_REASON,
+	};
 };
 
 export const ARCHIVE_KINDS = new Set<SnapshotKind>(["join", "leave"]);

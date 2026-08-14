@@ -98,8 +98,39 @@
 				<div class="ml-2">
 					<p class="font-main font-semibold text-white-0">Check joining players against this list</p>
 					<p class="font-mono text-xs text-gray-7">
-						Players are checked when they join. Nothing is removed and nobody is kicked — violations
+						Players are checked when they join. Nothing is ever removed from an inventory — violations
 						are reported here and on the player.
+					</p>
+				</div>
+			</div>
+
+			<!--
+				Auto-kick is saved with the ruleset because the consequence of a rule is part of the rule.
+				It is gated on the check above both here and server-side (`isAutoKickActive`), so a list
+				that isn't being enforced can't kick anyone regardless of what this says.
+			-->
+			<div class="mb-4">
+				<p class="font-bold mb-1">When someone breaks the rules</p>
+				<div class="flex items-start">
+					<Checkbox v-model="draft.enforcement.kick" :disabled="disabled" />
+					<div class="ml-2">
+						<p class="font-main font-semibold text-white-0">Kick them automatically</p>
+						<p class="font-mono text-xs" :class="draft.enforcement.kick ? 'text-yellow-2' : 'text-gray-7'">
+							{{ kickHint }}
+						</p>
+					</div>
+				</div>
+
+				<div v-if="draft.enforcement.kick" class="mt-2">
+					<p class="font-mono text-xs text-gray-7 mb-1">Message shown to the player</p>
+					<ValueInput
+						:placeholder="DEFAULT_KICK_REASON"
+						v-model="draft.enforcement.kickReason"
+						:disabled="disabled"
+					/>
+					<p class="font-mono text-xs text-gray-7 mt-1">
+						The flagged item names are added to this automatically — a player who isn't told what
+						tripped it just rejoins with the same inventory.
 					</p>
 				</div>
 			</div>
@@ -239,6 +270,10 @@ const GROUPS = [
 	{ id: "loadouts", label: "Loadouts" },
 ];
 
+/** Mirrors DEFAULT_KICK_REASON in the lambda's ItemRuleShape.ts — shown as the placeholder, and what
+ *  an empty box saves as. */
+const DEFAULT_KICK_REASON = "Your inventory contains items that are not allowed on this server.";
+
 /** Below this a query matches most of the item list, which is noise rather than a result set. */
 const MIN_QUERY = 2;
 /** Rendered results. The scoring runs over every item; only the top slice is worth drawing. */
@@ -281,6 +316,7 @@ export default {
 			BTN_VARIANT,
 			GROUPS,
 			MIN_QUERY,
+			DEFAULT_KICK_REASON,
 			spriteStore: useSpriteStore(),
 			presetsStore: useItemPresetsStore(),
 			searchQuery: "",
@@ -297,6 +333,7 @@ export default {
 				mode: "blacklist",
 				groups: GROUPS.map(group => group.id),
 				entries: [],
+				enforcement: { kick: false, kickReason: "" },
 			},
 		};
 	},
@@ -363,6 +400,23 @@ export default {
 				{ id: "whitelist", text: "Whitelist — flag everything else" },
 			];
 		},
+		/**
+		 * Names the two states the switch can be in that don't do what it says: the check being off, and
+		 * whitelist mode, where "anything not listed" is most of what a normal player carries and kicking
+		 * on it will eject the whole server.
+		 */
+		kickHint() {
+			if (!this.draft.enforcement.kick) {
+				return "Violations are reported here and left for a moderator to act on.";
+			}
+			if (!this.draft.enabled) {
+				return "Nobody will be kicked until the check above is turned on.";
+			}
+			if (this.draft.mode === 'whitelist') {
+				return "Whitelist mode flags everything not on the list — with this on, anyone carrying an unlisted item is removed a few seconds after joining.";
+			}
+			return "Players carrying a listed item are removed a few seconds after joining, and still flagged here.";
+		},
 		modeHint() {
 			return this.draft.mode === "whitelist"
 				? "Every item a player carries that is not on this list will be flagged. On a normal survival server that is most of what anyone holds."
@@ -405,6 +459,14 @@ export default {
 				// Copied rather than referenced: the draft is discarded on cancel, and mutating the store's
 				// array in place would make cancel a no-op.
 				entries: (this.rules?.entries || []).map(entry => ({ ...entry })),
+				enforcement: {
+					kick: Boolean(this.rules?.enforcement?.kick),
+					// Blank when it's the default, so the placeholder shows through and the operator can see
+					// they haven't written one rather than being handed prefilled text to edit around.
+					kickReason: this.rules?.enforcement?.kickReason === DEFAULT_KICK_REASON
+						? ""
+						: (this.rules?.enforcement?.kickReason || ""),
+				},
 			};
 			this.draftNetId = null;
 			this.searchQuery = "";
@@ -467,7 +529,11 @@ export default {
 				return;
 			}
 
-			this.$emit('apply', { ...this.draft, entries: this.draft.entries.map(entry => ({ ...entry })) });
+			this.$emit('apply', {
+				...this.draft,
+				entries: this.draft.entries.map(entry => ({ ...entry })),
+				enforcement: { ...this.draft.enforcement },
+			});
 		},
 
 		/* ---- Presets ------------------------------------------------------------------------- */
@@ -476,8 +542,9 @@ export default {
 		 * Fills the draft from a saved preset. Copies, never links — after this the server owns the
 		 * list, and editing the preset later changes nothing here.
 		 *
-		 * `draft.enabled` is pointedly left alone: it is this server's operational switch, not part of
-		 * the ruleset, and loading a list must not turn enforcement on or off underneath it.
+		 * `draft.enabled` and `draft.enforcement` are pointedly left alone: those are this server's
+		 * operational switches, not part of the ruleset, and loading a list must not start or stop
+		 * kicking people underneath it.
 		 */
 		async onLoadPreset() {
 			if (!this.selectedPresetId || this.presetsBusy) return;

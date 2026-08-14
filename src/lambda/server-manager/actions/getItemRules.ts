@@ -3,6 +3,7 @@ import type { AuthorizedEvent } from "../../../shared/types/APIGatewayTypes.js";
 import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { Permissions } from "../shared/utils/core/Perms.js";
 import { readItemRules } from "../shared/utils/jobs/ItemRuleScan.js";
+import { DEFAULT_KICK_REASON } from "../shared/utils/jobs/ItemRuleShape.js";
 import { SNAPSHOT_GROUPS } from "../shared/utils/tshock/InventorySnapshots.js";
 
 /**
@@ -37,6 +38,12 @@ export const getItemRules = async (event: AuthorizedEvent, context: Context): Pr
 			mode: stored?.mode ?? "blacklist",
 			groups: stored?.groups?.length ? stored.groups : [...SNAPSHOT_GROUPS],
 			entries,
+			// Off by default, and fabricated like everything else here for an unconfigured instance — the
+			// `configured` flag above is what tells the editor these are defaults rather than choices.
+			enforcement: {
+				kick: stored?.enforcement?.kick ?? false,
+				kickReason: stored?.enforcement?.kickReason || DEFAULT_KICK_REASON,
+			},
 			updatedAt: stored?.updatedAt ?? null,
 			updatedBy: stored?.updatedBy ?? null,
 		},
