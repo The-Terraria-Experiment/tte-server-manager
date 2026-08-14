@@ -1,8 +1,8 @@
 <template>
 	<StatusTile 
 		class="grow gradient-tile"
-		:collapsible="!!selectedServerData.playercount"
-		:contentLoaded="!!selectedServerData.playercount"
+		:collapsible="!!selectedServerData.players?.length"
+		:contentLoaded="!!selectedServerData.players?.length"
 		:perm-required="PERMISSIONS.server.status.read"
 		:floatingExpand="!isMobile"
 	>
