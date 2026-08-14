@@ -1,5 +1,6 @@
 import { SNAPSHOT_GROUPS } from "../tshock/InventorySnapshots.js";
-import type { ItemRuleEntry } from "../../schema/SystemTable.js";
+import type { SnapshotKind } from "../tshock/InventorySnapshots.js";
+import type { ItemArchiveConfig, ItemRuleEntry } from "../../schema/SystemTable.js";
 
 /**
  * Validation for the shape an item ruleset takes on the wire.
@@ -94,4 +95,39 @@ export const normalizeMode = (raw: unknown): "whitelist" | "blacklist" => {
 		throw new Error("Mode must be 'whitelist' or 'blacklist'");
 	}
 	return mode as "whitelist" | "blacklist";
+};
+
+export const ARCHIVE_KINDS = new Set<SnapshotKind>(["join", "leave"]);
+
+/**
+ * Normalizes the snapshot-archive settings.
+ *
+ * Deliberately *not* part of a preset. A preset is a ruleset — what a server should forbid — and this
+ * is an operational switch on one box's storage, exactly like `enabled`. Loading a saved list must
+ * not start or stop archiving underneath a running server.
+ */
+export const normalizeArchive = (raw: unknown): ItemArchiveConfig => {
+	if (raw === undefined || raw === null) {
+		return { enabled: false, kinds: ["join"] };
+	}
+	if (typeof raw !== "object" || Array.isArray(raw)) {
+		throw new Error("Archive settings must be an object");
+	}
+
+	const config = raw as Record<string, unknown>;
+	const rawKinds = config.kinds;
+
+	if (rawKinds !== undefined && !Array.isArray(rawKinds)) {
+		throw new Error("Archive kinds must be an array");
+	}
+
+	const kinds = [...new Set((rawKinds ?? ["join"]).map(String))].filter(
+		(kind): kind is SnapshotKind => ARCHIVE_KINDS.has(kind as SnapshotKind),
+	);
+
+	if (!kinds.length) {
+		throw new Error("At least one capture kind is required (join, leave)");
+	}
+
+	return { enabled: Boolean(config.enabled), kinds };
 };

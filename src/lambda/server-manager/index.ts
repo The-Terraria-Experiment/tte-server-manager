@@ -32,6 +32,11 @@ import { getItemViolations } from "./actions/getItemViolations.js";
 import { queueItemScan } from "./actions/queueItemScan.js";
 import { dismissItemViolations } from "./actions/dismissItemViolations.js";
 import { scanInventorySnapshots } from "./actions/scanInventorySnapshots.js";
+import { listSnapshotSessions } from "./actions/listSnapshotSessions.js";
+import { listSnapshotPlayers } from "./actions/listSnapshotPlayers.js";
+import { listSnapshots } from "./actions/listSnapshots.js";
+import { readSnapshot } from "./actions/readSnapshot.js";
+import { writeArchiveSettings } from "./actions/writeArchiveSettings.js";
 import { INVENTORY_SCAN_REQUEST_TYPE, type InventoryScanRequestData } from "./shared/utils/jobs/ItemRuleScan.js";
 
 const endpoints: EndpointList = {
@@ -130,6 +135,29 @@ const endpoints: EndpointList = {
 	"POST /server/{id}/items/scan": {
 		action: queueItemScan,
 		permRequired: PERMISSIONS.server.player.inventory.violations.read
+	},
+	// The snapshot archive. Reads live here rather than in logs-manager because the *write* has to —
+	// the scan worker is the only place a full capture ever exists — so one function carries the
+	// bucket env var and the IAM for this prefix instead of two.
+	"GET /server/{id}/inventory/sessions": {
+		action: listSnapshotSessions,
+		permRequired: PERMISSIONS.server.player.inventory.snapshots.read
+	},
+	"GET /server/{id}/inventory/players": {
+		action: listSnapshotPlayers,
+		permRequired: PERMISSIONS.server.player.inventory.snapshots.read
+	},
+	"GET /server/{id}/inventory/snapshots": {
+		action: listSnapshots,
+		permRequired: PERMISSIONS.server.player.inventory.snapshots.read
+	},
+	"GET /server/{id}/inventory/snapshot": {
+		action: readSnapshot,
+		permRequired: PERMISSIONS.server.player.inventory.snapshots.read
+	},
+	"PUT /server/{id}/inventory/archive": {
+		action: writeArchiveSettings,
+		permRequired: PERMISSIONS.server.player.inventory.snapshots.write
 	},
 	"GET /server/{id}/bans": {
 		action: getBans,

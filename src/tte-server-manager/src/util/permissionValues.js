@@ -39,6 +39,10 @@ export const PERMISSIONS = {
 					read: "server.player.inventory.violations.read",
 					write: "server.player.inventory.violations.write",
 				},
+				snapshots: {
+					read: "server.player.inventory.snapshots.read",
+					write: "server.player.inventory.snapshots.write",
+				},
 			},
 		},
 		logs: {

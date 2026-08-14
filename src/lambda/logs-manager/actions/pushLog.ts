@@ -11,7 +11,7 @@ import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 import { LambdaDao } from "../shared/aws/Lambda.js";
 import { SERVER_MANAGER_FUNCTION_ARN } from "../shared/vars.js";
 import {
-	hasActiveRules,
+	isScanActive,
 	readItemRules,
 	INVENTORY_SCAN_REQUEST_TYPE,
 	type InventoryScanRequestData,
@@ -146,8 +146,11 @@ async function requestInventoryScan(serverID: string): Promise<void> {
 	}
 
 	try {
+		// `isScanActive`, not `hasActiveRules`: snapshot archiving is switched independently of the rule
+		// list, so an instance with no rules but archiving on still needs the drain woken. Either way
+		// this stays one GetItem per roster event when everything is off.
 		const rules = await readItemRules(serverID);
-		if (!hasActiveRules(rules)) {
+		if (!isScanActive(rules)) {
 			return;
 		}
 

@@ -7,6 +7,7 @@ import {
 	S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { gunzipSync, gzipSync } from "zlib";
 import { CWLogger } from "./CloudWatch.js";
 import { SsmDao } from "./SSM.js";
 import { CW_LOG_GENERAL } from "../constants.js";
@@ -15,6 +16,22 @@ export interface S3ObjectSummary {
 	key: string;
 	size: number;
 	lastModified: Date | undefined;
+}
+
+export interface S3ListPageOptions {
+	prefix?: string;
+	/** Set to `"/"` to get folder-style `prefixes` back instead of every key beneath them. */
+	delimiter?: string;
+	continuationToken?: string;
+	maxKeys?: number;
+}
+
+export interface S3ListPage {
+	objects: S3ObjectSummary[];
+	/** `CommonPrefixes`, i.e. the immediate "subfolders" under `prefix`. Empty unless `delimiter` was set. */
+	prefixes: string[];
+	/** Feed back as `continuationToken` for the next page, or null when this was the last one. */
+	nextToken: string | null;
 }
 
 /**
@@ -100,6 +117,109 @@ export class S3Dao {
 		});
 
 		await this.s3Client.send(command);
+	}
+
+	/**
+	 * Writes JSON gzipped, with `Content-Encoding: gzip`.
+	 *
+	 * For payloads big enough that the compression is worth a decompress on the way out — an inventory
+	 * report is a couple hundred KB of extremely repetitive JSON and lands around a tenth of that.
+	 * Note S3 does not decompress on read: {@link GetGzipJsonObject} is the matching accessor, and a
+	 * presigned URL for one of these serves the header so a browser decompresses it itself.
+	 */
+	public async PutGzipJsonObject(bucketName: string, key: string, payload: unknown): Promise<void> {
+		const body = gzipSync(Buffer.from(JSON.stringify(payload), "utf-8"));
+
+		const command = new PutObjectCommand({
+			Bucket: bucketName,
+			Key: key,
+			Body: body,
+			ContentType: "application/json",
+			ContentEncoding: "gzip",
+		});
+
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-put-gzip-json-object",
+			resource: null,
+			details: { bucketName, key, bytes: body.byteLength },
+		});
+
+		await this.s3Client.send(command);
+	}
+
+	/**
+	 * Reads an object written by {@link PutGzipJsonObject}. `false` on a missing key, matching
+	 * {@link GetObject}'s convention so callers branch the same way for both.
+	 */
+	public async GetGzipJsonObject<T>(bucketName: string, key: string): Promise<T | false> {
+		try {
+			const command = new GetObjectCommand({
+				Bucket: bucketName,
+				Key: key,
+			});
+
+			await CWLogger.CAction(2, CW_LOG_GENERAL, {
+				userId: null,
+				action: "shared-aws-get-gzip-json-object",
+				resource: null,
+				details: { bucketName, key },
+			});
+
+			const response = await this.s3Client.send(command);
+			if (!response.Body) {
+				return false;
+			}
+
+			const bytes = Buffer.from(await response.Body.transformToByteArray());
+			// Tolerates an object stored uncompressed — the gzip magic number is the only reliable tell,
+			// and an object hand-uploaded or written by an older revision should still be readable.
+			const json = bytes[0] === 0x1f && bytes[1] === 0x8b ? gunzipSync(bytes) : bytes;
+
+			return JSON.parse(json.toString("utf-8")) as T;
+		} catch (error) {
+			const err = error as { name?: string };
+			if (err.name === "NoSuchKey") {
+				return false;
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * One page of a listing, with delimiter and continuation support.
+	 *
+	 * {@link ListObjects} is a single un-paginated call with no delimiter, which is fine for the few
+	 * dozen keys it was written for and not fine for a store that grows per player per session. Kept
+	 * separate rather than changing that method, since its return shape has existing callers.
+	 */
+	public async ListObjectsPage(bucketName: string, options: S3ListPageOptions = {}): Promise<S3ListPage> {
+		const command = new ListObjectsV2Command({
+			Bucket: bucketName,
+			...(options.prefix ? { Prefix: options.prefix } : {}),
+			...(options.delimiter ? { Delimiter: options.delimiter } : {}),
+			...(options.continuationToken ? { ContinuationToken: options.continuationToken } : {}),
+			...(options.maxKeys ? { MaxKeys: options.maxKeys } : {}),
+		});
+
+		await CWLogger.CAction(3, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-list-s3-objects-page",
+			resource: null,
+			details: { bucketName, prefix: options.prefix, delimiter: options.delimiter, maxKeys: options.maxKeys },
+		});
+
+		const response = await this.s3Client.send(command);
+
+		return {
+			objects: (response.Contents ?? []).map((obj) => ({
+				key: obj.Key || "",
+				size: obj.Size ?? 0,
+				lastModified: obj.LastModified,
+			})),
+			prefixes: (response.CommonPrefixes ?? []).map((entry) => entry.Prefix || "").filter(Boolean),
+			nextToken: response.IsTruncated ? (response.NextContinuationToken ?? null) : null,
+		};
 	}
 
 	public async ListObjects(bucketName: string, prefix = ""): Promise<S3ObjectSummary[]> {

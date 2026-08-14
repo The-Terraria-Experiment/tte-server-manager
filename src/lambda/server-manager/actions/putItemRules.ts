@@ -55,7 +55,10 @@ export const putItemRules = async (event: AuthorizedEvent, context: Context): Pr
 
 	const DB = new DynamoDao();
 	// UpdateItem rather than PutItem, per the house rule for these mixed-record tables: a Put would
-	// silently drop any attribute a future writer adds to this row but this handler doesn't send.
+	// silently drop any attribute a future writer adds to this row but this handler doesn't send. That
+	// is no longer hypothetical — `archive` lives on this row, is written by `writeArchiveConfig`
+	// behind a different permission, and a Put here would switch snapshot archiving off every time
+	// somebody saved a rule list.
 	await DB.UpdateItem(SYSTEM_TABLE, itemRulesKey(serverID), { updates });
 
 	CWLogger.Action(FUNC_NAMES.SERV_MGR, {

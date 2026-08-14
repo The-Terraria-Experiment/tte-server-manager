@@ -74,6 +74,9 @@
 		<ItemRules
 			v-if="selectedInstance"
 		/>
+		<InventorySnapshots
+			v-if="selectedInstance"
+		/>
 		<BrowseLogs />
 		<TShockConsoleLogs />
 		<ServerConfig
@@ -105,6 +108,7 @@ import BrowseLogs from './tools/server/BrowseLogs.vue';
 import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
 import ItemRules from './tools/server/ItemRules.vue';
+import InventorySnapshots from './tools/server/InventorySnapshots.vue';
 
 // Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
 const STATUS_HANDLER_ID = "server-page-fetch-status";
@@ -125,6 +129,7 @@ export default {
 		TShockConsoleLogs,
 		RunTshockCommand,
 		ItemRules,
+		InventorySnapshots,
 	},
 	props: {
 		

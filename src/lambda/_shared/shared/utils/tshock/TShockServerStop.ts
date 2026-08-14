@@ -5,6 +5,7 @@ import { CW_LOG_GENERAL } from "../../constants.js";
 import { pollsUntilDeadline } from "../jobs/SyncBudget.js";
 import { TShockAPI } from "./TShockAPI.js";
 import { tshockProcessPattern } from "./TShockLaunch.js";
+import { endServerSession } from "./ServerSession.js";
 
 /**
  * The first leg of an instance shutdown: bring TShock down through its own save-and-exit path before
@@ -72,7 +73,26 @@ export async function stopTShockServer(instanceId: string, deadline: number): Pr
 	const accepted = await requestServerOff(instanceId, ip);
 	if (!accepted) return;
 
+	// Only on the accepted path: `false` means nothing was listening, which is the *normal* case on the
+	// auto-shutoff route where the countdown stopped the server minutes ago. Closing a session here
+	// would be closing one that something else already closed, dated to the wrong moment.
+	await closeSession(instanceId);
+
 	await waitForTShockExit(instanceId, deadline);
+}
+
+/** Best-effort by the shutdown-task contract: a session record must never fail a shutdown. */
+async function closeSession(instanceId: string): Promise<void> {
+	try {
+		await endServerSession(instanceId, { endedBy: SHUTDOWN_USER_ID, reason: "shutdown" });
+	} catch (error) {
+		await CWLogger.Error(CW_LOG_GENERAL, {
+			userId: null,
+			action: "shutdown-stop-server",
+			error: error instanceof Error ? error.message : String(error),
+			details: { instanceId, stage: "end-session" },
+		});
+	}
 }
 
 /**

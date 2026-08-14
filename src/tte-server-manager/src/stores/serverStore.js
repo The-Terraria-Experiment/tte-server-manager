@@ -35,6 +35,12 @@ export const useServerStore = defineStore("serverstore", {
 		/** Per-instance item rule list, as `GET /server/{id}/items/rules` reports it. */
 		itemRules: {},
 		/**
+		 * Per-instance snapshot archive index: `{ archive, configured, sessions, currentSessionID }`.
+		 * Only the top of the tree is held here — players and captures are fetched on demand as the
+		 * user drills in, since a full archive is far too large to keep in a store.
+		 */
+		snapshotArchive: {},
+		/**
 		 * Per-instance map of player name to their latest rule violation.
 		 *
 		 * Written only by fetchViolations. The socket event that triggers that fetch carries no
@@ -54,7 +60,8 @@ export const useServerStore = defineStore("serverstore", {
 			itemRules: {},
 			violations: {},
 			itemScan: {},
-			violationDismiss: {}
+			violationDismiss: {},
+			snapshotSessions: {}
 		},
 	}),
 	getters: {
@@ -150,6 +157,9 @@ export const useServerStore = defineStore("serverstore", {
 		/** The instance's item rule list, or null before it has been fetched. */
 		getItemRules: (state) => (instanceId) => state.itemRules[instanceId] || null,
 		isLoadingItemRules: (state) => (instanceId) => state.loading.itemRules[instanceId] || false,
+		/** The instance's snapshot archive index, or null before it has been fetched. */
+		getSnapshotArchive: (state) => (instanceId) => state.snapshotArchive[instanceId] || null,
+		isLoadingSnapshotSessions: (state) => (instanceId) => state.loading.snapshotSessions[instanceId] || false,
 		isScanningItems: (state) => (instanceId) => state.loading.itemScan[instanceId] || false,
 		/** Map of player name to violation. Empty object, never null, so callers can index it freely. */
 		getViolations: (state) => (instanceId) => state.violations[instanceId] || {},
@@ -589,6 +599,94 @@ export const useServerStore = defineStore("serverstore", {
 			} finally {
 				this.loading.violationDismiss[instanceId] = false;
 			}
+		},
+		/**
+		 * The archived sessions for an instance, plus its archive settings.
+		 *
+		 * Nothing here is cached across instances the way the live inventories are: the archive is
+		 * browsed deliberately rather than polled, so a stale list is worse than a second request.
+		 */
+		async fetchSnapshotSessions(instanceId) {
+			if (this.loading.snapshotSessions[instanceId]) return null;
+			this.loading.snapshotSessions[instanceId] = true;
+
+			try {
+				const data = await get(
+					`/server/${instanceId}/inventory/sessions`,
+					PERMISSIONS.server.player.inventory.snapshots.read
+				);
+				this.snapshotArchive[instanceId] = {
+					archive: data.archive || { enabled: false, kinds: ["join"] },
+					configured: Boolean(data.configured),
+					sessions: data.sessions || [],
+					currentSessionID: data.currentSessionID ?? null,
+				};
+				return this.snapshotArchive[instanceId];
+			} catch (error) {
+				console.error("Error fetching snapshot sessions:", error);
+				throw error;
+			} finally {
+				this.loading.snapshotSessions[instanceId] = false;
+			}
+		},
+		/** The players with captures in one session, and that session's own record. */
+		async fetchSnapshotPlayers(instanceId, sessionId) {
+			return get(
+				`/server/${instanceId}/inventory/players?session=${encodeURIComponent(sessionId)}`,
+				PERMISSIONS.server.player.inventory.snapshots.read
+			);
+		},
+		/**
+		 * One player's captures in a session, newest first and complete in one response.
+		 *
+		 * Not paginated, deliberately: S3 lists ascending with no reverse, so a page at a time would be
+		 * the *oldest* captures first — the opposite of what anyone opening this wants. The server
+		 * drains the prefix and sorts; a realistic session is well inside one listing.
+		 */
+		async fetchSnapshotList(instanceId, sessionId, player) {
+			const params = new URLSearchParams({ session: sessionId, player });
+
+			return get(
+				`/server/${instanceId}/inventory/snapshots?${params.toString()}`,
+				PERMISSIONS.server.player.inventory.snapshots.read
+			);
+		},
+		/**
+		 * One archived capture, in full.
+		 *
+		 * Every addressing field is passed through because the key encodes them — the server rebuilds
+		 * the key rather than trusting one from the client, which is also what stops this endpoint being
+		 * pointed at anything outside the instance's own archive.
+		 */
+		async fetchSnapshot(instanceId, sessionId, player, ref) {
+			const params = new URLSearchParams({
+				session: sessionId,
+				player,
+				id: String(ref.snapshotId),
+				capturedAt: String(ref.capturedAt),
+				kind: ref.kind,
+			});
+
+			const data = await get(
+				`/server/${instanceId}/inventory/snapshot?${params.toString()}`,
+				PERMISSIONS.server.player.inventory.snapshots.read
+			);
+			return data.snapshot;
+		},
+		/** Turns archiving on or off. Separate from saveItemRules: different permission, different job. */
+		async saveArchiveSettings(instanceId, archive) {
+			const data = await put(
+				`/server/${instanceId}/inventory/archive`,
+				PERMISSIONS.server.player.inventory.snapshots.write,
+				{ enabled: Boolean(archive.enabled), kinds: archive.kinds }
+			);
+
+			const existing = this.snapshotArchive[instanceId];
+			if (existing) {
+				this.snapshotArchive[instanceId] = { ...existing, archive: data.archive, configured: true };
+			}
+
+			return data.archive;
 		},
 		evictDepartedInventories(instanceId, players) {
 			if (!Array.isArray(players)) return;

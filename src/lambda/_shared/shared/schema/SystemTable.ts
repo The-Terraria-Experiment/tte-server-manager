@@ -52,6 +52,63 @@ export type SystemShutdownEntry = {
 	taskOutcomes?: Record<string, string>
 };
 
+/**
+ * How a session came to exist. `"launch"` means we started the server and know exactly when;
+ * `"detected"` means one was already running (or had restarted) when something went looking, and the
+ * start time is the earliest activity we saw rather than the real one.
+ */
+export type ServerSessionSource = "launch" | "detected";
+
+export type ServerSessionEndReason = "stop" | "shutdown" | "restart-detected" | "superseded";
+
+/**
+ * One run of a TShock server on an instance.
+ *
+ * This is deliberately a general record rather than part of any one feature: "which run of the game
+ * server was this?" is the missing axis between an instance and an event, and the inventory snapshot
+ * archive is only its first consumer. Nothing here knows about snapshots, item rules or S3.
+ *
+ * `sessionId` is `<ISO start, punctuation dashed>-<zero-padded seq>` — sortable lexicographically,
+ * readable in an S3 key, and unique because `seq` is incremented atomically per instance.
+ */
+export type ServerSession = {
+	sessionId: string,
+	instanceID: string,
+	/** Monotonic per instance. The half of `sessionId` that makes two sessions in the same second distinct. */
+	seq: number,
+	startedAt: number,
+	/** Cognito sub of whoever launched it, or `"[detected]"` when it was inferred rather than requested. */
+	startedBy: string,
+	source: ServerSessionSource,
+	worldFilePath?: string,
+	port?: number,
+	maxPlayers?: number,
+	endedAt?: number,
+	endedBy?: string,
+	endReason?: ServerSessionEndReason,
+};
+
+/**
+ * The session record for one instance (`session#<instanceID>`).
+ *
+ * `recent` is a bounded ring rather than one row per session on purpose. A per-session record family
+ * would need a `recordType` to be listable, and adding a family to the sparse `recordType-index`
+ * means widening an `INCLUDE` projection — which cannot be done in place, so the index would have to
+ * be dropped and recreated while every existing consumer read empty. A capped array on one row buys
+ * the same history for a list this small.
+ */
+export type SystemServerSessionEntry = {
+	uid?: string,
+	instanceID?: string,
+	/** Highest `seq` ever issued for this instance. Incremented with `ADD`, never recomputed. */
+	seq?: number,
+	/** The open session, or null when no server is known to be running. */
+	current?: ServerSession | null,
+	/** Ended sessions, newest first, capped at `SESSION_HISTORY_CAP`. */
+	recent?: ServerSession[],
+	updatedAt?: string,
+};
+
 export type RoleEntry = {
 	uid?: string,
 	roleId?: string,
@@ -142,9 +199,24 @@ export type ItemRulesEntry = {
 	 */
 	groups?: string[],
 	entries?: ItemRuleEntry[],
+	/**
+	 * Snapshot archiving. Independent of the rules above: with `enabled` true and no rule list at all,
+	 * the drain still runs and every capture is persisted to S3, flagging nobody. `hasActiveRules`
+	 * gates *evaluation*; `isScanActive` gates *draining*, and reads this.
+	 *
+	 * Kept on this row rather than one of its own so `pushLog`'s precheck — which runs on every single
+	 * join and leave — stays at exactly one `GetItem`.
+	 */
+	archive?: ItemArchiveConfig,
 	updatedBy?: string,
 	createdAt?: string,
 	updatedAt?: string,
+};
+
+/** Per-instance snapshot archive settings. `kinds` is which captures are persisted, not which are judged. */
+export type ItemArchiveConfig = {
+	enabled?: boolean,
+	kinds?: string[],
 };
 
 /**

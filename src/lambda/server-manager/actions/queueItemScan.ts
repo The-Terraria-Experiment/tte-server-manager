@@ -7,7 +7,7 @@ import { LambdaDao } from "../shared/aws/Lambda.js";
 import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import {
-	hasActiveRules,
+	isScanActive,
 	readItemRules,
 	INVENTORY_SCAN_REQUEST_TYPE,
 	type InventoryScanRequestData,
@@ -30,11 +30,13 @@ export const queueItemScan = async (event: AuthorizedEvent, context: Context): P
 	await Permissions.ValidateResourceAccess(event, `server::${serverID}`);
 
 	// Refused rather than queued-and-silently-dropped: the button is on the rules tile, so "I pressed
-	// scan and nothing happened" needs to name the reason.
+	// scan and nothing happened" needs to name the reason. Broadened to `isScanActive` so a scan is
+	// still queueable with archiving on and no rule list — the drain has work to do either way. The
+	// `RULES_INACTIVE` code is unchanged because the frontend branches on it; only the condition moved.
 	const rules = await readItemRules(serverID);
-	if (!hasActiveRules(rules)) {
+	if (!isScanActive(rules)) {
 		return ResponseUtil.Error(
-			"Item rules are not enabled, or the list is empty",
+			"Item rules are not enabled, or the list is empty, and snapshot archiving is off",
 			409,
 			"RULES_INACTIVE",
 		);

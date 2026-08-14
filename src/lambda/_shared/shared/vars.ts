@@ -27,6 +27,12 @@ export const SHUTDOWN_KEY = "shutdown";
 /** `uid` prefixes for the per-instance item rule list and its snapshot drain state. */
 export const ITEM_RULES_KEY = "itemrules";
 export const INVENTORY_SCAN_KEY = "invscan";
+/**
+ * The per-instance TShock session record — which run of the game server this is. Minted when a world
+ * is launched, closed when it stops. Deliberately domain-agnostic: the inventory snapshot archive is
+ * its first consumer, not its owner. See `utils/tshock/ServerSession.ts`.
+ */
+export const SERVER_SESSION_KEY = "session";
 // Alias-qualified ARN of instance-manager, so a cross-lambda async invoke lands on the same
 // environment's alias rather than $LATEST (whose ACTIVE_ENV is whichever branch deployed last).
 export const INSTANCE_MANAGER_FUNCTION_ARN =

@@ -6,10 +6,16 @@ import { FUNC_NAMES } from "../shared/constants.js";
 import { delay } from "../shared/utils/core/Delay.js";
 import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 import { drainSnapshots, evaluateReport, ServerUnreachableError } from "../shared/utils/tshock/InventorySnapshots.js";
+import type { InventorySnapshot, SnapshotKind } from "../shared/utils/tshock/InventorySnapshots.js";
+import { archiveSnapshots, writeSessionManifest } from "../shared/utils/tshock/InventoryArchive.js";
+import { ensureSession, rollSession } from "../shared/utils/tshock/ServerSession.js";
 import {
+	archiveKinds,
 	clearScanPending,
 	claimScanLease,
 	hasActiveRules,
+	isArchiveActive,
+	isScanActive,
 	isScanPending,
 	markScanPending,
 	pruneViolations,
@@ -21,16 +27,22 @@ import {
 	writeScanResult,
 	type InventoryScanRequestData,
 } from "../shared/utils/jobs/ItemRuleScan.js";
-import type { PlayerViolation } from "../shared/schema/SystemTable.js";
+import type { PlayerViolation, ServerSession, ViolationItem } from "../shared/schema/SystemTable.js";
 
 /**
- * Drains the InventoryMonitor plugin's snapshot cache and checks each join capture against the
- * instance's item rules.
+ * Drains the InventoryMonitor plugin's snapshot cache: archives each capture to S3, and checks each
+ * join capture against the instance's item rules.
  *
  * Woken by `pushLog` on every join *and* leave, and by the Scan now button. Runs as an asynchronous
  * worker rather than inside the request that triggered it, so it is bounded by its own budget rather
  * than by API Gateway's 29s integration timeout — and so a slow game server can never make a log
  * push time out.
+ *
+ * **The two jobs are independently switched.** `isScanActive` decides whether to drain at all;
+ * `hasActiveRules` decides whether anything is judged, and `isArchiveActive` whether anything is
+ * stored. An instance with archiving on and no rule list drains and stores while concluding nothing
+ * about anybody, which is a supported and deliberate configuration — the archive is a record, not an
+ * enforcement mechanism.
  */
 
 /**
@@ -51,6 +63,13 @@ const DRAIN_BUDGET_MS = 15000;
  */
 const MAX_PASSES = 3;
 
+/**
+ * Wall clock for archiving one pass's captures. Sized against `SCAN_LEASE_MS` alongside the drain
+ * budget above — three passes of delay + drain + archive is the worst case the lease has to cover,
+ * and the two constants are one invariant, not two independent knobs.
+ */
+const ARCHIVE_BUDGET_MS = 10000;
+
 export const scanInventorySnapshots = async (
 	event: InventoryScanRequestData,
 	context: Context,
@@ -62,11 +81,16 @@ export const scanInventorySnapshots = async (
 	}
 
 	// Cheapest possible exit, and the one that runs most often. `logs-manager` checks this too before
-	// invoking, so reaching here with the rules off means they were switched off in between.
+	// invoking, so reaching here with everything off means it was switched off in between.
 	const rules = await readItemRules(instanceID);
-	if (!hasActiveRules(rules)) {
+	if (!isScanActive(rules)) {
 		return ResponseUtil.Success({ scanned: false, reason: "rules-inactive" });
 	}
+
+	const evaluating = hasActiveRules(rules);
+	const archiving = isArchiveActive(rules);
+	const archiveBucket = process.env.S3_LOGS_BUCKET_NAME;
+	const kinds = archiveKinds(rules);
 
 	const owner = `${context.awsRequestId}`;
 	if (!(await claimScanLease(instanceID, owner))) {
@@ -95,6 +119,9 @@ export const scanInventorySnapshots = async (
 	let sawGap = false;
 	let sawRewind = false;
 	let truncated = false;
+	let archived = 0;
+	let archiveFailed = 0;
+	let session: ServerSession | null = null;
 
 	try {
 		const EC2 = new Ec2Dao();
@@ -126,11 +153,32 @@ export const scanInventorySnapshots = async (
 			sawRewind = sawRewind || drain.rewound;
 			truncated = truncated || drain.truncated;
 
+			// Whether this pass has anything to file. Also gates the write below, so that a drain of
+			// nothing but leave captures under join-only settings is simply a no-op rather than a call
+			// into the archive with no session — which would log a failure on every single leave.
+			const hasArchivable = archiving && drain.snapshots.some(snapshot => kinds.includes(snapshot.kind));
+
+			// Resolved only when something is going to be filed under it, so a drain that saw nothing
+			// worth keeping doesn't mint a session — an empty session folder is a thing an operator would
+			// have to rule out later.
+			if (hasArchivable) {
+				session = await resolveSession(instanceID, drain.rewound, drain.snapshots[0]?.capturedAt, session);
+			}
+
+			/**
+			 * Verdicts by snapshot id, so the archive can record what the rules made of each capture at
+			 * the moment it was taken. Without that, browsing an old snapshot would mean re-evaluating it
+			 * against whatever the list says today — a different question from the one that was asked.
+			 */
+			const verdicts = new Map<number, ViolationItem[]>();
+
 			// Ascending by id, so a player who joined twice in one drain correctly ends on their latest.
 			for (const snapshot of drain.snapshots) {
 				// Leave captures are drained past but not judged: the rules describe what someone may
 				// *arrive* with. They still have to come through here, because the cursor is a single
 				// global id floor — there is no way to skip them without skipping the joins between them.
+				// They *are* archived when configured, which is why this check no longer ends the loop
+				// body for them.
 				if (snapshot.kind !== "join") {
 					leavesSkipped++;
 					continue;
@@ -141,8 +189,14 @@ export const scanInventorySnapshots = async (
 					continue;
 				}
 
+				// Archiving runs with the rules off; judging does not.
+				if (!evaluating) {
+					continue;
+				}
+
 				joinsEvaluated++;
 				const offending = evaluateReport(snapshot.player, rules!);
+				verdicts.set(snapshot.id, offending);
 
 				affected.add(player);
 
@@ -164,6 +218,20 @@ export const scanInventorySnapshots = async (
 					itemCount: offending.length,
 					...(offending.length > VIOLATION_ITEM_CAP ? { truncated: true } : {}),
 				};
+			}
+
+			if (hasArchivable) {
+				const result = await persistSnapshots({
+					bucket: archiveBucket,
+					instanceID,
+					session,
+					snapshots: drain.snapshots,
+					kinds,
+					verdicts,
+					evaluated: evaluating,
+				});
+				archived += result.written;
+				archiveFailed += result.failed;
 			}
 
 			if (!(await isScanPending(instanceID))) {
@@ -228,10 +296,22 @@ export const scanInventorySnapshots = async (
 				gap: sawGap,
 				// The game server restarted and re-zeroed its snapshot ids; the cursor was reset.
 				rewound: sawRewind,
+				// Which run of the game server these captures were filed under, and how many landed.
+				// Archiving is best-effort and a failed write is never retried, so `archiveFailed` is the
+				// only record that those captures ever existed.
+				sessionID: session?.sessionId ?? null,
+				archived,
+				archiveFailed,
 			},
 		});
 
-		return ResponseUtil.Success({ scanned: true, flagged: Object.keys(violations).length, changed });
+		return ResponseUtil.Success({
+			scanned: true,
+			flagged: Object.keys(violations).length,
+			changed,
+			archived,
+			...(session ? { sessionID: session.sessionId } : {}),
+		});
 	} catch (e: any) {
 		const unreachable = e instanceof ServerUnreachableError;
 
@@ -253,3 +333,87 @@ export const scanInventorySnapshots = async (
 		return ResponseUtil.Error(e?.message || "Inventory scan failed");
 	}
 };
+
+/**
+ * The session these captures belong to.
+ *
+ * `rewound` means the plugin re-zeroed its ids, which only happens when the game server process
+ * restarted — so it is the one signal available here that a run ended and another began without
+ * anyone telling us. It is a *reconciliation* path: the authoritative mint is `launchWorld`, which
+ * knows the real start time, the world, and who asked for it. This is the fallback for a server that
+ * came up some other way.
+ *
+ * Anchored on the first capture's timestamp rather than now, because that is the closest thing to a
+ * start time in hand — the alternative dates a detected session to the moment somebody happened to
+ * join it.
+ *
+ * The one restart this misses: `rewound` is `head < cursor`, so a new run that issued more ids than
+ * the old cursor before the first drain looks like a continuation. Drains fire on every join, so the
+ * first one after a restart sees `head = 1` — below any cursor above 1. The gap is a previous
+ * session whose cursor was 0 or 1, which by definition archived nothing. Left as-is deliberately;
+ * closing it properly means a run id from the plugin, not a heuristic here.
+ */
+async function resolveSession(
+	instanceID: string,
+	rewound: boolean,
+	anchorAt: number | undefined,
+	existing: ServerSession | null,
+): Promise<ServerSession> {
+	// Already rolled for this rewind earlier in the same invocation — `drain.rewound` stays true for
+	// every later pass, and rolling again would split one run across several sessions.
+	if (rewound && !existing) {
+		return rollSession(instanceID, { ...(anchorAt ? { anchorAt } : {}) });
+	}
+
+	return existing ?? ensureSession(instanceID, { ...(anchorAt ? { anchorAt } : {}) });
+}
+
+/**
+ * Writes a pass's captures, and the session manifest the first time that session is written to.
+ *
+ * Best-effort throughout, matching `archiveSnapshots`' own contract: the scan is a moderation
+ * feature that has to keep working when S3 does not, so nothing here can fail the drain. The cost is
+ * that the cursor advances regardless, so a capture whose write failed is gone rather than retried —
+ * which is why the counts reach the action log rather than being swallowed.
+ */
+async function persistSnapshots(params: {
+	bucket: string | undefined,
+	instanceID: string,
+	session: ServerSession | null,
+	snapshots: InventorySnapshot[],
+	kinds: SnapshotKind[],
+	verdicts: Map<number, ViolationItem[]>,
+	evaluated: boolean,
+}): Promise<{ written: number, failed: number }> {
+	const { bucket, instanceID, session, snapshots, kinds, verdicts, evaluated } = params;
+
+	if (!bucket || !session) {
+		// An unset S3_LOGS_BUCKET_NAME is the per-environment kill switch for archiving, in the same
+		// spirit as the unset function ARNs elsewhere: no deploy needed, and the scan carries on.
+		await CWLogger.Error(FUNC_NAMES.SERV_MGR, {
+			userId: null,
+			action: "inventory-archive",
+			error: bucket ? "No session to file captures under" : "S3_LOGS_BUCKET_NAME not set; skipping snapshot archive",
+			details: { instanceID },
+		});
+		return { written: 0, failed: 0 };
+	}
+
+	try {
+		// Written on every pass rather than tracked — `PutJsonObject` over the same key is idempotent,
+		// and one small put per drain is cheaper than the state needed to know whether it was already
+		// there. It also self-heals a manifest lost to a failed write.
+		await writeSessionManifest(bucket, session);
+	} catch {
+		// The manifest is provenance, not data. Losing it costs a label in the browser, not a capture.
+	}
+
+	const result = await archiveSnapshots(bucket, instanceID, session.sessionId, snapshots, {
+		kinds,
+		budgetMs: ARCHIVE_BUDGET_MS,
+		verdicts,
+		evaluated,
+	});
+
+	return { written: result.written, failed: result.failed };
+}

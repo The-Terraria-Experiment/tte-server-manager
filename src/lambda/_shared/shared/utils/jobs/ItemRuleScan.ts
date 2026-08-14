@@ -1,6 +1,7 @@
 import { DynamoDao } from "../../aws/DynamoDB.js";
 import { INVENTORY_SCAN_KEY, ITEM_RULES_KEY, SYSTEM_TABLE } from "../../vars.js";
-import type { InventoryScanEntry, ItemRulesEntry, PlayerViolation } from "../../schema/SystemTable.js";
+import type { SnapshotKind } from "../tshock/InventorySnapshots.js";
+import type { InventoryScanEntry, ItemArchiveConfig, ItemRulesEntry, PlayerViolation } from "../../schema/SystemTable.js";
 
 /**
  * Row accessors and concurrency control for the inventory-snapshot scan.
@@ -43,8 +44,14 @@ export const INVENTORY_SCAN_REQUEST_TYPE = "inventory-scan-request";
  * window: a worker killed mid-drain leaves the lease behind, and nothing else can scan until it
  * lapses. The cursor is only advanced on a successful write, so that recovery costs a delay, never
  * data — the next drain re-reads from where the dead one started.
+ *
+ * Raised from 90s when snapshot archiving was added: a pass is now the join-capture delay, the drain
+ * budget *and* an archive budget, which put the three-pass worst case around 80s — close enough to
+ * the old ceiling that a slow S3 could have made a live job look abandoned. `server-manager` runs at
+ * 900s, so the function timeout is not the constraint here. Change this and the per-pass budgets in
+ * `scanInventorySnapshots` together; that is the invariant, not either number on its own.
  */
-export const SCAN_LEASE_MS = 90 * 1000;
+export const SCAN_LEASE_MS = 150 * 1000;
 
 /** Most players tracked in one `violations` map, oldest dropped first. Bounds the row's size. */
 export const PLAYER_VIOLATION_CAP = 50;
@@ -83,6 +90,66 @@ export async function readScanState(instanceId: string): Promise<InventoryScanEn
  */
 export function hasActiveRules(rules: ItemRulesEntry | null): boolean {
 	return Boolean(rules?.enabled && rules.entries?.length);
+}
+
+/**
+ * Whether the plugin's cursor should be drained at all.
+ *
+ * This is a different question from {@link hasActiveRules}, and keeping the two apart is the whole
+ * shape of the archive feature: archiving is an independent switch, so an instance with no rule list
+ * whatsoever still drains and still stores every capture — it simply reaches no conclusion about
+ * anybody. `hasActiveRules` gates *evaluation*; this gates *draining*. Every caller that used to ask
+ * the first question before waking the worker asks this one instead.
+ */
+export function isScanActive(rules: ItemRulesEntry | null): boolean {
+	return hasActiveRules(rules) || Boolean(rules?.archive?.enabled);
+}
+
+/** Whether captures are being persisted, independent of whether anything is being judged. */
+export function isArchiveActive(rules: ItemRulesEntry | null): boolean {
+	return Boolean(rules?.archive?.enabled);
+}
+
+/**
+ * Which capture kinds get archived. Defaults to joins only — that is what the rules ask about, and
+ * it is the cheaper half of the traffic.
+ */
+export function archiveKinds(rules: ItemRulesEntry | null): SnapshotKind[] {
+	const configured = (rules?.archive?.kinds ?? []).filter(
+		(kind): kind is SnapshotKind => kind === "join" || kind === "leave",
+	);
+	return configured.length ? configured : ["join"];
+}
+
+/**
+ * Writes only the `archive` attribute.
+ *
+ * An `UpdateItem` rather than a row write, because `putItemRules` owns the rest of this row and the
+ * two are edited from different places by users who may hold different permissions. Either writer
+ * replacing the whole item would silently reset the other's setting — the same trap as the instance
+ * registry's `PutItem`-vs-`UpdateItem` split.
+ */
+export async function writeArchiveConfig(
+	instanceId: string,
+	archive: ItemArchiveConfig,
+	updatedBy: string,
+): Promise<void> {
+	const DB = new DynamoDao();
+	await DB.UpdateItem(SYSTEM_TABLE, itemRulesKey(instanceId), {
+		UpdateExpression: "SET #instanceID = :instance, #archive = :archive, #updatedBy = :updatedBy, #updatedAt = :updatedAt",
+		ExpressionAttributeNames: {
+			"#instanceID": "instanceID",
+			"#archive": "archive",
+			"#updatedBy": "updatedBy",
+			"#updatedAt": "updatedAt",
+		},
+		ExpressionAttributeValues: {
+			":instance": instanceId,
+			":archive": archive,
+			":updatedBy": updatedBy,
+			":updatedAt": new Date().toISOString(),
+		},
+	});
 }
 
 /**
