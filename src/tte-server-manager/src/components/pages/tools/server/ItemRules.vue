@@ -156,7 +156,7 @@
 					prompt requires one, and an AudioContext created outside one starts suspended and stays
 					silent. Enabling from this click is what licenses both.
 				-->
-				<div v-if="$checkPermissions(PERMISSIONS.server.player.inventory.violations.read)" class="mt-4 grid collapsed-grid-cols w-max">
+				<div v-if="$checkPermissions(PERMISSIONS.server.player.inventory.violations.read)" class="mt-4 grid collapsed-grid-cols w-max max-w-full">
 					<div>
 						<Checkbox :modelValue="notificationsOn" @update:modelValue="onToggleNotifications" class="mr-2" />
 					</div>

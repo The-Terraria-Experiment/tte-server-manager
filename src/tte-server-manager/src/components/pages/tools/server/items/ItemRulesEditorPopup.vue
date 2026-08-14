@@ -198,7 +198,7 @@
 					Nothing matches “{{ searchQuery.trim() }}”.
 				</p>
 
-				<div class="mt-3 flex items-end gap-2">
+				<div class="mt-3 flex flex-wrap items-end gap-2">
 					<div class="grow">
 						<p class="font-mono text-xs text-gray-7 mb-1">…or by ID</p>
 						<ValueInput
