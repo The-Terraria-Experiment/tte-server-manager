@@ -1,0 +1,10 @@
+# These files are staged onto the EC2 instances verbatim (scp'd by
+# setup/remote-setup.sh) and executed there by the Linux kernel and systemd.
+# A CRLF checkout on a Windows dev machine -- which core.autocrlf=true does
+# silently, on any branch switch that re-materializes the file -- ships a
+# shebang of `#!/bin/bash\r`, and the box goes looking for an interpreter
+# literally named `/bin/bash^M`. The script dies at exec with 126 before its
+# first step runs; the systemd units fail more quietly. Pin them to LF so the
+# checkout is byte-identical to what runs on the instance regardless of anyone
+# else's git config.
+src/instance-scripts/** text eol=lf
