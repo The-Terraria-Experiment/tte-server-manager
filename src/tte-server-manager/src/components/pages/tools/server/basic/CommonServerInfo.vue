@@ -16,7 +16,7 @@
 		<template #content v-if="selectedServerData.state">
 			<div class="max-h-100 overflow-y-auto">
 				<p class="font-main font-bold text-gray-7 px-5">SERVER INFO</p>
-				<div class="grid info-grid font-mono m-4 bg-gray-4 rounded-lg text-white-0">
+				<div class="grid info-grid font-mono m-4 bg-gray-4 rounded-lg text-white-0 text-sm">
 					<div class="px-2 py-1">Active World</div>
 					<div class="px-2 py-1 text-right">{{ selectedServerData.world ?? "Unknown" }}</div>
 					<div class="bg-gray-5 px-2 py-1">Terraria Version</div>
@@ -36,8 +36,8 @@
 				<p class="font-main font-bold text-gray-7 px-5">RULES</p>
 				<div v-if="ruleEntryCount" class="grid info-grid font-mono m-4 bg-gray-4 rounded-lg text-white-0">
 					<template v-for="(value, rule, i) in selectedServerData.rules">
-						<div :class="['px-2 py-1', {'bg-gray-5': i%2}]">{{ rule }}</div>
-						<div :class="['px-2 py-1 text-right', {'bg-gray-5': i%2}]">{{ value }}</div>
+						<div :class="['px-2 py-1 text-sm', {'bg-gray-5': i%2}]">{{ rule }}</div>
+						<div :class="['px-2 py-1 text-right text-sm', {'bg-gray-5': i%2}]">{{ value }}</div>
 					</template>
 				</div>
 			</div>
