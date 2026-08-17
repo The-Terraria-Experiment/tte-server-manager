@@ -91,6 +91,8 @@ import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
 import Icon from '../common/Icon.vue';
 
+export const DEFAULT_INSTANCE_LS_KEY = "last-picked-instance";
+
 export default {
 	mixins: [],
 	components: {
@@ -167,6 +169,7 @@ export default {
 			},
 			set(value) {
 				this.serverStore.selected.instance = value;
+				window.localStorage.setItem(DEFAULT_INSTANCE_LS_KEY, value);
 			}
 		}
 	},
@@ -182,11 +185,15 @@ export default {
 			try {
 				const instances = await this.serverStore.fetchInstanceList();
 				if (!this.selectedInstance) {
-					instances.forEach(i => {
-						if (this.$checkResourceAccess(`instance::${i.id}`)) {
-							this.selectedInstance = i.id;
-						}
-					});
+					const availableInstances = instances.map(i => i.id).filter(iid => this.$checkResourceAccess(`instance::${iid}`));
+					const userDefaultInstance = window.localStorage.getItem(DEFAULT_INSTANCE_LS_KEY);
+					if (userDefaultInstance && availableInstances.includes(userDefaultInstance)) {
+						this.selectedInstance = userDefaultInstance;
+					} else if (availableInstances.length > 0) {
+						this.selectedInstance = availableInstances[0];
+					} else {
+						console.log("No instances available");
+					}
 				}
 			} catch (e) {
 				this.$alert.error("Error fetching instance list");
