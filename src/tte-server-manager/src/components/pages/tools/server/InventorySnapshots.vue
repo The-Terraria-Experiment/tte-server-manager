@@ -82,22 +82,26 @@
 							<div class="min-w-max">
 								<div class="grid sessions-grid font-main font-bold text-gray-8 text-sm sticky top-0 bg-gray-4">
 									<div class="px-3 py-2">Session started</div>
+									<div class="px-3 py-2">World</div>
 									<div class="px-3 py-2">State</div>
 									<div class="px-3 py-2"></div>
 								</div>
 								<div
-									v-for="(sessionId, i) in sessions"
-									:key="sessionId"
+									v-for="(session, i) in sessions"
+									:key="session.sessionId"
 									class="grid sessions-grid items-center cursor-pointer font-mono text-sm text-white-0 hover:bg-gray-5"
 									:class="i % 2 ? 'bg-gray-4' : 'bg-gray-3'"
-									@click="openSession(sessionId)"
+									@click="openSession(session.sessionId)"
 								>
-									<div class="px-3 py-2">{{ formatSessionStart(sessionId) }}</div>
-									<div class="px-3 py-2 font-bold" :class="sessionId === currentSessionID ? 'text-teal-4' : 'text-gray-7'">
-										{{ sessionId === currentSessionID ? 'live' : 'ended' }}
+									<div class="px-3 py-2">{{ formatSessionStart(session.sessionId) }}</div>
+									<div class="px-3 py-2 truncate" :class="session.worldFilePath ? '' : 'text-gray-7 italic'">
+										{{ worldName(session.worldFilePath) }}
+									</div>
+									<div class="px-3 py-2 font-bold" :class="session.sessionId === currentSessionID ? 'text-teal-4' : 'text-gray-7'">
+										{{ session.sessionId === currentSessionID ? 'live' : 'ended' }}
 									</div>
 									<div class="px-3 py-2 flex items-center justify-end">
-										<Spinner v-if="playersLoading && openSessionId === sessionId" class="h-4 w-4 text-teal-4" />
+										<Spinner v-if="playersLoading && openSessionId === session.sessionId" class="h-4 w-4 text-teal-4" />
 										<Icon v-else icon="external" color="text-white-1" size="4" />
 									</div>
 								</div>
@@ -215,7 +219,7 @@
 					<div class="bg-gray-2 border border-gray-5 rounded-xl p-2 flex flex-col min-h-0 max-h-1/4 sm:max-h-full">
 						<p class="font-main font-bold text-gray-6 mb-2">PLAYERS</p>
 						<p v-if="sessionMeta?.worldFilePath" class="font-main text-xs text-gray-7 mb-2 break-all">
-							{{ sessionMeta.worldFilePath.split('/').pop() }}
+							{{ worldName(sessionMeta.worldFilePath) }}
 						</p>
 						<p v-if="!playersLoading && !players.length" class="font-main text-gray-7 italic text-sm">
 							No captures in this session.
@@ -460,6 +464,11 @@ export default {
 		plural,
 		formatSessionStart(sessionId) {
 			return formatSession(sessionId) ?? sessionId;
+		},
+		/** The world's file name, from the full path stored on the session — `null` shows as "Unknown". */
+		worldName(worldFilePath) {
+			if (!worldFilePath) return "Unknown";
+			return worldFilePath.split(/[/\\]/).pop();
 		},
 		toggleKind(kind) {
 			const next = this.draft.kinds.includes(kind)
@@ -717,6 +726,6 @@ export default {
 
 <style scoped>
 .sessions-grid {
-	grid-template-columns: minmax(12rem, 2fr) minmax(5rem, 1fr) minmax(3rem, auto);
+	grid-template-columns: minmax(12rem, 2fr) minmax(8rem, 2fr) minmax(5rem, 1fr) minmax(3rem, auto);
 }
 </style>
