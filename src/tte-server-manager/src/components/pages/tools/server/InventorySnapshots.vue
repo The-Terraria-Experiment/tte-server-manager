@@ -130,6 +130,7 @@
 								v-model="importFile"
 								accept="application/json,.json"
 								:multiple="false"
+								customLabel="CHOOSE SNAPSHOT TO VIEW"
 							/>
 
 							<p v-if="!exportBusy && !onlinePlayers.length" class="font-main text-sm text-gray-7 italic">

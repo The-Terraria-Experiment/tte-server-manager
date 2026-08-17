@@ -66,6 +66,10 @@ export default {
 		multiple: {
 			type: Boolean,
 			default: true
+		},
+		customLabel: {
+			type: String,
+			default: null
 		}
 	},
 	emits: ["update:modelValue", "cleared"],
@@ -83,6 +87,7 @@ export default {
 			return !this.isFolder && !this.multiple;
 		},
 		pickLabel() {
+			if (this.customLabel) return this.customLabel;
 			if (this.isFolder) return "CHOOSE FOLDER";
 			return this.singleFileMode ? "CHOOSE FILE" : "CHOOSE FILE(S)";
 		},
