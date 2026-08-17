@@ -119,25 +119,25 @@
 			<div class="px-4 pb-4 flex flex-col h-full">
 				<p class="my-2 text-gray-6 font-bold italic">Dates and times are displayed in your time zone</p>
 				<div class="grid text-white-0 font-mono text-sm overflow-auto relative" :style="gridStyle">
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Timestamp</div>
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Username</div>
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Event</div>
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">World</div>
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Player Group</div>
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">TShock Login</div>
-					<div v-if="canViewIP" class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">IP</div>
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Players Online</div>
-					<div class="text-white-0 p-1 text-md font-bold bg-teal-1 sticky top-0">Details</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">Timestamp</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">Username</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">Event</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">World</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">Player Group</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">TShock Login</div>
+					<div v-if="canViewIP" class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">IP</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">Players Online</div>
+					<div class="text-white-0 py-1 px-3 text-md font-bold bg-teal-1 sticky top-0">Details</div>
 					<template v-for="(log, i) in currentLogsPage">
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ new Date(log.timestamp).toLocaleString() }}</div>
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.playerName }}</div>
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.eventType }}</div>
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.worldName }}</div>
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.playerGroup }}</div>
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.isLoggedIn }}</div>
-						<div v-if="canViewIP" :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.ip }}</div>
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">{{ log.playersActive }}</div>
-						<div :class="[{'bg-gray-4': i%2}, 'p-1']">
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ new Date(log.timestamp).toLocaleString() }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ log.playerName }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ log.eventType }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ log.worldName }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ log.playerGroup }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ log.isLoggedIn }}</div>
+						<div v-if="canViewIP" :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ log.ip }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">{{ log.playersActive }}</div>
+						<div :class="[{'bg-gray-4': i%2}, 'py-1 px-3']">
 							<div class="text-blue-2 hover:text-blue-1 cursor-pointer" @click="openAdditional(log)" v-if="hasAdditional(log)">
 								<div
 									class="inline-flex items-center"

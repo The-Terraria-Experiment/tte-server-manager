@@ -23,10 +23,10 @@
 			</div>
 			<div class="mb-4">
 				<p class="font-bold mb-1">Environments</p>
-				<p class="mb-2 text-sm text-gray-7">
+				<!-- <p class="mb-2 text-sm text-gray-7">
 					Which sites list this instance. An instance with no environments keeps its saved
 					configuration but is hidden everywhere.
-				</p>
+				</p> -->
 				<label
 					v-for="env in environments"
 					:key="env"
@@ -43,8 +43,7 @@
 			</div>
 			<div v-if="entry?.missing" class="rounded bg-gray-4 border border-red-4 p-2">
 				<p class="text-sm text-red-3">
-					EC2 has no instance with this ID. It was probably terminated — remove it from the
-					registry, or re-point the environments if it is coming back.
+					EC2 has no instance with this ID. It was probably terminated.
 				</p>
 			</div>
 		</div>
@@ -65,10 +64,9 @@
 	>
 		<div class="p-4 h-full w-full flex flex-col text-center justify-center items-center font-main font-bold">
 			<p class="text-white-0 py-2">Remove this instance from the registry?</p>
-			<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm text-white-0">{{ entry?.id }}</div>
+			<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm text-white-0">{{ entry?.name }} ({{ entry?.id }})</div>
 			<p class="text-white-0 py-2 text-sm font-normal">
-				Its saved file paths and metrics settings are deleted too. The EC2 instance itself is
-				not touched — it just stops being managed here.
+				Its saved file paths and metrics settings are deleted too. The instance itself is not affected.
 			</p>
 		</div>
 	</Popup>
@@ -127,7 +125,7 @@ export default {
 			return Boolean(this.entry?.id);
 		},
 		headerText() {
-			if (this.isEditing) return `EDIT INSTANCE (${this.entry.id})`;
+			if (this.isEditing) return `EDIT INSTANCE (${this.entry.name})`;
 			return 'REGISTER INSTANCE';
 		},
 		anyLoading() {

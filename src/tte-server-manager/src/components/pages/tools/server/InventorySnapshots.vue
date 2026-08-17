@@ -82,31 +82,127 @@
 							<div class="min-w-max">
 								<div class="grid sessions-grid font-main font-bold text-gray-8 text-sm sticky top-0 bg-gray-4">
 									<div class="px-3 py-2">Session started</div>
+									<div class="px-3 py-2">World</div>
 									<div class="px-3 py-2">State</div>
 									<div class="px-3 py-2"></div>
 								</div>
 								<div
-									v-for="(sessionId, i) in sessions"
-									:key="sessionId"
+									v-for="(session, i) in sessions"
+									:key="session.sessionId"
 									class="grid sessions-grid items-center cursor-pointer font-mono text-sm text-white-0 hover:bg-gray-5"
 									:class="i % 2 ? 'bg-gray-4' : 'bg-gray-3'"
-									@click="openSession(sessionId)"
+									@click="openSession(session.sessionId)"
 								>
-									<div class="px-3 py-2">{{ formatSessionStart(sessionId) }}</div>
-									<div class="px-3 py-2 font-bold" :class="sessionId === currentSessionID ? 'text-teal-4' : 'text-gray-7'">
-										{{ sessionId === currentSessionID ? 'live' : 'ended' }}
+									<div class="px-3 py-2">{{ formatSessionStart(session.sessionId) }}</div>
+									<div class="px-3 py-2 truncate" :class="session.worldFilePath ? '' : 'text-gray-7 italic'">
+										{{ worldName(session.worldFilePath) }}
+									</div>
+									<div class="px-3 py-2 font-bold" :class="session.sessionId === currentSessionID ? 'text-teal-4' : 'text-gray-7'">
+										{{ session.sessionId === currentSessionID ? 'live' : 'ended' }}
 									</div>
 									<div class="px-3 py-2 flex items-center justify-end">
-										<Spinner v-if="playersLoading && openSessionId === sessionId" class="h-4 w-4 text-teal-4" />
+										<Spinner v-if="playersLoading && openSessionId === session.sessionId" class="h-4 w-4 text-teal-4" />
 										<Icon v-else icon="external" color="text-white-1" size="4" />
 									</div>
 								</div>
 							</div>
 						</div>
 					</div>
+					<div v-if="canCapture" class="bg-gray-1 px-4 pb-4 pt-2 rounded-md mt-4">
+						<p class="font-main font-bold text-gray-8 mb-2">ALL PLAYERS SNAPSHOT</p>
+						<!-- <p class="font-main text-sm text-gray-6 mb-3">
+							Capture every online player's inventory at this instant and download it as a file, or load
+							a previously downloaded export to browse it here. Independent of archiving above &mdash;
+							this is a one-off snapshot, not a stored record.
+						</p> -->
+
+						<div class="flex flex-col sm:flex-row sm:items-center gap-2">
+							<FlexButton
+								class="w-max"
+								:variant="BTN_VARIANT.SECONDARY"
+								leftIcon="download"
+								leftIconSize="4"
+								:disabled="exportBusy || !onlinePlayers.length"
+								:loading="exportBusy"
+								@input="captureExport"
+							>
+								{{ exportBusy ? 'CAPTURING…' : 'CAPTURE ALL & DOWNLOAD' }}
+							</FlexButton>
+
+							<FilePicker
+								class=""
+								v-model="importFile"
+								accept="application/json,.json"
+								:multiple="false"
+								customLabel="CHOOSE SNAPSHOT TO VIEW"
+							/>
+
+							<p v-if="!exportBusy && !onlinePlayers.length" class="font-main text-sm text-gray-7 italic">
+								No players online to capture.
+							</p>
+						</div>
+					</div>
 				</div>
 			</template>
 		</StatusTile>
+		<!-- Browses a locally-loaded export from CAPTURE ALL & DOWNLOAD, entirely client-side. -->
+		<Popup
+			headerText="IMPORTED SNAPSHOT"
+			bodyClass="h-11/12 w-11/12"
+			:open="importPopupOpen"
+			@xClicked="closeImportPopup"
+		>
+			<div class="p-2 contents sm:flex flex-col sm:flex-row gap-2 h-full min-h-0">
+				<div class="w-full sm:w-72 shrink-0 flex flex-col gap-2 min-h-0 p-2 sm:p-0">
+					<div class="bg-gray-2 border border-gray-5 rounded-xl p-2 flex flex-col min-h-0 max-h-1/4 sm:max-h-full">
+						<p class="font-main font-bold text-gray-6 mb-2">PLAYERS</p>
+						<p v-if="importData" class="font-main text-xs text-gray-7 mb-2">
+							Captured {{ new Date(importData.capturedAt).toLocaleString() }}
+						</p>
+						<p v-if="importData?.truncated" class="font-main text-xs text-orange-4 italic mb-2">
+							This capture hit the plugin's player cap — some players may be missing.
+						</p>
+						<p v-if="!importData?.players?.length" class="font-main text-gray-7 italic text-sm">
+							No players in this export.
+						</p>
+						<div class="overflow-auto min-h-0 max-h-48 sm:max-h-full">
+							<div
+								v-for="player in importData?.players ?? []"
+								:key="player.name"
+								class="px-2 py-1 rounded cursor-pointer font-mono text-sm truncate"
+								:class="player.name === importSelectedPlayer ? 'bg-blue-0 text-white-1' : 'text-white-0 hover:bg-gray-5'"
+								@click="importSelectedPlayer = player.name"
+							>
+								{{ player.name }}
+							</div>
+						</div>
+					</div>
+				</div>
+
+				<div class="grow overflow-auto min-h-0 px-2 pb-2 sm:p-0">
+					<InventoryGrid :inventory="importSnapshot?.inventory ?? null">
+						<template #header>
+							<div class="flex items-center justify-between mb-2">
+								<div class="flex items-center">
+									<Icon v-if="importSelectedPlayer" icon="user" color="text-gray-6" size="4" />
+									<p class="font-main font-bold text-gray-6 ml-2">
+										{{ importSelectedPlayer ? importSelectedPlayer.toUpperCase() : 'IMPORTED SNAPSHOT' }}
+									</p>
+								</div>
+								<p v-if="importData" class="font-main text-sm text-gray-7">
+									{{ importData.instanceName || importData.instanceId }}
+								</p>
+							</div>
+						</template>
+						<template #status>
+							<p v-if="importData && !importSnapshot" class="font-main text-gray-7 italic px-1 py-2">
+								Select a player.
+							</p>
+						</template>
+					</InventoryGrid>
+				</div>
+			</div>
+		</Popup>
 
 		<Popup
 			:headerText="popupHeader"
@@ -123,7 +219,7 @@
 					<div class="bg-gray-2 border border-gray-5 rounded-xl p-2 flex flex-col min-h-0 max-h-1/4 sm:max-h-full">
 						<p class="font-main font-bold text-gray-6 mb-2">PLAYERS</p>
 						<p v-if="sessionMeta?.worldFilePath" class="font-main text-xs text-gray-7 mb-2 break-all">
-							{{ sessionMeta.worldFilePath.split('/').pop() }}
+							{{ worldName(sessionMeta.worldFilePath) }}
 						</p>
 						<p v-if="!playersLoading && !players.length" class="font-main text-gray-7 italic text-sm">
 							No captures in this session.
@@ -208,6 +304,7 @@
 
 <script>
 import Checkbox from '@/components/common/Checkbox.vue';
+import FilePicker from '@/components/common/FilePicker.vue';
 import FlexButton from '@/components/common/FlexButton.vue';
 import Icon from '@/components/common/Icon.vue';
 import Popup from '@/components/common/Popup.vue';
@@ -217,6 +314,11 @@ import { useSpriteStore } from '@/stores/spriteStore';
 import { BTN_VARIANT } from '@/util/constants';
 import { plural } from '@/util/format';
 import { PERMISSIONS } from '@/util/permissionValues';
+import { downloadJson, slugForFilename } from '@/util/download';
+
+/** Stamped on every export so a future format change can tell an old file from a new one. */
+const EXPORT_FORMAT = "tte-inventory-snapshot-export";
+const EXPORT_VERSION = 1;
 
 const KINDS = [
 	{ id: "join", label: "On join" },
@@ -250,6 +352,7 @@ const formatSession = (sessionId) => {
 export default {
 	components: {
 		Checkbox,
+		FilePicker,
 		FlexButton,
 		Icon,
 		InventoryGrid,
@@ -283,6 +386,20 @@ export default {
 			snapshot: null,
 			snapshotLoading: false,
 			snapshotError: "",
+
+			/** True while `captureAllInventories`'s single request is in flight. */
+			exportBusy: false,
+
+			/**
+			 * A parsed export file, and the popup browsing it. Held only client-side — no network.
+			 * `importFile` is `FilePicker`'s v-model; the watcher below reads it the moment it's set and
+			 * resets it back to null once handled, so the picker returns to its default state rather than
+			 * showing a stale "1 file(s)" panel behind the popup that just opened.
+			 */
+			importFile: null,
+			importPopupOpen: false,
+			importData: null, // { instanceId, instanceName, capturedAt, players: [{ name, inventory }], truncated }
+			importSelectedPlayer: null,
 		};
 	},
 	computed: {
@@ -291,6 +408,18 @@ export default {
 		},
 		canWrite() {
 			return this.$checkPermissions(PERMISSIONS.server.player.inventory.snapshots.write);
+		},
+		/** Gates the whole EXPORT / IMPORT panel — same permission a live inventory read needs. */
+		canCapture() {
+			return this.$checkPermissions(PERMISSIONS.server.player.inventory.read);
+		},
+		/** Nicknames currently online, straight off the roster this page already polls. */
+		onlinePlayers() {
+			return this.serverStore.selectedServerData.players ?? [];
+		},
+		/** The uploaded export's currently-selected player, or null. */
+		importSnapshot() {
+			return this.importData?.players.find(player => player.name === this.importSelectedPlayer) ?? null;
 		},
 		archiveState() {
 			return this.serverStore.getSnapshotArchive(this.selectedInstance);
@@ -335,6 +464,11 @@ export default {
 		plural,
 		formatSessionStart(sessionId) {
 			return formatSession(sessionId) ?? sessionId;
+		},
+		/** The world's file name, from the full path stored on the session — `null` shows as "Unknown". */
+		worldName(worldFilePath) {
+			if (!worldFilePath) return "Unknown";
+			return worldFilePath.split(/[/\\]/).pop();
 		},
 		toggleKind(kind) {
 			const next = this.draft.kinds.includes(kind)
@@ -461,6 +595,106 @@ export default {
 			this.snapshot = null;
 			this.snapshotError = "";
 		},
+		/**
+		 * Reads every online player's live inventory in one call and downloads the lot as one JSON
+		 * file. A point-in-time export, not archiving — nothing here touches S3 or the archive row
+		 * above, so it works identically whether or not archiving is configured.
+		 */
+		async captureExport() {
+			this.$validatePermissions(PERMISSIONS.server.player.inventory.read);
+			if (this.exportBusy) return;
+
+			// A pre-check against the roster this page already polls, purely to skip a pointless
+			// request — the capture itself asks the plugin who is online, not this list.
+			if (!this.onlinePlayers.length) {
+				this.$alert.warning("No players are online to capture");
+				return;
+			}
+
+			this.exportBusy = true;
+
+			try {
+				const result = await this.serverStore.captureAllInventories(this.selectedInstance);
+
+				if (!result.players.length) {
+					this.$alert.error("Failed to capture any player inventories");
+					return;
+				}
+
+				const instanceName = this.serverStore.instances.find(i => i.id === this.selectedInstance)?.name;
+				downloadJson(`inventory-snapshot_${slugForFilename(instanceName || this.selectedInstance)}_${result.capturedAt}.json`, {
+					format: EXPORT_FORMAT,
+					version: EXPORT_VERSION,
+					instanceId: this.selectedInstance,
+					instanceName: instanceName || null,
+					capturedAt: result.capturedAt,
+					players: result.players,
+					truncated: result.truncated,
+				});
+
+				if (result.truncated) {
+					this.$alert.warning(`Captured ${result.players.length} players — hit the plugin's player cap, some may be missing`);
+				} else {
+					this.$alert.success(`Captured ${result.players.length} player${plural(result.players.length)}`);
+				}
+			} catch (e) {
+				this.$alert.error(e?.message || "Failed to capture inventories");
+				console.error(e);
+			} finally {
+				this.exportBusy = false;
+			}
+		},
+		/**
+		 * Loads a previously downloaded export and opens it for browsing. Entirely local — parsing a
+		 * file the operator picked is not a network read, so this needs no permission check of its own
+		 * beyond the panel already being gated on `inventory.read` to reach the picker at all.
+		 *
+		 * Driven by the `importFile` watcher rather than a native `@change`: `FilePicker`'s `:multiple`
+		 * is `false` here — an export is one JSON document, and picking several would wrongly imply
+		 * this views more than one at once — so it hands back a single `File` (or null), never an array.
+		 * Its own "PICKED FILE" panel is what shows the operator something happened, so there's nothing
+		 * left for this method to render before the popup opens.
+		 */
+		onImportFile(file) {
+			if (!file) return;
+
+			const reader = new FileReader();
+			reader.onload = () => {
+				let parsed;
+				try {
+					parsed = JSON.parse(reader.result);
+				} catch {
+					this.$alert.error("That file isn't valid JSON");
+					this.importFile = null;
+					return;
+				}
+
+				if (!Array.isArray(parsed?.players) || !parsed.players.every(p => p?.name && p?.inventory?.containers)) {
+					this.$alert.error("That file doesn't look like an inventory snapshot export");
+					this.importFile = null;
+					return;
+				}
+
+				this.importData = parsed;
+				this.importSelectedPlayer = parsed.players[0]?.name ?? null;
+				this.importPopupOpen = true;
+				// Reset now that the popup has the data, so the picker is ready for the next file rather
+				// than showing a stale "1 file(s)" panel behind the popup.
+				this.importFile = null;
+				// Idempotent, and the grid needs it the moment the popup opens.
+				this.spriteStore.loadAtlas();
+			};
+			reader.onerror = () => {
+				this.$alert.error("Failed to read the file");
+				this.importFile = null;
+			};
+			reader.readAsText(file);
+		},
+		closeImportPopup() {
+			this.importPopupOpen = false;
+			this.importData = null;
+			this.importSelectedPlayer = null;
+		},
 	},
 	mounted() {
 		if (this.selectedInstance && this.$checkPermissions(PERMISSIONS.server.player.inventory.snapshots.read)) {
@@ -479,12 +713,19 @@ export default {
 				this.fetchSessions();
 			}
 		},
+		/**
+		 * `importFile` is `FilePicker`'s v-model, so this fires both when the operator picks a file and
+		 * when `onImportFile` resets it back to null when done — guarded to only act on the former.
+		 */
+		importFile(value) {
+			if (value) this.onImportFile(value);
+		},
 	},
 };
 </script>
 
 <style scoped>
 .sessions-grid {
-	grid-template-columns: minmax(12rem, 2fr) minmax(5rem, 1fr) minmax(3rem, auto);
+	grid-template-columns: minmax(12rem, 2fr) minmax(8rem, 2fr) minmax(5rem, 1fr) minmax(3rem, auto);
 }
 </style>
