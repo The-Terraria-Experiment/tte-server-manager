@@ -65,19 +65,20 @@
 				<p class="font-main mr-1 mb-1">Upload file(s) to</p>
 				<div class="bg-gray-2 rounded px-2 font-mono break-all text-sm">{{ addFilePathRoot + "/" + addFilePath.join("/")}}</div>
 			</div>
-			<div>
+			<!-- <div>
 				<p class="font-main font-semibold text-white-0 my-2">Choose file(s) or folder to upload.</p>
-			</div>
+			</div> -->
 			
 			<!-- Toggle between file and folder mode -->
-			<div class="flex items-center mb-4 gap-2">
-				<Checkbox v-model="uploadFolderMode" class="h-5 w-5" />
+			<div class="flex items-center gap-2 mt-2">
+				<Checkbox v-model="uploadFolderMode" />
 				<p class="font-main font-semibold text-teal-4 cursor-pointer" @click="uploadFolderMode = !uploadFolderMode">Folder upload</p>
 			</div>
 
 			<p v-if="uploadFolderMode" class="font-main font-semibold text-white-0">Note: This will upload the selected folder as well.</p>
 
 			<FilePicker 
+				class="mt-4"
 				v-model="pickedFile" 
 				@cleared="onFileCleared" 
 				:is-folder="uploadFolderMode"

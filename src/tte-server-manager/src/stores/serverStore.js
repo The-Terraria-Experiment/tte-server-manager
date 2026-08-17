@@ -469,6 +469,36 @@ export const useServerStore = defineStore("serverstore", {
 			}
 		},
 		/**
+		 * Reads every online player's inventory in one call, for a point-in-time export.
+		 *
+		 * Backed by the InventoryMonitor plugin's own `/inventory/readall`, not a loop over
+		 * `fetchPlayerInventory` per roster name — one TShock round trip through tshock-proxy instead
+		 * of one per player, and it reflects whoever is online at the instant the plugin builds the
+		 * response rather than a roster this store read a moment earlier. Each report is also written
+		 * into `playerInventories`, same as `fetchPlayerInventory`, so a capture that includes the
+		 * currently-open popup's player refreshes it for free.
+		 *
+		 * `truncated` mirrors the plugin's own `ReadAllMaxPlayers` cap (255) — astronomically above any
+		 * real player count here, but worth surfacing rather than silently dropping players past it.
+		 */
+		async captureAllInventories(instanceId) {
+			const capturedAt = Date.now();
+			const data = await get(`/server/${instanceId}/players/inventory`, PERMISSIONS.server.player.inventory.read);
+			const players = data.players ?? [];
+
+			for (const inventory of players) {
+				if (inventory?.name) {
+					this.playerInventories[inventoryKey(instanceId, inventory.name)] = inventory;
+				}
+			}
+
+			return {
+				capturedAt,
+				players: players.map(inventory => ({ name: inventory.name, inventory })),
+				truncated: Boolean(data.truncated),
+			};
+		},
+		/**
 		 * Destroys items in a player's live inventory. Removal only.
 		 *
 		 * Takes either `{ op: "remove-slots", slots: [{ globalSlot, netId }] }` or

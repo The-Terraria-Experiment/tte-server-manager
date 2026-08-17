@@ -46,6 +46,7 @@ import { TSHOCK_PROXY_REQUEST_TYPE, type TShockCredential, type TShockProxyReque
  * | `/v2/players/mute`      | `tshock.rest.mute`        |
  * | `/v3/bans/*`            | `tshock.rest.bans.*`      |
  * | `/inventory/read`       | `invmonitor.rest.read`      |
+ * | `/inventory/readall`    | `invmonitor.rest.read`      |
  * | `/inventory/snapshots`  | `invmonitor.rest.snapshots` |
  * | `/inventory/removeslot` | `invmonitor.rest.remove`    |
  * | `/inventory/clear`      | `invmonitor.rest.clear`     |

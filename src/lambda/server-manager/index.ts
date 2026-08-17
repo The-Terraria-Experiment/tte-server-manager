@@ -17,6 +17,7 @@ import { launchWorld } from "./actions/launchWorld.js";
 import { managePlayer } from "./actions/managePlayer.js";
 import { readPlayer } from "./actions/readPlayer.js";
 import { readPlayerInventory } from "./actions/readPlayerInventory.js";
+import { readAllPlayerInventories } from "./actions/readAllPlayerInventories.js";
 import { editPlayerInventory } from "./actions/editPlayerInventory.js";
 import { getBans } from "./actions/getBans.js";
 import { deleteBan } from "./actions/deleteBan.js";
@@ -115,6 +116,12 @@ const endpoints: EndpointList = {
 	},
 	"GET /server/{id}/players/{player}/inventory": {
 		action: readPlayerInventory,
+		permRequired: PERMISSIONS.server.player.inventory.read
+	},
+	// Distinct from the `/inventory/sessions|players|snapshot(s)` family below: those read the S3
+	// archive, this reads every online player live in one TShock call, for a point-in-time export.
+	"GET /server/{id}/players/inventory": {
+		action: readAllPlayerInventories,
 		permRequired: PERMISSIONS.server.player.inventory.read
 	},
 	"POST /server/{id}/players/{player}/inventory": {
