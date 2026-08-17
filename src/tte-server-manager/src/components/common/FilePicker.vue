@@ -2,7 +2,7 @@
 	<div class="">
 		<label class="text-cream font-main font-bold text-center bg-linear-to-r from-teal-4 to-teal-1 py-2 px-4 w-full cursor-pointer rounded-lg flex items-center gradientbg select-none">
 			<div class="flex items-center justify-center w-full gap-2">
-				<Icon icon="upload" color="text-white-1" size="4" />
+				<Icon icon="upload" color="text-white-1" size="5" />
 				<p class="">{{ pickLabel }}</p>
 			</div>
 			<input
