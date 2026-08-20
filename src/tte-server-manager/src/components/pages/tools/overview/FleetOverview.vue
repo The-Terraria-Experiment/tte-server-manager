@@ -2,21 +2,20 @@
 	<StatusTile
 		:perm-required="PERMISSIONS.instance.list"
 		:loading="serverStore.isLoadingFleet"
-		collapsible
 		start-open
 	>
 		<template #header>
 			<Icon icon="server" color="text-gray-6" size="4" />
 			<p class="text-gray-6 ml-2 text-lg">Servers</p>
 		</template>
-		<template #summary>
+		<!-- <template #summary>
 			<p class="text-2xl text-teal-4">{{ summaryText }}</p>
-		</template>
+		</template> -->
 		<template #content>
 			<div class="px-4 pb-4">
 				<div class="flex items-center justify-between flex-wrap gap-2 mb-4">
-					<p class="text-sm text-gray-7">
-						Every server you have access to. Click one to manage it.
+					<p class="text-2xl font-bold font-main text-teal-4">
+						{{ summaryText }}
 					</p>
 					<RefreshButton :loading="serverStore.isLoadingFleet" @input="refresh" />
 				</div>
@@ -34,8 +33,7 @@
 					<div
 						v-for="instance in fleet"
 						:key="instance.id"
-						class="rounded-lg p-4 w-full sm:w-72 border border-gray-5 cursor-pointer hover:brightness-110"
-						:class="instance.server?.online ? 'gradient-tile-green' : 'gradient-tile-red'"
+						class="rounded-lg p-4 w-full sm:w-72 border border-gray-5 cursor-pointer hover:bg-gray-2 bg-gray-4"
 						@click="openInstance(instance)"
 					>
 						<p class="font-main font-bold text-lg text-teal-4 break-all">{{ instance.name }}</p>
@@ -140,18 +138,18 @@ export default {
 			}));
 		},
 		summaryText() {
-			if (!this.fleet.length) return "NO SERVERS";
+			if (!this.fleet.length) return "No servers";
 
 			// Counted over instances that reported a server block at all, so a caller without server
 			// access sees an instance count rather than a misleading "0 / 3 ONLINE".
 			const withServer = this.fleet.filter((instance) => instance.server);
 			if (!withServer.length) {
-				return `${this.fleet.length} INSTANCE${this.fleet.length === 1 ? "" : "S"}`;
+				return `${this.fleet.length} instance${this.fleet.length === 1 ? "" : "s"}`;
 			}
 
 			const online = withServer.filter((instance) => instance.server.online);
 			const players = online.reduce((total, instance) => total + (instance.server.playercount || 0), 0);
-			return `${online.length} / ${this.fleet.length} ONLINE · ${players} PLAYER${players === 1 ? "" : "S"}`;
+			return `${online.length} / ${this.fleet.length} online · ${players} player${players === 1 ? "" : "s"}`;
 		},
 	},
 	methods: {
