@@ -51,22 +51,23 @@
 
 		<InstanceRegistryEditor />
 
-		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
+		<FleetOverview />
+
+		<!-- <div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
 			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">The Terraria Experiment Server Manager</h1>
 			<p class="font-main font-semibold text-white-0 mt-4">Welcome! Parts of this site are still under construction. There may be bugs, bad UI/UX, or broken tools.</p>
 			<p class="font-main font-semibold text-white-0 mt-4">
 				Please report any issues you find by messaging in <span class="text-yellow-2">#server-general</span> in the Discord server. Make sure to ping <span class="text-yellow-2">@havoc</span>.
 			</p>
 			<p class="font-main font-semibold text-white-0 mt-4">Thank you!</p>
-		</div>
+		</div> -->
 
-		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4">
-			<h1 class="font-main font-bold text-2xl text-teal-4 mb-8">Usage Guide</h1>
+		<div class="bg-gray-3 rounded-xl overflow-hidden h-max p-4 border border-gray-5">
+			<h1 class="font-main font-bold text-2xl text-teal-4 mb-6">Usage Guide</h1>
 
 			<h3 class="font-main font-bold text-xl text-gray-7">Instance Page</h3>
 			<p class="font-main font-semibold text-white-0 mt-4">The "instance" is the physical computer that we are using to host the server.</p>
 			<p class="font-main font-semibold text-white-0 mt-4">Use the Instance page to turn on/off the computer. Click the "Instance Status" section to reveal the buttons.</p>
-			<p class="font-main font-semibold text-white-0 mt-4"><span class="text-red-5">NOTE:</span> Stopping the instance without first stopping the Terraria server will NOT save the world! Any unsaved progress will be LOST!</p>
 
 			<h3 class="font-main font-bold text-xl text-gray-7 mt-8">Server Page</h3>
 			<p class="font-main font-semibold text-white-0 mt-4">The "server" is the actual Terraria game server.</p>
@@ -94,6 +95,7 @@ import LargeTextInput from '../common/LargeTextInput.vue';
 import Spinner from '../common/Spinner.vue';
 import ValueInput from '../common/ValueInput.vue';
 import InstanceRegistryEditor from './tools/system/InstanceRegistryEditor.vue';
+import FleetOverview from './tools/overview/FleetOverview.vue';
 
 // Cognito bounces the browser back to the app's root ("/", which routes here) on completion
 // of every federated sign-in attempt (see amplify/auth/resource.ts callbackUrls) - this is the
@@ -113,6 +115,7 @@ export default {
 		LargeTextInput,
 		Checkbox,
 		InstanceRegistryEditor,
+		FleetOverview,
 	},
 	props: {
 
@@ -210,22 +213,5 @@ export default {
 </script>
 
 <style scoped>
-@reference "../../theme.css";
-
-.gradient-tile-green {
-	@apply bg-linear-to-b from-gray-3 to-green-2 from-50%;
-	background-size: 100% 200%;
-	background-position: 0% 100%;
-	/* transition: background-position 200ms ease; */
-}
-
-.gradient-tile-red {
-	@apply bg-linear-to-b from-gray-3 to-red-900 from-50%;
-	background-size: 100% 200%;
-	background-position: 0% 100%;
-}
-
-/* .gradient-tile:hover {
-	background-position: 0% 100%;
-} */
+/* gradient-tile-green / gradient-tile-red are defined globally in style.css. */
 </style>

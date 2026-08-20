@@ -109,7 +109,6 @@ import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
 import ItemRules from './tools/server/ItemRules.vue';
 import InventorySnapshots from './tools/server/InventorySnapshots.vue';
-import { DEFAULT_INSTANCE_LS_KEY } from './Instance.vue';
 
 // Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
 const STATUS_HANDLER_ID = "server-page-fetch-status";
@@ -152,8 +151,7 @@ export default {
 				return this.serverStore.selected.instance;
 			},
 			set(value) {
-				this.serverStore.selected.instance = value;
-				window.localStorage.setItem(DEFAULT_INSTANCE_LS_KEY, value);
+				this.serverStore.selectInstance(value);
 			}
 		},
 		selectedServerData() {
