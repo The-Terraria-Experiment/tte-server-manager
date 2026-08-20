@@ -16,6 +16,23 @@ export const INSTANCE_STATES = {
 	"STOPPING": "STOPPING",
 	"OFFLINE": "OFFLINE",
 };
+/**
+ * EC2's own state names, as the instance list and status endpoints report them, mapped to the
+ * labels this app shows. Shared rather than component-local so the Instance page and the Overview
+ * fleet cards cannot disagree about what a state is called.
+ */
+export const EC2_STATE_LABELS = {
+	"pending": INSTANCE_STATES.STARTING,
+	"running": INSTANCE_STATES.ONLINE,
+	"shutting-down": INSTANCE_STATES.SHUTTING_DOWN,
+	"terminated": INSTANCE_STATES.TERMINATED,
+	"stopping": INSTANCE_STATES.STOPPING,
+	"stopped": INSTANCE_STATES.OFFLINE,
+};
+/** Registry rows EC2 no longer knows about. Synthesised by the backend, never returned by AWS. */
+export const EC2_STATE_MISSING = "missing";
+/** Which instance the user last picked, remembered across sessions. */
+export const DEFAULT_INSTANCE_LS_KEY = "last-picked-instance";
 export const WORLD_STATES = {
 	OFFLINE: "OFFLINE",
 	RUNNING: "RUNNING",

@@ -22,6 +22,7 @@ import { editPlayerInventory } from "./actions/editPlayerInventory.js";
 import { getBans } from "./actions/getBans.js";
 import { deleteBan } from "./actions/deleteBan.js";
 import { getStatus } from "./actions/getStatus.js";
+import { getFleetOverview } from "./actions/getFleetOverview.js";
 import { stop } from "./actions/stop.js";
 import { readConfig } from "./actions/readConfig.js";
 import { writeConfig } from "./actions/writeConfig.js";
@@ -46,6 +47,15 @@ const endpoints: EndpointList = {
 	// 	action: null,
 	// 	permRequired: PERMISSIONS.server.list,
 	// },
+	/**
+	 * The fleet summary behind the Overview page. Gated on `instance.list` rather than
+	 * `server.status.read`: the instance half is the baseline, and the server block is added
+	 * per instance inside the action for callers who also hold `server.status.read`.
+	 */
+	"GET /servers/overview": {
+		action: getFleetOverview,
+		permRequired: PERMISSIONS.instance.list,
+	},
 	"GET /server/{id}/status": {
 		action: getStatus,
 		permRequired: PERMISSIONS.server.status.read,

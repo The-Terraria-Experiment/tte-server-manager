@@ -76,7 +76,7 @@
 </template>
 
 <script>
-import { BTN_VARIANT, INSTANCE_STATES, } from '../../util/constants';
+import { BTN_VARIANT, DEFAULT_INSTANCE_LS_KEY, EC2_STATE_LABELS } from '../../util/constants';
 import Dropdown from '../common/Dropdown.vue';
 import { PERMISSIONS } from '../../util/permissionValues';
 import RefreshButton from '../common/RefreshButton.vue';
@@ -90,8 +90,6 @@ import MajorLoader from '../shared/MajorLoader.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
 import Icon from '../common/Icon.vue';
-
-export const DEFAULT_INSTANCE_LS_KEY = "last-picked-instance";
 
 export default {
 	mixins: [],
@@ -139,18 +137,9 @@ export default {
 				shutdown: null
 			};
 
-			const stateMap = {
-				"pending": INSTANCE_STATES.STARTING,
-				"running": INSTANCE_STATES.ONLINE,
-				"shutting-down": INSTANCE_STATES.SHUTTING_DOWN,
-				"terminated": INSTANCE_STATES.TERMINATED,
-				"stopping": INSTANCE_STATES.STOPPING,
-				"stopped": INSTANCE_STATES.OFFLINE
-			};
-
 			return {
 				id: this.selectedInstance,
-				state: stateMap[rawData.state],
+				state: EC2_STATE_LABELS[rawData.state],
 				publicIp: rawData.publicIp,
 				timeOnline: (rawData.launchTime && rawData.state === 'running') ? new Date(rawData.launchTime) : null,
 				instanceType: rawData.instanceType,
@@ -168,8 +157,7 @@ export default {
 				return this.serverStore.selected.instance;
 			},
 			set(value) {
-				this.serverStore.selected.instance = value;
-				window.localStorage.setItem(DEFAULT_INSTANCE_LS_KEY, value);
+				this.serverStore.selectInstance(value);
 			}
 		}
 	},

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { get, post, put } from '../util/api';
 import { PERMISSIONS } from '../util/permissionValues';
-import { INSTANCE_STATES, WORLD_STATES } from '../util/constants.js';
+import { DEFAULT_INSTANCE_LS_KEY, INSTANCE_STATES, WORLD_STATES } from '../util/constants.js';
 import { shutdownTaskId, useStatusStore } from './statusStore.js';
 import { useAlertStore } from './alertStore.js';
 
@@ -15,6 +15,20 @@ export const useServerStore = defineStore("serverstore", {
 			server: null,
 		},
 		instances: [],
+		/**
+		 * The Overview page's fleet summary, straight from `GET /servers/overview`.
+		 *
+		 * Held under its own key rather than being folded into instanceStatusData/serverStatusData,
+		 * and that separation is load-bearing: the overview payload deliberately carries no
+		 * `shutdown` block, while fetchServerStatus assigns instanceStatusData[id] wholesale. A
+		 * partial reaching that key would wipe the shutdown flag out from under trackShutdown and
+		 * every isShuttingDown guard - the same trap the ?fields=players slim path avoids by
+		 * merging. Nothing here is a source of truth for a page that has its own fetch.
+		 */
+		fleetOverview: [],
+		fleetOverviewFetchedAt: null,
+		/** True when a TShock read was dropped for time - see OVERVIEW_BUDGET_MS on the backend. */
+		fleetOverviewTruncated: false,
 		instanceStatusData: {},
 		instanceFiles: {},
 		instanceFileRoots: {},
@@ -51,6 +65,7 @@ export const useServerStore = defineStore("serverstore", {
 		violationsMeta: {}, // per instance: { lastScanAt, lastScanStatus }
 		loading: {
 			list: false,
+			fleet: false,
 			status: {},
 			files: {},
 			serverStatus: {},
@@ -70,6 +85,7 @@ export const useServerStore = defineStore("serverstore", {
 			return state.instanceStatusData[instanceId] || null;
 		},
 		isLoadingList: (state) => state.loading.list,
+		isLoadingFleet: (state) => state.loading.fleet,
 		isLoadingStatus: (state) => (instanceId) => state.loading.status[instanceId] || false,
 		/**
 		 * Whether a server-status fetch is already in flight for this instance.
@@ -175,6 +191,43 @@ export const useServerStore = defineStore("serverstore", {
 		isDismissingViolations: (state) => (instanceId) => state.loading.violationDismiss[instanceId] || false,
 	},
 	actions: {
+		/**
+		 * Picks the active instance and remembers it for next session.
+		 *
+		 * Lives here because three callers need the pair to stay together - the Instance and Server
+		 * page pickers, and the Overview fleet cards, which jump straight to a page for whichever
+		 * server was clicked. Setting `selected.instance` without the write silently loses the
+		 * user's choice on reload.
+		 */
+		selectInstance(instanceId) {
+			this.selected.instance = instanceId;
+			window.localStorage.setItem(DEFAULT_INSTANCE_LS_KEY, instanceId);
+		},
+		/**
+		 * The whole fleet in one read, for the Overview page.
+		 *
+		 * Every running instance in the response cost a TShock round trip to the game server, so this
+		 * is called on mount and on an explicit refresh only - never on a poller and never from a
+		 * socket handler. Writes only to `fleetOverview`; see the state declaration for why it must
+		 * not touch instanceStatusData or serverStatusData.
+		 */
+		async fetchFleetOverview() {
+			if (this.loading.fleet) return this.fleetOverview;
+			this.loading.fleet = true;
+
+			try {
+				const data = await get("/servers/overview", PERMISSIONS.instance.list);
+				this.fleetOverview = data.instances || [];
+				this.fleetOverviewTruncated = Boolean(data.truncated);
+				this.fleetOverviewFetchedAt = new Date().toISOString();
+				return this.fleetOverview;
+			} catch (error) {
+				console.error("Error fetching fleet overview:", error);
+				throw error;
+			} finally {
+				this.loading.fleet = false;
+			}
+		},
 		async fetchInstanceList() {
 			if (this.loading.list) return;
 			this.loading.list = true;
