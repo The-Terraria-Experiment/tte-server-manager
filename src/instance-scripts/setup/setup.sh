@@ -305,9 +305,28 @@ step_ssm() {
 step_tshock() {
 	log "tshock"
 
-	local marker="$ROOT/tshock/.tte-installed-key"
-	if [ -f "$marker" ] && [ "$(cat "$marker")" = "$TSHOCK_KEY" ] && [ -f "$ROOT/tshock/TShock.Server" ]; then
-		ok "already installed from s3://$TSHOCK_BUCKET/$TSHOCK_KEY"
+	# Guarded on the object's ETag, not on $TSHOCK_KEY. TTE_TSHOCK_KEY is almost
+	# always the static "current.zip" pointer (see README's versioning note), so
+	# a marker keyed on the *key string* would match forever -- even after a new
+	# build is pushed to that same key -- and this step would silently skip
+	# every upgrade. That was the original bug: "re-run to upgrade" only worked
+	# if you also changed the key. HeadObject needs only s3:GetObject, which the
+	# instance role already has for the download below, so no new permission.
+	local marker="$ROOT/tshock/.tte-installed-etag"
+	local remote_etag
+	remote_etag=$(aws s3api head-object --bucket "$TSHOCK_BUCKET" --key "$TSHOCK_KEY" \
+		--query 'ETag' --output text 2>/dev/null) \
+		|| die "could not read s3://${TSHOCK_BUCKET}/${TSHOCK_KEY} -- check the key and the instance role's s3:GetObject"
+	# --output text renders the ETag's surrounding quotes literally rather than
+	# stripping them -- they're part of the field's string value, not JSON
+	# syntax -- so trim them with parameter expansion (no pipeline, so no risk
+	# of the aws call's exit status being swallowed by a downstream command).
+	remote_etag=${remote_etag//\"/}
+	[ -n "$remote_etag" ] && [ "$remote_etag" != "None" ] \
+		|| die "head-object returned no ETag for s3://${TSHOCK_BUCKET}/${TSHOCK_KEY}"
+
+	if [ -f "$marker" ] && [ "$(cat "$marker")" = "$remote_etag" ] && [ -f "$ROOT/tshock/TShock.Server" ]; then
+		ok "already installed (s3://$TSHOCK_BUCKET/$TSHOCK_KEY unchanged, etag $remote_etag)"
 		return
 	fi
 
@@ -332,10 +351,14 @@ step_tshock() {
 	cp -a "$src/." "$ROOT/tshock/"
 	chown -R "$RUN_AS:$RUN_AS" "$ROOT/tshock"
 	chmod +x "$ROOT/tshock/TShock.Server"
-	printf '%s' "$TSHOCK_KEY" > "$marker"
+	printf '%s' "$remote_etag" > "$marker"
+	chown "$RUN_AS:$RUN_AS" "$marker"
 	rm -rf "$tmp"
+	# Migrate off the old key-based marker so it can't linger and confuse a
+	# future reader -- its absence is harmless either way, it's just stale.
+	rm -f "$ROOT/tshock/.tte-installed-key"
 
-	ok "installed from s3://$TSHOCK_BUCKET/$TSHOCK_KEY"
+	ok "installed from s3://$TSHOCK_BUCKET/$TSHOCK_KEY (etag $remote_etag)"
 }
 
 # Pulls one field out of the inst# row's metricsConfig map, or prints nothing.

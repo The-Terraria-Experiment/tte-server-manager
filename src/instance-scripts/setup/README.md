@@ -123,8 +123,16 @@ the script handles both — `config.json` and `tshock.sqlite`. Don't put those i
 the artifact; if the zip carries a `tshock.sqlite`, it'll overwrite the REST
 account on every upgrade.
 
-Versioning is just the key. Keep `tshock/current.zip` as the pointer and upload
-real versions alongside it (`tshock/5.2.0.zip`) so a rollback is a copy.
+To upgrade the fleet to a new TShock build, just overwrite `tshock/current.zip`
+in place and re-run (`setup.sh --only tshock` is enough). `step_tshock` gates
+on the object's **ETag**, not on the key, so it correctly notices the content
+changed even though the key didn't — the marker used to be keyed on
+`TTE_TSHOCK_KEY` itself, which meant a re-run silently no-op'd forever once
+that key (almost always the static `current.zip` pointer) had been installed
+once, upgrade or not. It's still worth uploading a version-tagged copy
+alongside it (`tshock/5.2.0.zip`) before you overwrite the pointer, so a
+rollback is a copy rather than a rebuild from an old artifact you may not
+still have.
 
 ## Plugins — installed by hand, not by this script
 
