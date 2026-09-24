@@ -8,6 +8,7 @@ import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { Parsers } from "../shared/utils/core/Parsers.js";
 import { Permissions } from "../shared/utils/core/Perms.js";
 import { InstanceRegistry } from "../shared/utils/instance/InstanceRegistry.js";
+import { flavorFor, toClientFlavor, type ClientServerFlavor } from "../shared/utils/instance/ServerFlavor.js";
 import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
 
 /**
@@ -48,9 +49,13 @@ interface FleetServerStatus {
 	uptime: string | null;
 	serverversion: string | null;
 	tshockversion: string | null;
+	/** tModLoader only; see `docs/contracts/control-rest.md`. */
+	tmodloaderversion: string | null;
+	/** Mods loaded in the running process, tModLoader only. Just the count reaches the card today. */
+	modCount: number | null;
 }
 
-interface FleetInstance {
+interface FleetInstance extends ClientServerFlavor {
 	id: string;
 	name: string;
 	state: string;
@@ -71,6 +76,8 @@ const noStatus = (reachable: Reachability): FleetServerStatus => ({
 	uptime: null,
 	serverversion: null,
 	tshockversion: null,
+	tmodloaderversion: null,
+	modCount: null,
 });
 
 const TIMED_OUT = Symbol("tshock-read-timeout");
@@ -127,6 +134,8 @@ const readServerStatus = async (instance: MultiInstanceStatus, userId: string): 
 		uptime: raw.uptime ?? null,
 		serverversion: raw.serverversion ?? null,
 		tshockversion: raw.tshockversion ?? null,
+		tmodloaderversion: raw.tmodloaderversion ?? null,
+		modCount: Array.isArray(raw.mods) ? raw.mods.length : null,
 	};
 };
 
@@ -138,9 +147,10 @@ export const getFleetOverview = async (event: AuthorizedEvent, context: Context)
 		return ResponseUtil.Error("Unauthorized: No user context", 401, "UNAUTHORIZED");
 	}
 
-	const instanceIds = await InstanceRegistry.GetRegisteredInstanceIds();
+	const entries = await InstanceRegistry.GetRegisteredInstances();
+	const serverTypes = new Map(entries.map((entry) => [entry.id, entry.serverType]));
 	const ec2 = new Ec2Dao();
-	const instancesData = await ec2.GetMultipleInstanceStatus(instanceIds);
+	const instancesData = await ec2.GetMultipleInstanceStatus(entries.map((entry) => entry.id));
 
 	/**
 	 * Filtered server-side, unlike `GET /instances`, which returns the whole environment and lets the
@@ -169,6 +179,7 @@ export const getFleetOverview = async (event: AuthorizedEvent, context: Context)
 				state: instanceData.state,
 				launchTime: instanceData.launchTime,
 				instanceType: instanceData.instanceType,
+				...toClientFlavor(flavorFor(serverTypes.get(instanceData.id))),
 			};
 
 			const reachable =

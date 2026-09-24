@@ -33,6 +33,13 @@
 						</div>
 						<div :class="['flex items-center rounded-r sm:rounded-none', getWorldFileBG(idx)]" @click="selectWorldFile(world)">
 							<p class="font-mono text-white-0 font-semibold text-sm cursor-pointer">{{ world.name }}</p>
+							<p
+								v-if="world.missingModData"
+								class="font-mono text-xs text-yellow-2 ml-3"
+								title="tModLoader keeps all modded tiles, items and chests in the .twld beside the .wld. Launching without it loses them."
+							>
+								no .twld
+							</p>
 						</div>
 						<div v-if="!isMobile" :class="['flex items-center rounded-r pr-2', getWorldFileBG(idx)]">
 							<p class="font-mono text-white-0 font-semibold text-sm">{{ formatFileSize(world.size) }}</p>
@@ -152,9 +159,21 @@ export default {
 				.filter(nickname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${nickname}`))
 				.map(nickname => fileRoots[nickname])
 				.filter((path) => !!path);
-			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+			const files = (this.serverStore.instanceFiles[this.selectedInstance] || [])
 				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}/`)))
 				.map(s => ({ name: s.key.replace(this.selectedInstance, ""), size: s.size }));
+
+			if (this.serverStore.selectedServerFlavor.serverType !== "tmodloader") {
+				return files;
+			}
+
+			// A tModLoader world is a .wld plus a .twld holding every modded tile, item and chest, and
+			// the folder also collects .bak copies of both. Only the .wld is launchable; a missing .twld
+			// is flagged rather than hidden, since the vanilla half still loads.
+			const names = new Set(files.map(f => f.name));
+			return files
+				.filter(f => f.name.endsWith(".wld"))
+				.map(f => ({ ...f, missingModData: !names.has(f.name.replace(/\.wld$/, ".twld")) }));
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;

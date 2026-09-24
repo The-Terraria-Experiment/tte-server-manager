@@ -74,6 +74,9 @@
 		<ItemRules
 			v-if="selectedInstance"
 		/>
+		<ModList
+			v-if="selectedInstance && hasModList"
+		/>
 		<InventorySnapshots
 			v-if="selectedInstance"
 		/>
@@ -109,6 +112,7 @@ import TShockConsoleLogs from './tools/server/TShockConsoleLogs.vue';
 import RunTshockCommand from './tools/server/RunTshockCommand.vue';
 import ItemRules from './tools/server/ItemRules.vue';
 import InventorySnapshots from './tools/server/InventorySnapshots.vue';
+import ModList from './tools/server/ModList.vue';
 
 // Stable across remounts, so a re-registered handler replaces its predecessor instead of stacking.
 const STATUS_HANDLER_ID = "server-page-fetch-status";
@@ -130,6 +134,7 @@ export default {
 		RunTshockCommand,
 		ItemRules,
 		InventorySnapshots,
+		ModList,
 	},
 	props: {
 		
@@ -168,6 +173,9 @@ export default {
 		},
 		serverIsOnline() {
 			return this.selectedInstance && this.selectedServerData.state && this.selectedInstanceData?.online;
+		},
+		hasModList() {
+			return this.serverStore.selectedServerFlavor.capabilities.has("mods");
 		}
 	},
 	methods: {

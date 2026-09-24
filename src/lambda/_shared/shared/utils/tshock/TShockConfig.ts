@@ -75,14 +75,33 @@ export const applyServerPasswordToConfig = async (instanceID: string, password: 
  * Values must already be validated; nothing here escapes them.
  */
 export const applyTModLoaderServerConfig = async (instanceID: string, updates: Record<string, string | number>): Promise<void> => {
+	const current = (await readTModLoaderServerConfig(instanceID)) ?? "";
+	const { commandId } = await writeTModLoaderServerConfig(instanceID, setServerConfigValues(current, updates));
+	await new SsmDao().PollForCommandCompletion(commandId, instanceID);
+};
+
+/** The stored `serverconfig.txt`, or `null` if none has been written for this instance yet. */
+export const readTModLoaderServerConfig = async (instanceID: string): Promise<string | null> => {
+	const bucket = process.env.S3_CONFIG_BUCKET_NAME;
+	Assert.IsTruthyString(bucket, "S3 bucket config missing (S3_CONFIG_BUCKET_NAME not set)");
+
+	return (await new S3Dao().GetObject(bucket!, tmlConfigS3Key(instanceID))) || null;
+};
+
+/**
+ * Replaces the stored `serverconfig.txt` and starts the sync down to the box, **without waiting for
+ * it** — callers that must have the file in place before a launch poll the returned command
+ * themselves (as {@link applyTModLoaderServerConfig} does). Assumes the instance is running with SSM
+ * ready; the S3 write happens first either way, so a failed sync still leaves the source of truth
+ * updated for the next launch.
+ */
+export const writeTModLoaderServerConfig = async (instanceID: string, text: string): Promise<{ commandId: string }> => {
 	const bucket = process.env.S3_CONFIG_BUCKET_NAME;
 	Assert.IsTruthyString(bucket, "S3 bucket config missing (S3_CONFIG_BUCKET_NAME not set)");
 
 	const S3 = new S3Dao();
 	const s3Key = tmlConfigS3Key(instanceID);
-
-	const current = (await S3.GetObject(bucket!, s3Key)) || "";
-	await S3.PutTextObject(bucket!, s3Key, setServerConfigValues(current, updates));
+	await S3.PutTextObject(bucket!, s3Key, text);
 
 	const { commandId } = await S3.SyncS3ToInstance({
 		instanceId: instanceID,
@@ -93,5 +112,5 @@ export const applyTModLoaderServerConfig = async (instanceID: string, updates: R
 		overwriteExisting: true,
 	});
 
-	await new SsmDao().PollForCommandCompletion(commandId, instanceID);
+	return { commandId };
 };

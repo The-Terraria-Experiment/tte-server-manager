@@ -27,6 +27,7 @@ import { stop } from "./actions/stop.js";
 import { readConfig } from "./actions/readConfig.js";
 import { writeConfig } from "./actions/writeConfig.js";
 import { reloadConfig } from "./actions/reloadConfig.js";
+import { readMods, writeMods } from "./actions/mods.js";
 import { dropCache } from "./actions/dropCache.js";
 import { runCommand } from "./actions/runCommand.js";
 import { getItemRules } from "./actions/getItemRules.js";
@@ -75,6 +76,15 @@ const endpoints: EndpointList = {
 	"POST /server/{id}/config/reload": {
 		action: reloadConfig,
 		permRequired: PERMISSIONS.server.config.write,
+	},
+	// tModLoader only; other flavors get 409 NOT_SUPPORTED_FOR_SERVER_TYPE from the action.
+	"GET /server/{id}/mods": {
+		action: readMods,
+		permRequired: PERMISSIONS.server.mods.read,
+	},
+	"POST /server/{id}/mods": {
+		action: writeMods,
+		permRequired: PERMISSIONS.server.mods.write,
 	},
 	"POST /server/{id}/tshock/command": {
 		action: runCommand,

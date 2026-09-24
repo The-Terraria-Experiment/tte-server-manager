@@ -16,6 +16,10 @@ export const PermissionsMeta = {
 			read: {value: "server.config.read", description: pfx + "read TShock config files (both the main one and plugin configs)"},
 			write: {value: "server.config.write", description: pfx + "edit TShock config files (both the main one and plugin configs)"},
 		},
+		mods: {
+			read: {value: "server.mods.read", description: pfx + "view the mods installed on a tModLoader server"},
+			write: {value: "server.mods.write", description: pfx + "enable or disable mods on a tModLoader server (takes effect on the next launch)"},
+		},
 		status: {
 			read: {value: "server.status.read", description: pfx + "view the online status of any running Terraria server"},
 			stop: {value: "server.status.stop", description: pfx + "stop any running Terraria server"},

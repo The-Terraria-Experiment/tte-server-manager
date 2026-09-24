@@ -8,6 +8,17 @@ import { useAlertStore } from './alertStore.js';
 /** Inventory cache key. Nicknames are unique per server but not across them. */
 const inventoryKey = (instanceId, playerName) => `${instanceId}::${playerName}`;
 
+/**
+ * What an instance whose list entry carries no flavor is: TShock, with TShock's capabilities. That is
+ * the backend's own default for an absent `serverType`, and it is also what a backend predating the
+ * field means, so an older lambda behind a newer frontend changes nothing.
+ */
+const DEFAULT_FLAVOR = Object.freeze({
+	serverType: "tshock",
+	displayName: "TShock",
+	capabilities: new Set(["configReload", "accounts"]),
+});
+
 export const useServerStore = defineStore("serverstore", {
 	state: () => ({
 		selected: {
@@ -45,6 +56,8 @@ export const useServerStore = defineStore("serverstore", {
 		 */
 		worldCreateStatus: {},
 		serverConfigs: {},
+		/** Per-instance `{ running, mods }` from `GET /server/{id}/mods` (tModLoader only). */
+		serverMods: {},
 		playerInventories: {}, // keyed `${instanceId}::${playerName}` — see inventoryKey
 		/** Per-instance item rule list, as `GET /server/{id}/items/rules` reports it. */
 		itemRules: {},
@@ -70,6 +83,7 @@ export const useServerStore = defineStore("serverstore", {
 			files: {},
 			serverStatus: {},
 			config: {},
+			mods: {},
 			worldLaunch: {},
 			inventory: {},
 			itemRules: {},
@@ -81,6 +95,28 @@ export const useServerStore = defineStore("serverstore", {
 	}),
 	getters: {
 		instanceOptions: (state) => state.instances.map(i => ({ id: i.id, text: i.name })),
+		/**
+		 * Which game server an instance runs: `{ serverType, displayName, capabilities: Set }`.
+		 *
+		 * Read off the instance *list*, not the status responses. The flavor is fixed at provisioning,
+		 * and instanceStatusData is overwritten wholesale by two different endpoints, so anything that
+		 * rode only one of them would be wiped by the other. Gate UI on `capabilities.has(...)` rather
+		 * than on `serverType`, the same rule the backend follows.
+		 */
+		serverFlavor: (state) => (instanceId) => {
+			const entry = state.instances.find(i => i.id === instanceId);
+			if (!entry?.serverType) return DEFAULT_FLAVOR;
+			return {
+				serverType: entry.serverType,
+				displayName: entry.serverDisplayName || entry.serverType,
+				capabilities: new Set(entry.capabilities || []),
+			};
+		},
+		selectedServerFlavor() {
+			return this.serverFlavor(this.selected.instance);
+		},
+		getServerMods: (state) => (instanceId) => state.serverMods[instanceId] || null,
+		isLoadingMods: (state) => (instanceId) => state.loading.mods[instanceId] || false,
 		getInstanceData: (state) => (instanceId) => {
 			return state.instanceStatusData[instanceId] || null;
 		},
@@ -145,6 +181,8 @@ export const useServerStore = defineStore("serverstore", {
 				name: data?.name, 						// string, usually empty
 				serverversion: data?.serverversion,		// string, 4 part semantic version num, prefixed with 'v'
 				tshockversion: data?.tshockversion,		// string, 4 part semantic version num
+				tmodloaderversion: data?.tmodloaderversion,	// string, tModLoader only
+				mods: data?.mods,						// array of { name, displayName, version } loaded now, tModLoader only
 				port: data?.port,						// number
 				playercount: data?.playercount,			// number
 				maxplayers: data?.maxplayers,			// number
@@ -477,6 +515,31 @@ export const useServerStore = defineStore("serverstore", {
 				this.loading.serverStatus[instanceId] = false;
 			}
 		},
+		/**
+		 * The mod list as the running server reports it: every installed `.tmod`, whether the next launch
+		 * will load it (`enabled`) and whether this one did (`loaded`). A stopped server answers
+		 * `{ running: false, mods: [] }` — the list lives in the server process, not in a file we read.
+		 */
+		async fetchServerMods(instanceId) {
+			if (this.loading.mods[instanceId]) return;
+			this.loading.mods[instanceId] = true;
+
+			try {
+				const data = await get(`/server/${instanceId}/mods`, PERMISSIONS.server.mods.read);
+				this.serverMods[instanceId] = { running: Boolean(data.running), mods: data.mods || [] };
+			} catch (error) {
+				console.error("Error fetching mods:", error);
+				throw error;
+			} finally {
+				this.loading.mods[instanceId] = false;
+			}
+		},
+		/** Takes effect on the next launch. The response is the fresh list, which replaces ours. */
+		async setModEnabled(instanceId, mod, enabled) {
+			const data = await post(`/server/${instanceId}/mods`, PERMISSIONS.server.mods.write, { mod, enabled });
+			this.serverMods[instanceId] = { running: Boolean(data.running), mods: data.mods || [] };
+			return this.serverMods[instanceId];
+		},
 		async fetchServerConfig(instanceId) {
 			if (this.loading.config[instanceId]) return;
 			this.loading.config[instanceId] = true;
@@ -484,7 +547,11 @@ export const useServerStore = defineStore("serverstore", {
 			try {
 				const data = await get(`/server/${instanceId}/config`, PERMISSIONS.server.config.read);
 				this.serverConfigs[instanceId] = {
+					// "tshock-json" (parsed, in `config`) or "serverconfig-txt" (verbatim, in `text`).
+					// A backend predating the field only ever served TShock's JSON.
+					format: data.format || "tshock-json",
 					config: data.file,
+					text: data.text,
 					isDefaultConfig: data.isDefaultConfig
 				};
 			} catch (error) {

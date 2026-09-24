@@ -1,3 +1,5 @@
+import type { APIGatewayProxyResult } from "aws-lambda";
+import { ResponseUtil } from "../core/APIResponse.js";
 import { InstanceRegistry } from "./InstanceRegistry.js";
 
 /**
@@ -70,4 +72,49 @@ export function flavorFor(serverType: unknown): ServerFlavor {
 export async function getServerFlavor(instanceId: string): Promise<ServerFlavor> {
 	const entry = await InstanceRegistry.GetEntry(instanceId);
 	return flavorFor(entry?.serverType);
+}
+
+/**
+ * The flavor as the frontend receives it, on each `GET /instances` entry and each fleet overview
+ * card. It rides the instance *list* rather than the status responses because it is fixed at
+ * provisioning: `serverStore` keeps the list separately from `instanceStatusData`, which two different
+ * endpoints overwrite wholesale, so a field on only one of them would be wiped by the other.
+ */
+export type ClientServerFlavor = {
+	serverType: ServerType,
+	serverDisplayName: string,
+	capabilities: ServerCapability[],
+};
+
+export const toClientFlavor = (flavor: ServerFlavor): ClientServerFlavor => ({
+	serverType: flavor.type,
+	serverDisplayName: flavor.displayName,
+	capabilities: [...flavor.capabilities],
+});
+
+export const NOT_SUPPORTED_FOR_SERVER_TYPE_CODE = "NOT_SUPPORTED_FOR_SERVER_TYPE";
+
+/**
+ * Guard for an action that only some flavors support. Returns a 409 to hand straight back out of the
+ * handler, or `null` to proceed:
+ *
+ * ```ts
+ * const unsupported = await blockIfUnsupported(instanceId, "configReload");
+ * if (unsupported) return unsupported;
+ * ```
+ *
+ * Returned rather than thrown for the same reason as `blockIfShutdownInProgress`: `errorHandler`
+ * maps thrown errors to status codes by message substring, so a throw would reach the client as a
+ * 500 with no code to branch on.
+ */
+export async function blockIfUnsupported(instanceId: string, capability: ServerCapability): Promise<APIGatewayProxyResult | null> {
+	const flavor = await getServerFlavor(instanceId);
+	if (flavor.capabilities.has(capability)) return null;
+
+	return ResponseUtil.Error(
+		`${flavor.displayName} servers don't support this.`,
+		409,
+		NOT_SUPPORTED_FOR_SERVER_TYPE_CODE,
+		{ serverType: flavor.type, capability },
+	);
 }

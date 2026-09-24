@@ -252,7 +252,8 @@ export default {
 		worldCreateStepLabel() {
 			if (this.lastWorldCreateStatus.step === "preparing-instance") return "Launching Instance";
 			if (this.lastWorldCreateStatus.step === "queued") return "Queued";
-			if (this.lastWorldCreateStatus.step === "starting-tshock") return "Starting TShock";
+			// The step id predates tModLoader support; the server it starts is whichever this box runs.
+			if (this.lastWorldCreateStatus.step === "starting-tshock") return `Starting ${this.serverStore.selectedServerFlavor.displayName}`;
 			if (this.lastWorldCreateStatus.step === "waiting-for-world-file") return "Generating world file";
 			if (this.lastWorldCreateStatus.step === "uploading-world-file") return "Uploading world file";
 			if (this.lastWorldCreateStatus.step === "completed") return "Launching world";
