@@ -7,22 +7,34 @@ import path from "path";
  */
 
 /**
- * `pgrep -f` pattern that matches a running TShock/TerrariaServer process.
+ * Process names a tModLoader dedicated server runs under: `dotnet tModLoader.dll -server`, or the
+ * bundled `start-tModLoaderServer.sh` wrapper that execs it.
+ */
+const TMODLOADER_PROCESS_NAMES = ["tModLoader.dll", "tModLoaderServer"];
+
+/**
+ * `pgrep -f` pattern that matches a running game server of **either** flavor — TShock/TerrariaServer
+ * or tModLoader.
  *
- * Shared because the two places that ask "is the server up on this box?" — the pre-launch guard and
- * the shutdown-time graceful stop — have to agree on the answer. If the stop's pattern is narrower
- * than the launch guard's, it declares the server gone while it is still writing the world, and the
- * file sync behind it uploads a stale copy.
+ * Shared because every place that asks "is a server up on this box?" has to agree on the answer:
+ * the pre-launch guard, the shutdown-time graceful stop, and auto-shutoff's liveness fallback. If the
+ * stop's pattern is narrower than the launch guard's, it declares the server gone while it is still
+ * writing the world, and the file sync behind it uploads a stale copy.
+ *
+ * Deliberately not per-instance. A box runs one flavor, so matching both costs nothing, and the
+ * question each caller is actually asking is "is *any* game server running?" — the launch guard in
+ * particular must refuse if one is, whatever it is. It also keeps this synchronous and free of a
+ * registry read, so a stale cached `serverType` can't make a running server invisible.
  *
  * `TSHOCK_PATH` is optional here: not every function that needs the pattern carries it, and the
  * generic names alone are what the pattern has always fallen back to.
  */
-export function tshockProcessPattern(): string {
+export function gameServerProcessPattern(): string {
 	const binaryName = path.posix
 		.basename(String(process.env.TSHOCK_PATH || "").trim())
 		.replace(/[^a-zA-Z0-9._-]/g, "");
 
-	return ["TerrariaServer", "TShock", binaryName].filter(Boolean).join("|");
+	return ["TerrariaServer", "TShock", binaryName, ...TMODLOADER_PROCESS_NAMES].filter(Boolean).join("|");
 }
 
 /** Roots configured for TShock's stdout/stderr daily logs; empty when logging isn't configured. */
@@ -49,6 +61,27 @@ export function ensureLogDirsCommand(): string {
 
 	const quoted = roots.map(root => `"${root.replace(/"/g, '\\"')}"`).join(" ");
 	return `mkdir -p ${quoted}`;
+}
+
+/**
+ * The ` 1>> "<out>/<date>.log" 2>> "<err>/<date>.log"` suffix for a launch command, with each stream
+ * falling back to /dev/null when its root isn't configured. The tModLoader launch uses this; the
+ * TShock builders still inline the same logic and are left byte-for-byte as they were.
+ */
+export function dailyLogRedirects(): string {
+	const date = new Date().toISOString().slice(0, 10);
+	const redirect = (fd: 1 | 2, rootEnv: string | undefined): string => {
+		const root = (rootEnv || "").trim().replace(/\/$/, "");
+		if (!root) return ` ${fd}> /dev/null`;
+		return ` ${fd}>> "${path.posix.join(root, `${date}.log`).replace(/"/g, '\\"')}"`;
+	};
+	return redirect(1, process.env.TSHOCK_OUT_LOGS) + redirect(2, process.env.TSHOCK_ERR_LOGS);
+}
+
+/** Today's stdout log file, which is what the worldgen wait tails for progress lines; null when unset. */
+export function dailyOutLogPath(): string | null {
+	const root = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
+	return root ? path.posix.join(root, `${new Date().toISOString().slice(0, 10)}.log`) : null;
 }
 
 /**

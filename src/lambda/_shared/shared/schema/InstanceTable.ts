@@ -28,6 +28,15 @@ export type InstanceDataEntry = {
 	name?: string,
 	registeredAt?: string,
 	registeredBy?: string,
+	/**
+	 * Which game server this box runs — one per instance, fixed at provisioning. Absent means
+	 * `"tshock"`, which is what every instance predating tModLoader support is, so the existing fleet
+	 * needs no backfill. Read through `ServerFlavor`, never directly: anything outside the known set
+	 * normalizes to TShock there.
+	 *
+	 * Cached by `InstanceRegistry`, so a writer must bump its cache version like any `envs` write.
+	 */
+	serverType?: string,
 	validRoots?: Record<string, string>,
 	worldPaths?: string[],
 	metricsConfig?: InstanceMetricsConfigEntry
