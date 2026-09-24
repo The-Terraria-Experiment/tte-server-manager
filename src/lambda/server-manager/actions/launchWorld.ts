@@ -13,7 +13,7 @@ import { SsmDao } from "../shared/aws/SSM.js";
 import { applyServerPasswordToConfig } from "../shared/utils/tshock/TShockConfig.js";
 import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
-import { ensureLogDirsCommand, joinLaunchSteps, tshockProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
+import { ensureLogDirsCommand, joinLaunchSteps, gameServerProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
 import { beginServerSession } from "../shared/utils/tshock/ServerSession.js";
 import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
@@ -94,7 +94,7 @@ const buildLaunchWorldTShockCommand = (worldPath: string, port: number, maxPlaye
 const buildPreLaunchGuardPath = (): string => {
 	const tshockPath = process.env.TSHOCK_PATH;
 	Assert.IsTruthyString(tshockPath, "TShock executable path not configured (TSHOCK_PATH env var missing)");
-	const searchPattern = tshockProcessPattern();
+	const searchPattern = gameServerProcessPattern();
 
 	return `if pgrep -af '${searchPattern}' >/dev/null 2>&1; then echo 'TSHOCK_ALREADY_RUNNING'; else echo 'TSHOCK_CLEAR_TO_START'; fi`;
 };

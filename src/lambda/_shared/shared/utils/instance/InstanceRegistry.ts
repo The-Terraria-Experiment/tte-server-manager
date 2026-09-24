@@ -11,6 +11,8 @@ export interface InstanceRegistryEntry {
 	name?: string;
 	registeredAt?: string;
 	registeredBy?: string;
+	/** Raw from the row; absent on the whole pre-tModLoader fleet. Resolve it with `ServerFlavor`. */
+	serverType?: string;
 }
 
 /**
@@ -81,7 +83,7 @@ export class InstanceRegistry {
 
 	/**
 	 * Invalidate every container's cached registry. Must be called by anything that writes an
-	 * `inst#<id>` row's `envs`.
+	 * `inst#<id>` row's `envs` or `serverType` — including setup.sh, once it writes the latter.
 	 * @returns The new cache version identifier
 	 */
 	public static async BumpCacheVersion(): Promise<string> {
@@ -103,6 +105,18 @@ export class InstanceRegistry {
 		InstanceRegistry.lastVersionCheckAt = Date.now();
 
 		return newVersion;
+	}
+
+	/**
+	 * One instance's entry, registered or not, from the same cache as the list — so a per-request
+	 * lookup (e.g. which server type a box runs) costs nothing on a warm container.
+	 * @returns null when there is no `inst#<id>` row at all.
+	 */
+	public static async GetEntry(instanceId: string): Promise<InstanceRegistryEntry | null> {
+		if (!instanceId) {
+			return null;
+		}
+		return (await InstanceRegistry.GetAllEntries()).find((entry) => entry.id === instanceId) ?? null;
 	}
 
 	/**
@@ -200,6 +214,7 @@ export class InstanceRegistry {
 			...(row.name ? { name: row.name } : {}),
 			...(row.registeredAt ? { registeredAt: row.registeredAt } : {}),
 			...(row.registeredBy ? { registeredBy: row.registeredBy } : {}),
+			...(row.serverType ? { serverType: row.serverType } : {}),
 		};
 	}
 }

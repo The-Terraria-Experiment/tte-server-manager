@@ -4,7 +4,7 @@ import { SsmDao, isSsmPollTimeout } from "../../aws/SSM.js";
 import { CW_LOG_GENERAL } from "../../constants.js";
 import { pollsUntilDeadline } from "../jobs/SyncBudget.js";
 import { TShockAPI } from "./TShockAPI.js";
-import { tshockProcessPattern } from "./TShockLaunch.js";
+import { gameServerProcessPattern } from "./TShockLaunch.js";
 import { endServerSession } from "./ServerSession.js";
 
 /**
@@ -215,7 +215,7 @@ async function waitForTShockExit(instanceId: string, deadline: number): Promise<
 		return;
 	}
 
-	const pattern = tshockProcessPattern();
+	const pattern = gameServerProcessPattern();
 	const commands = [
 		"#!/bin/bash",
 		`for i in $(seq 1 ${waitSeconds}); do`,
