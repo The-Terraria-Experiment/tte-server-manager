@@ -8,6 +8,7 @@ import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
 import { Assert } from "../shared/utils/core/Assert.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { blockIfUnsupported } from "../shared/utils/instance/ServerFlavor.js";
 
 export const reloadConfig = async (event: AuthorizedEvent) => {
 	const serverId = event.pathParameters?.id;
@@ -20,6 +21,10 @@ export const reloadConfig = async (event: AuthorizedEvent) => {
 
 	const blocked = await blockIfShutdownInProgress(serverId);
 	if (blocked) return blocked;
+
+	// tModLoader reads serverconfig.txt at launch only; a relaunch is the reload.
+	const unsupported = await blockIfUnsupported(serverId, "configReload");
+	if (unsupported) return unsupported;
 
 	await CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 		userId: Parsers.GetUserSub(event),

@@ -8,6 +8,14 @@ import { S3Dao } from "../shared/aws/S3.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { Assert } from "../shared/utils/core/Assert.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { getServerFlavor } from "../shared/utils/instance/ServerFlavor.js";
+import { writeTModLoaderServerConfig } from "../shared/utils/tshock/TShockConfig.js";
+
+/**
+ * Upper bound on a `serverconfig.txt`. The stock file with every comment is ~2KB; this exists only so
+ * the editor can't be used to park megabytes in the config bucket.
+ */
+const MAX_SERVERCONFIG_BYTES = 64 * 1024;
 
 const syncConfigToInstance = async (instanceId: string, s3Bucket: string, baseLocalPath: string) => {
 	const commands: string[] = [];
@@ -53,6 +61,11 @@ export const writeConfig = async (event: AuthorizedEvent) => {
 	const blocked = await blockIfShutdownInProgress(serverId);
 	if (blocked) return blocked;
 
+	const flavor = await getServerFlavor(serverId);
+	if (flavor.type === "tmodloader") {
+		return writeServerConfigTxt(event, serverId);
+	}
+
 	let configBody: Record<string, unknown>;
 	try {
 		const body = JSON.parse(event.body || "{}");
@@ -89,6 +102,51 @@ export const writeConfig = async (event: AuthorizedEvent) => {
 			message: "Config updated and sync started",
 			commandId,
 			s3Key,
+		});
+	} catch (error: any) {
+		return ResponseUtil.Error(error?.message || "Failed to write config");
+	}
+};
+
+/**
+ * tModLoader's `serverconfig.txt`, written verbatim from the editor (`{ text }`). The whole file is
+ * the operator's to edit, so unlike `setServerConfigValues` nothing here parses it — the line-break
+ * rejection there protects a single *value* from injecting keys, which doesn't apply when the input
+ * is the file. Takes effect on the next launch; there is no live reload.
+ */
+const writeServerConfigTxt = async (event: AuthorizedEvent, serverId: string) => {
+	let text: unknown;
+	try {
+		text = JSON.parse(event.body || "{}").text;
+	} catch {
+		return ResponseUtil.ValidationError("Body must be valid JSON");
+	}
+
+	if (typeof text !== "string") {
+		return ResponseUtil.ValidationError("serverconfig.txt must be sent as a string in `text`");
+	}
+	if (Buffer.byteLength(text, "utf8") > MAX_SERVERCONFIG_BYTES) {
+		return ResponseUtil.ValidationError(`serverconfig.txt may not exceed ${MAX_SERVERCONFIG_BYTES / 1024}KB`);
+	}
+
+	// Terraria reads the file on Linux, and a CRLF leaves a trailing \r on every value — which for
+	// `password=` means a password no client can type.
+	const normalized = text.replace(/\r\n?/g, "\n");
+
+	try {
+		const { commandId } = await writeTModLoaderServerConfig(serverId, normalized);
+
+		await CWLogger.Action(FUNC_NAMES.SERV_MGR, {
+			userId: Parsers.GetUserSub(event),
+			action: "write-config",
+			status: "ok",
+			resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
+			details: { format: "serverconfig-txt", bytes: normalized.length, commandId },
+		});
+
+		return ResponseUtil.Success({
+			message: "Config updated and sync started. It takes effect on the next launch.",
+			commandId,
 		});
 	} catch (error: any) {
 		return ResponseUtil.Error(error?.message || "Failed to write config");

@@ -15,6 +15,10 @@ export const PERMISSIONS = {
 			read: "server.config.read",
 			write: "server.config.write",
 		},
+		mods: {
+			read: "server.mods.read",
+			write: "server.mods.write",
+		},
 		status: {
 			read: "server.status.read",
 			stop: "server.status.stop",

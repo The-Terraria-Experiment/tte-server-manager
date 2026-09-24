@@ -6,6 +6,7 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { Parsers } from "../shared/utils/core/Parsers.js";
 import { InstanceRegistry } from "../shared/utils/instance/InstanceRegistry.js";
+import { flavorFor, toClientFlavor } from "../shared/utils/instance/ServerFlavor.js";
 
 const EC2 = new Ec2Dao();
 
@@ -14,13 +15,17 @@ export const list = async (event: AuthorizedEvent, context: Context) => {
 
 	// Scoped to this lambda's environment: the registry records which environments each instance
 	// belongs to, so prod and stage no longer see one flat shared list.
-	const instanceIds = await InstanceRegistry.GetRegisteredInstanceIds();
-	const instancesData = await EC2.GetMultipleInstanceStatus(instanceIds);
+	const entries = await InstanceRegistry.GetRegisteredInstances();
+	const instancesData = await EC2.GetMultipleInstanceStatus(entries.map((entry) => entry.id));
+	const serverTypes = new Map(entries.map((entry) => [entry.id, entry.serverType]));
 
 	const instances = instancesData.map((instanceData) => ({
 		id: instanceData.id,
 		state: instanceData.state,
 		name: instanceData.name,
+		// Which game server the box runs and what it supports — see `toClientFlavor` for why this is
+		// on the list rather than the status responses.
+		...toClientFlavor(flavorFor(serverTypes.get(instanceData.id))),
 	}));
 
 	await CWLogger.Action(FUNC_NAMES.INST_MGR, {
