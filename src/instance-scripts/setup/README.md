@@ -161,6 +161,62 @@ without the plugin the endpoint returns `502 INVENTORY_UNAVAILABLE` naming both
 causes. Neither reproduces on a freshly provisioned box, which is exactly why
 this is written down.
 
+## tModLoader instances
+
+Run with `TTE_SERVER_TYPE=tmodloader` (or answer `tmodloader` in
+`remote-setup.sh`) to provision a tModLoader server instead of TShock. One flavor
+per instance: the choice is written to the `inst#` row as `serverType`, and the
+lambdas launch, create worlds and manage config accordingly.
+
+**Artifacts to upload first**, to `ttesm-resources` (already readable by the
+instance role; no IAM change):
+
+| Key | What |
+|---|---|
+| `tmodloader/current.zip` | The GitHub release `tModLoader.zip`, as is. Upload a version-tagged copy beside it before overwriting, as with TShock. |
+| `tmodloader/mods/TteControl.tmod` | Built from `tml-tte-control` (`dotnet build`, then take the `.tmod` from your tModLoader `Mods` folder). **Required**: it is the REST API the web app talks to, so without it the box can't be managed. |
+| `tmodloader/mods/<Mod>.tmod` | Anything else listed in `TTE_TML_MODS`, e.g. `TteInventoryMonitor`, `TteEventLogger` once they exist. |
+
+Both are ETag-gated like the TShock zip, so upgrading is: overwrite the object,
+then re-run `--only tmodloader` or `--only tmlmods`. A tModLoader upgrade
+replaces the install directory wholesale and refuses to run while a server is up.
+
+**Layout** (fixed, mirrored from `TML_LAYOUT` in
+`src/lambda/_shared/shared/utils/tshock/TModLoaderLayout.ts`, which the lambdas
+launch from):
+
+```
+$ROOT/tmodloader/                 the release, plus its bundled .NET in dotnet/
+$ROOT/tml-save/                   -tmlsavedirectory
+  serverconfig.txt                synced from s3://<config bucket>/inst#<id>/serverconfig.txt
+  Worlds/  Mods/  ModConfigs/
+/etc/tte/tte-control-credential.json   TteControl's REST credential, 0640 root:ubuntu
+```
+
+What's different from TShock, and why:
+
+- **No `dotnet`, `account` or `config` steps.** tModLoader pins and bundles its
+  own .NET runtime (`step_tmodloader` installs it up front so a failed download
+  shows up here, not as a server that silently never starts). There is no TShock
+  user table, so instead of creating a REST account, `step_credential` writes the
+  credential file TteControl reads (`TTE_REST_USER`/`TTE_REST_PASSWORD`, the same
+  pair as the Secrets Manager secret). Re-run `--only credential` after rotating it.
+- **The credential is never in `ModConfigs/`.** That folder is browsable from the
+  Instance Files page, and anything browsable can be downloaded and so copied
+  into the S3 filestore. The credential file sits outside every `validRoots` path.
+- **`serverconfig.txt` lives in the save directory, not the install directory**,
+  because every tModLoader release ships a sample `serverconfig.txt` and an
+  upgrade would overwrite ours. S3 is its source of truth, as `config.json` is for
+  TShock: a rebuilt box gets its settings back from there.
+- **World creation always writes to `tml-save/Worlds/`** (tModLoader ignores the
+  requested path), so the `worlds` root has to point there. Each world is a
+  `.wld` plus a `.twld` that holds all modded content, so keep them together.
+- **`register` writes `serverType` on every run** and bumps the registry cache
+  version so warm lambdas notice. If the type changed since the last run, it also
+  replaces `validRoots`/`worldPaths` with the new flavor's layout.
+- **Size the instance up.** tModLoader with content mods commonly needs 2–4 GB of
+  RAM or more; the smallest instance types that run TShock comfortably may not.
+
 ## Run it
 
 ### The lazy way
@@ -216,14 +272,19 @@ permanently offline in the UI.
 
 | Variable | Default | |
 | --- | --- | --- |
-| `TTE_ROOT` | `/home/ubuntu/terraria` | must equal the lambdas' `TSHOCK_WD` |
+| `TTE_ROOT` | `/home/ubuntu/terraria` | must equal the lambdas' `TSHOCK_WD` and `BASE_ROOT` |
 | `TTE_USER` | `ubuntu` | |
+| `TTE_SERVER_TYPE` | `tshock` | `tshock` or `tmodloader` — see "tModLoader instances". Picks the step list, layout and `validRoots` default, and is written to the `inst#` row |
+| `TTE_TML_BUCKET` | `ttesm-resources` | tModLoader only |
+| `TTE_TML_KEY` | `tmodloader/current.zip` | tModLoader only — the GitHub release `tModLoader.zip` |
+| `TTE_TML_MODS_PREFIX` | `tmodloader/mods` | tModLoader only — each mod is `<prefix>/<ModName>.tmod` |
+| `TTE_TML_MODS` | `TteControl` | tModLoader only — csv of internal mod names to install and enable; must include `TteControl` |
 | `TTE_TSHOCK_BUCKET` | `ttesm-resources` | |
 | `TTE_TSHOCK_KEY` | `tshock/current.zip` | |
 | `TTE_LOGS_BUCKET` | `ttesm-logs` | |
 | `TTE_CONFIG_BUCKET` | `ttesm-server-configs` | |
 | `TTE_INSTANCE_TABLE` | `ttesm-instance-data` | skipped with a warning if set empty (see "Registering the instance") |
-| `TTE_VALID_ROOTS` | `main=/tshock,worlds=/worlds,plugins=/tshock/ServerPlugins` | nickname=path pairs, comma-separated; matches the shape used across the existing fleet |
+| `TTE_VALID_ROOTS` | `main=/tshock,worlds=/worlds,plugins=/tshock/ServerPlugins` (tModLoader: `main=/tml-save,worlds=/tml-save/Worlds,mods=/tml-save/Mods,modconfigs=/tml-save/ModConfigs`) | nickname=path pairs, comma-separated; matches the shape used across the existing fleet |
 | `TTE_WORLD_PATH_NICKNAMES` | `worlds` | comma-separated, must be a subset of the nicknames in `TTE_VALID_ROOTS` |
 | `TTE_REST_PORT` | `3891` | must equal `TSHOCK_API_PORT` |
 | `TTE_REST_USER` | `ttesm_lambda_user` | must equal `TSHOCK_USER` in the secret |
