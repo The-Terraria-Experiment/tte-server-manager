@@ -7,7 +7,7 @@
 		>
 			<template #header>
 				<Icon icon="file-lines" color="text-gray-6" size="4" />
-				<p class="text-gray-6 ml-2 text-lg">TShock Logs</p>
+				<p class="text-gray-6 ml-2 text-lg">Server Console Logs</p>
 			</template>
 			<template #content>
 				<div class="px-4 pb-4">

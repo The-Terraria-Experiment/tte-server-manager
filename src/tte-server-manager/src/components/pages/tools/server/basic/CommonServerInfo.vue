@@ -21,8 +21,8 @@
 					<div class="px-2 py-1 text-right">{{ selectedServerData.world ?? "Unknown" }}</div>
 					<div class="bg-gray-5 px-2 py-1">Terraria Version</div>
 					<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.serverversion ?? "Unknown" }}</div>
-					<div class="px-2 py-1">TShock Version</div>
-					<div class="px-2 py-1 text-right">{{ selectedServerData.tshockversion ?? "Unknown" }}</div>
+					<div class="px-2 py-1">{{ flavor.displayName }} Version</div>
+					<div class="px-2 py-1 text-right">{{ flavorVersion ?? "Unknown" }}</div>
 					<div class="bg-gray-5 px-2 py-1">Port</div>
 					<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.port ?? "Unknown" }}</div>
 					<div class="px-2 py-1">Max Players</div>
@@ -31,6 +31,10 @@
 					<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.uptime ?? "Unknown" }}</div>
 					<div class="px-2 py-1">Has Password</div>
 					<div class="px-2 py-1 text-right">{{ selectedServerData.serverpassword ?? "Unknown" }}</div>
+					<template v-if="Array.isArray(selectedServerData.mods)">
+						<div class="bg-gray-5 px-2 py-1">Loaded Mods</div>
+						<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.mods.length }}</div>
+					</template>
 				</div>
 
 				<p class="font-main font-bold text-gray-7 px-5">RULES</p>
@@ -75,6 +79,14 @@ export default {
 		},
 		ruleEntryCount() {
 			return Object.keys(this.selectedServerData.rules || {}).length;
+		},
+		flavor() {
+			return this.serverStore.selectedServerFlavor;
+		},
+		flavorVersion() {
+			return this.flavor.serverType === "tmodloader"
+				? this.selectedServerData.tmodloaderversion
+				: this.selectedServerData.tshockversion;
 		}
 	},
 	methods: {

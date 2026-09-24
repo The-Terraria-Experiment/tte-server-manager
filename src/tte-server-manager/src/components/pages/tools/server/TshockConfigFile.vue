@@ -6,7 +6,7 @@
 	>
 		<template #header>
 			<Icon icon="gear" color="text-gray-6" size="5" />
-			<p class="text-gray-6 ml-2 text-lg">Main TShock Config</p>
+			<p class="text-gray-6 ml-2 text-lg">{{ isServerConfigTxt ? "Main Server Config" : "Main TShock Config" }}</p>
 		</template>
 		<template #content>
 			<div class="px-4 pb-4">
@@ -14,12 +14,15 @@
 					<div class="bg-gray-2 px-4 pt-4 pb-2 rounded-md">
 						<p class="font-main font-bold text-gray-7">TOP SETTINGS</p>
 						<div class="flex gap-2 pt-2 text-sm overflow-x-auto">
-							<div v-for="highlight in highlightedEntries" class="flex font-mono bg-blue-1 rounded-md text-white mb-2">
-								<div class="pl-4 pt-2">{{ highlight }}:</div>
-								<div class="bg-blue-0 py-2 px-4 rounded-md ml-2">"{{ configAsJson["Settings"][highlight] }}"</div>
+							<div v-for="highlight in highlightValues" class="flex font-mono bg-blue-1 rounded-md text-white mb-2">
+								<div class="pl-4 pt-2">{{ highlight.key }}:</div>
+								<div class="bg-blue-0 py-2 px-4 rounded-md ml-2">"{{ highlight.value }}"</div>
 							</div>
 						</div>
 					</div>
+					<p v-if="isServerConfigTxt" class="font-mono text-xs text-gray-7 mt-2">
+						serverconfig.txt is read when the server launches. Changes take effect on the next launch.
+					</p>
 				</div>
 				<div class="flex gap-4">
 					<!-- Currently I don't think S3 pricing is expensive enough to need this, but it's here if we want to limit the bucket reads a bit -->
@@ -47,7 +50,7 @@
 					</FlexButton> -->
 
 					<FlexButton
-						v-if="selectedServerData.state"
+						v-if="selectedServerData.state && canReload"
 						:variant="BTN_VARIANT.SECONDARY"
 						leftIcon="arrow-rotate-right"
 						:disabled="false"
@@ -71,12 +74,13 @@
 
 					<CodeEditor 
 						:open="editorOpen"
+						:language="isServerConfigTxt ? 'text' : 'json'"
 						v-model="configText" 
 						@cancel="editorOpen = false"
 						@save="saveAndCloseEditor"
 					/>
 
-					<div v-if="!jsonIsValid && !loadingSaveConfig" class="flex items-center bg-gray-1 w-max py-2 px-4 rounded mt-2">
+					<div v-if="!isServerConfigTxt && !jsonIsValid && !loadingSaveConfig" class="flex items-center bg-gray-1 w-max py-2 px-4 rounded mt-2">
 						<Icon icon="warning" size="4" color="text-red-5" />
 						<p class="font-mono text-red-5 ml-2">Invalid JSON</p>
 					</div>
@@ -131,10 +135,40 @@ export default {
 				"HardcoreOnly",
 				"MediumcoreOnly",
 				"SoftcoreOnly"
-			]
+			],
+			// serverconfig.txt keys; difficulty only matters to worldgen, but it's what CREATE WORLD writes.
+			highlightedTxtEntries: ["password", "maxplayers", "difficulty"],
 		}
 	},
 	computed: {
+		/**
+		 * tModLoader's line-based `serverconfig.txt` rather than TShock's `config.json`. Decided by
+		 * what the backend sent, not by the server type, so the editor always matches the file it holds.
+		 */
+		isServerConfigTxt() {
+			return this.serverStore.serverConfigs[this.selectedInstance]?.format === "serverconfig-txt";
+		},
+		canReload() {
+			return this.serverStore.selectedServerFlavor.capabilities.has("configReload");
+		},
+		/**
+		 * Active `key=value` lines, keyed case-insensitively. Later lines win, matching how Terraria
+		 * reads the file; commented lines (`#key=value`) are documentation and are skipped.
+		 */
+		serverConfigTxtValues() {
+			const values = {};
+			for (const line of this.configText.split(/\r?\n/)) {
+				const match = /^\s*([^#=\s][^=]*?)\s*=(.*)$/.exec(line);
+				if (match) values[match[1].toLowerCase()] = match[2].trim();
+			}
+			return values;
+		},
+		highlightValues() {
+			if (this.isServerConfigTxt) {
+				return this.highlightedTxtEntries.map(key => ({ key, value: this.serverConfigTxtValues[key] ?? "" }));
+			}
+			return this.highlightedEntries.map(key => ({ key, value: this.configAsJson["Settings"]?.[key] }));
+		},
 		jsonIsValid() {
 			try {
 				JSON.parse(this.configText);
@@ -172,7 +206,7 @@ export default {
 
 			try {
 				await this.serverStore.fetchServerConfig(this.selectedInstance);
-				this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance]?.config, null, 2);
+				this.resetConfig();
 			} catch (e) {
 				this.$alert.error("Error getting server config");
 				console.error(e);
@@ -187,10 +221,24 @@ export default {
 			if (this.loadingSaveConfig) return;
 			this.loadingSaveConfig = true;
 
+			if (this.isServerConfigTxt) {
+				try {
+					await post(`/server/${this.selectedInstance}/config`, PERMISSIONS.server.config.write, { text: this.configText });
+					this.$alert.success("Config saved. It takes effect on the next launch.");
+				} catch (e) {
+					this.$alert.error("Error saving config");
+					console.error(e);
+				} finally {
+					this.loadingSaveConfig = false;
+				}
+				return;
+			}
+
 			try {
 				JSON.stringify(JSON.parse(this.configText));
 			} catch (e) {
 				this.$alert.error("Config is not valid JSON");
+				this.loadingSaveConfig = false;
 				return;
 			}
 
@@ -206,7 +254,10 @@ export default {
 		},
 
 		resetConfig() {
-			this.configText = JSON.stringify(this.serverStore.serverConfigs[this.selectedInstance]?.config, null, 2);
+			const stored = this.serverStore.serverConfigs[this.selectedInstance];
+			this.configText = stored?.format === "serverconfig-txt"
+				? (stored.text ?? "")
+				: JSON.stringify(stored?.config, null, 2);
 		},
 
 		async reloadConfig() {
