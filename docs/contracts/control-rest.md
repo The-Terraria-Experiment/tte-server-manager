@@ -38,7 +38,7 @@ Implementations must therefore:
 
 - **Credential source:** the pair comes from the Secrets Manager secret `TSHOCK_SECRET_NAME` (`TSHOCK_USER`/`TSHOCK_PASSWORD`), one value for the whole fleet.
   - TShock checks it against its user table (`setup.sh` creates the account).
-  - `TteControl` checks it against its server-side config, which `setup.sh` seeds.
+  - `TteControl` checks it against the **credential file** named by `TTE_CONTROL_CREDENTIAL_FILE` (see "Launch-time environment" below), which `setup.sh` writes.
 - **Every other endpoint requires `token=<token>`** in the query string.
 - **Rejecting a token:** respond **HTTP 403 *and* `"status": "403"`** in the body. The proxy treats either one (or a 401) as "re-mint and retry once" (`isTokenRejection`).
 - **Tokens never expire on a timer.** The proxy caches them for the life of its container. A token only has to stop working when the server process restarts. Keeping tokens in memory only gets this for free.
@@ -218,6 +218,29 @@ This rewrites `Mods/enabled.json`, and the change **takes effect on the next lau
 - Refuse to disable `TteControl` itself; that would make the server unmanageable after the next launch.
 - An unknown mod name is a failure.
 
+## Launch-time environment (tML extension)
+
+The backend launches tModLoader through `systemd-run` (`_shared/shared/utils/tshock/TModLoaderLaunch.ts`)
+and passes two things to TteControl as **environment variables on the server process**.
+
+### `TTE_CONTROL_CREDENTIAL_FILE`
+
+This is always set. Its value is an absolute path, currently `/etc/tte/tte-control-credential.json`.
+- **Contents:** `{ "username": "…", "password": "…" }`, UTF-8 JSON, written by `setup.sh`. The file is `0640 root:<server user>`.
+- **It is the source of the `/v2/token/create` credential.** Read it when the listener opens, which picks up a rotation at the next world load. If the variable is unset, or the file is missing, unreadable, malformed, or has an empty field, **refuse every login** and log why once, without the file's contents.
+- **Why it isn't in a `ModConfig`:** `ModConfigs/` is under the save directory, and the backend exposes that directory in the Instance Files browser so mod configs can be edited. Anything there can be read and downloaded by operators with file access, and a download copies it into the S3 filestore. The file above sits outside every browsable path.
+- **Never log the password.** Never put it in a response or echo it from a command.
+
+### `TTE_WORLD_EVIL`
+
+This is set only when the backend launches an `-autocreate` run. Its value is `random`, `corrupt` or `crimson`.
+- **Why it exists:** vanilla has no world-evil option for autocreate, and the server's create flow has no world-evil input. The backend's create form offers the choice, so TteControl applies it.
+- **What to do with it:** apply it to `WorldGen.WorldGenParam_Evil` before generation decides the evil: `corrupt` → `0`, `crimson` → `1`, `random` → `-1`. The obvious place is a `ModSystem.PreWorldGen` override. **Verify that the dedicated server's autocreate path doesn't reset the parameter after that hook runs.** If it does, use a `ModifyWorldGenTasks` pass inserted before the evil is chosen instead.
+- **Absent or unrecognised:** leave generation alone, which means random.
+- **Scope:** only an autocreate run reads it. Loading an existing world never generates, so the variable is irrelevant there.
+
+Difficulty, the password, port and max players do **not** travel this way. Difficulty and password go through `serverconfig.txt` (`difficulty=`, `password=`), and port and max players go on the command line. Those are vanilla mechanisms that need nothing from the mod.
+
 ## Main thread (implementation requirement, tML)
 
 Terraria's world and player state are not thread-safe, and the REST listener runs off the main thread. Every handler that reads or mutates game state must marshal onto the game loop and wait for the result there. That covers status players, off, broadcast, rawcmd, players and kick. The inventory plugin's `MainThreadDispatcher` is the reference implementation, including its timeout guard.
@@ -226,5 +249,5 @@ Terraria's world and player state are not thread-safe, and the REST listener run
 
 ## Changelog
 
-- **1.1:** the tML extension fields on `/v2/server/status`; `/tte/mods` and `/tte/mods/enabled`; `contractVersions`.
+- **1.1:** the tML extension fields on `/v2/server/status`; `/tte/mods` and `/tte/mods/enabled`; `contractVersions`; the launch-time environment (`TTE_CONTROL_CREDENTIAL_FILE`, `TTE_WORLD_EVIL`).
 - **1.0:** the TShock baseline, documented from the backend's usage as of 2026-09.

@@ -1,6 +1,8 @@
 import { S3Dao } from "../../aws/S3.js";
 import { SsmDao } from "../../aws/SSM.js";
 import { Assert } from "../core/Assert.js";
+import { TML_LAYOUT, setServerConfigValues, tmlConfigS3Key } from "./TModLoaderLayout.js";
+import { tmlBoxPath } from "./TModLoaderLaunch.js";
 
 /**
  * Writes a server password into the instance's tshock/config.json before a world is launched or
@@ -60,4 +62,36 @@ export const applyServerPasswordToConfig = async (instanceID: string, password: 
 
 	const SSM = new SsmDao();
 	await SSM.PollForCommandCompletion(commandId, instanceID);
+};
+
+/**
+ * The tModLoader counterpart of {@link applyServerPasswordToConfig}: sets `key=value` lines in the
+ * instance's `serverconfig.txt` (S3 is the source of truth, `inst#<id>/serverconfig.txt`), then syncs
+ * it down and waits, so the file is in place before the server reads it at launch.
+ *
+ * Used for the password and, for worldgen, `difficulty` — which tModLoader only accepts from the
+ * config file. Unlike TShock's config.json there is no default to fall back to: an absent object
+ * starts an empty file, since every key has a built-in default and setup.sh seeds the real one.
+ * Values must already be validated; nothing here escapes them.
+ */
+export const applyTModLoaderServerConfig = async (instanceID: string, updates: Record<string, string | number>): Promise<void> => {
+	const bucket = process.env.S3_CONFIG_BUCKET_NAME;
+	Assert.IsTruthyString(bucket, "S3 bucket config missing (S3_CONFIG_BUCKET_NAME not set)");
+
+	const S3 = new S3Dao();
+	const s3Key = tmlConfigS3Key(instanceID);
+
+	const current = (await S3.GetObject(bucket!, s3Key)) || "";
+	await S3.PutTextObject(bucket!, s3Key, setServerConfigValues(current, updates));
+
+	const { commandId } = await S3.SyncS3ToInstance({
+		instanceId: instanceID,
+		bucketName: bucket!,
+		sourceKey: s3Key,
+		localPath: tmlBoxPath(TML_LAYOUT.configFile),
+		isFolder: false,
+		overwriteExisting: true,
+	});
+
+	await new SsmDao().PollForCommandCompletion(commandId, instanceID);
 };

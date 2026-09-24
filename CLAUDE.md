@@ -213,6 +213,17 @@ The backend talks to three things that live **on the instances and in other repo
 
 **Server type** is per instance: `serverType` on the `inst#<id>` row, where `"tshock"` or absent means TShock and `"tmodloader"` means tModLoader. Resolve it with `getServerFlavor(instanceId)` (`_shared/shared/utils/instance/ServerFlavor.ts`), which is served from `InstanceRegistry`'s cache. Unrecognised values fall back to TShock. Gate features on `flavor.capabilities.has(...)` rather than comparing type strings. Both flavors speak the same REST contract, so most code needs no branch at all. Anything that writes `serverType` must call `InstanceRegistry.BumpCacheVersion()`, just as an `envs` write does.
 
+**tModLoader launch** (`utils/tshock/TModLoaderLaunch.ts`, with the on-box paths in `TModLoaderLayout.ts`, which `setup.sh` mirrors). Facts verified against tML 1.4.4.9 that the code depends on:
+- **Launcher.** It runs `LaunchUtils/ScriptCaller.sh -server -nosteam -noupnp`. Without `-nosteam` the start script prompts, and without `-noupnp` it tries to map ports on the gateway.
+- **Difficulty is config-file only.** The `difficulty=` key goes in `serverconfig.txt`; there is no `-difficulty` argument. It is written before the launch, alongside the password.
+- **World evil doesn't exist in vanilla.** It rides `TTE_WORLD_EVIL` in the unit environment, and TteControl applies it.
+- **`-autocreate` ignores `-world`.** It always writes `<save>/Worlds/<worldname>.wld`, so `beginCreateWorld` refuses any other folder.
+- **A world is two files.** The `.twld` holds all modded content and is written *after* the `.wld`, so worldgen waits for both and uploads both.
+- **The REST credential is a root-owned file outside every `validRoots` path, never a ModConfig.** `ModConfigs/` is browsable, and a download copies it into the filestore. See `docs/contracts/control-rest.md`, "Launch-time environment".
+- **Passwords and `serverconfig.txt`.** The launch password validator allows `\s`, which includes newlines, and `serverconfig.txt` is line-based. So `setServerConfigValues` rejects line breaks rather than letting a password inject config keys.
+
+`beginCreateWorld` now resolves the world folder *nickname* through `validRoots`. It used to join the nickname onto `BASE_ROOT` directly, which only worked because TShock's `worlds` nickname maps to `/worlds`.
+
 ## Gotchas
 - TShock REST: enforce timeouts/retries; token from Secrets.
 - SSM file sync: validate paths, prefer S3 pre-signed download to instance.

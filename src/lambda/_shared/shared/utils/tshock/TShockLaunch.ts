@@ -64,6 +64,27 @@ export function ensureLogDirsCommand(): string {
 }
 
 /**
+ * The ` 1>> "<out>/<date>.log" 2>> "<err>/<date>.log"` suffix for a launch command, with each stream
+ * falling back to /dev/null when its root isn't configured. The tModLoader launch uses this; the
+ * TShock builders still inline the same logic and are left byte-for-byte as they were.
+ */
+export function dailyLogRedirects(): string {
+	const date = new Date().toISOString().slice(0, 10);
+	const redirect = (fd: 1 | 2, rootEnv: string | undefined): string => {
+		const root = (rootEnv || "").trim().replace(/\/$/, "");
+		if (!root) return ` ${fd}> /dev/null`;
+		return ` ${fd}>> "${path.posix.join(root, `${date}.log`).replace(/"/g, '\\"')}"`;
+	};
+	return redirect(1, process.env.TSHOCK_OUT_LOGS) + redirect(2, process.env.TSHOCK_ERR_LOGS);
+}
+
+/** Today's stdout log file, which is what the worldgen wait tails for progress lines; null when unset. */
+export function dailyOutLogPath(): string | null {
+	const root = (process.env.TSHOCK_OUT_LOGS || "").trim().replace(/\/$/, "");
+	return root ? path.posix.join(root, `${new Date().toISOString().slice(0, 10)}.log`) : null;
+}
+
+/**
  * Joins the fragments of the launched script with `&&`, dropping the empty ones so an unconfigured
  * step can't leave a dangling `&&` that breaks the whole command.
  */
