@@ -186,7 +186,7 @@ export default {
 			if (!address?.configured || !this.selectedInstance) return "";
 			const host = address.hostname || "The public address";
 			if (this.publicAddressIsHere) return `${host} points at this instance.`;
-			const names = (address.targets || []).map(t => t.name || t.instanceId).join(", ");
+			const names = this.serverStore.publicAddressTargetNames;
 			return names
 				? `${host} points at ${names}, not this instance. Change it on the Instance page.`
 				: `${host} doesn't point at any instance.`;

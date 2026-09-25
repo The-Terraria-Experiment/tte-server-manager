@@ -208,7 +208,7 @@ export default {
 			if (!address?.configured || !this.selectedInstance) return "";
 			if (address.targetInstanceId === this.selectedInstance) return "";
 			const host = address.hostname || "the public address";
-			const names = (address.targets || []).map(t => t.name || t.instanceId).join(", ");
+			const names = this.serverStore.publicAddressTargetNames;
 			return `Players can't reach this server at ${host}: it points at ${names || "no instance"}. ` +
 				"Use the Public Address tile on the Instance page to route it here.";
 		},
