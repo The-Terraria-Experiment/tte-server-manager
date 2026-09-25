@@ -60,7 +60,16 @@ const EVENT_FETCH_KINDS = {
 	[REALTIME_EVENTS.INSTANCE_STATE]: "instanceStatus",
 	[REALTIME_EVENTS.INSTANCE_SHUTDOWN]: "instanceStatus",
 	[REALTIME_EVENTS.WORLD_CREATE]: "worldCreate",
+	[REALTIME_EVENTS.PUBLIC_ADDRESS]: "publicAddress",
 };
+
+/**
+ * Kinds that describe the whole fleet rather than one instance. They skip the selected-instance
+ * filter (the event's instanceId is the new public-address target, which is usually *not* the box on
+ * screen) and debounce under one fleet-wide key.
+ */
+const FLEET_KINDS = new Set(["publicAddress"]);
+const FLEET_KEY = "fleet";
 
 const jitter = (ms) => Math.floor(Math.random() * ms);
 
@@ -225,14 +234,16 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 				return;
 			}
 
-			if (!this.shouldHandleLocally(event.instanceId)) {
+			const fleetWide = FLEET_KINDS.has(kind);
+			if (!this.shouldHandleLocally(event.instanceId, fleetWide)) {
 				this.stats.ignored++;
 				return;
 			}
 
-			const key = `${kind}:${event.instanceId}`;
+			const target = fleetWide ? FLEET_KEY : event.instanceId;
+			const key = `${kind}:${target}`;
 			this.dirty[key] = true;
-			this.scheduleFlush(kind, event.instanceId, DEBOUNCE_MS);
+			this.scheduleFlush(kind, target, DEBOUNCE_MS);
 		},
 
 		/**
@@ -240,12 +251,13 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 		 * that server-side — but it stops us firing requests apiRequest would reject client-side, and
 		 * stops us paying a TShock round trip for an instance nothing on screen is showing.
 		 */
-		shouldHandleLocally(instanceId) {
+		shouldHandleLocally(instanceId, fleetWide = false) {
 			const userStore = useUserStore();
 			const serverStore = useServerStore();
 
 			if (!userStore.isAuthenticated) return false;
 			if (!userStore.hasPermissions(PERMISSIONS.access, false)) return false;
+			if (fleetWide) return true;
 
 			// Only the selected instance is rendered anywhere today.
 			return serverStore.selected.instance === instanceId;
@@ -275,8 +287,9 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 			const serverStore = useServerStore();
 			const key = `${kind}:${instanceId}`;
 
-			// worldCreate has no loading guard to collide with, so it never needs the busy re-arm.
-			if (kind !== "worldCreate") {
+			// worldCreate and publicAddress have no loading guard to collide with, so they never need the
+			// busy re-arm.
+			if (kind !== "worldCreate" && kind !== "publicAddress") {
 				// "players" shares the server-status flag deliberately — see fetchPlayerList.
 				const busy = (kind === "serverStatus" || kind === "players")
 					? serverStore.isLoadingServerStatus(instanceId)
@@ -301,6 +314,8 @@ export const useRealtimeStore = defineStore("realtimeStore", {
 					await this.announceViolations(instanceId);
 				} else if (kind === "worldCreate") {
 					await this.trackWorldCreate(instanceId);
+				} else if (kind === "publicAddress") {
+					await serverStore.fetchPublicAddress();
 				} else {
 					await serverStore.fetchInstanceStatus(instanceId);
 				}

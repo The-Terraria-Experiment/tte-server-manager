@@ -9,6 +9,7 @@ import { CWLogger } from "./shared/aws/CloudWatch.js";
 import { Permissions } from "./shared/utils/core/Perms.js";
 import { ResponseUtil } from "./shared/utils/core/APIResponse.js";
 import { list } from "./actions/list.js";
+import { readPublicAddressAction, routePublicAddressAction } from "./actions/publicAddress.js";
 import { getStatus } from "./actions/getStatus.js";
 import { start } from "./actions/start.js";
 import { stop } from "./actions/stop.js";
@@ -61,6 +62,16 @@ const endpoints: EndpointList = {
 	"GET /instance/{id}/status": {
 		action: getStatus,
 		permRequired: PERMISSIONS.instance.status.read,
+	},
+	// Which instance play.<domain> (the Global Accelerator) reaches. Fleet-wide, so the read is gated
+	// on the list permission; the switch also checks instance::<id> in the action.
+	"GET /instances/public-address": {
+		action: readPublicAddressAction,
+		permRequired: PERMISSIONS.instance.list,
+	},
+	"POST /instance/{id}/public-address": {
+		action: routePublicAddressAction,
+		permRequired: PERMISSIONS.instance.publicaddress.write,
 	},
 	"POST /instance/{id}/start": {
 		action: start,

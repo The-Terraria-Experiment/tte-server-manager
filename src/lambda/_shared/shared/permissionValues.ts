@@ -74,6 +74,9 @@ export const PERMISSIONS = {
 			read: "instance.metrics.read",
 			write: "instance.metrics.write",
 		},
+		publicaddress: {
+			write: "instance.publicaddress.write",
+		},
 		files: {
 			read: "instance.files.read",
 			write: "instance.files.write",
