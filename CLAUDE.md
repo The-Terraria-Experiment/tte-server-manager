@@ -361,6 +361,7 @@ Three things about how the flavor reaches callers:
 - Does this change respect auth/permissions boundaries?
 - Are env variables documented (here, if new)?
 - If you added a Lambda: `FUNCTIONS` in `src/lambda/build.js`, the matrix in `.github/workflows/deploy-lambdas.yml`, `FUNC_NAMES` in `_shared/shared/constants.ts` (`CWLogger` throws on an unknown name, before its try/catch), and the git-tracked `shared -> ../_shared/shared` symlink (mode 120000; `git update-index --add --cacheinfo 120000,<blob>,<path>` reuses an existing one's blob). Plus the out-of-band function/role/alias/env-var work, none of which is in this repo.
+- If you added a dependency to `_shared/shared/package.json`, add it to the **root** `package.json` too. `build.js` compiles against the root `node_modules`, so a package only in the shared folder typechecks locally (where that folder has its own install) and then fails the CI build with `Cannot find module`.
 - Are routes and stores consistent with conventions?
 - Are logs structured and errors informative?
 - If you touched something this file documents and the docs no longer match, update this file too.
