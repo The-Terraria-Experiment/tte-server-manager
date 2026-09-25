@@ -176,7 +176,8 @@ instance role; no IAM change):
 | `tmodloader/current.zip` | The GitHub release `tModLoader.zip`, as is. Upload a version-tagged copy beside it before overwriting, as with TShock. |
 | `tmodloader/mods/TteControl.tmod` | Built from `tml-tte-control` (`dotnet build`, then take the `.tmod` from your tModLoader `Mods` folder). **Required**: it is the REST API the web app talks to, so without it the box can't be managed. |
 | `tmodloader/mods/TteInventoryMonitor.tmod` | Built from `tml-inventory-monitor`, the same way. Installed by default: player inventories, item rules and the snapshot archive all read through it. |
-| `tmodloader/mods/<Mod>.tmod` | Anything else listed in `TTE_TML_MODS`, e.g. `TteEventLogger` once it exists. |
+| `tmodloader/mods/TteEventLogger.tmod` | Built from `tml-event-logger`, the same way. Installed by default: it pushes player events to `pushLog`, which is the only input to auto-shutoff's idle timer, the live roster and the item-rule scan. Needs `TTE_EVENT_API_KEY` (see `step_eventlogger`). |
+| `tmodloader/mods/<Mod>.tmod` | Anything else listed in `TTE_TML_MODS`. |
 
 Both are ETag-gated like the TShock zip, so upgrading is: overwrite the object,
 then re-run `--only tmodloader` or `--only tmlmods`. A tModLoader upgrade
@@ -192,6 +193,7 @@ $ROOT/tml-save/                   -tmlsavedirectory
   serverconfig.txt                synced from s3://<config bucket>/inst#<id>/serverconfig.txt
   Worlds/  Mods/  ModConfigs/
 /etc/tte/tte-control-credential.json   TteControl's REST credential, 0640 root:ubuntu
+/etc/tte/tte-event-logger-endpoint.json   TteEventLogger's pushLog URL + API key, 0640 root:ubuntu
 ```
 
 What's different from TShock, and why:
@@ -205,6 +207,16 @@ What's different from TShock, and why:
 - **The credential is never in `ModConfigs/`.** That folder is browsable from the
   Instance Files page, and anything browsable can be downloaded and so copied
   into the S3 filestore. The credential file sits outside every `validRoots` path.
+- **Neither is the event logger's API key.** `step_eventlogger` writes
+  `{ endpointUrl, apiKey }` to `/etc/tte/tte-event-logger-endpoint.json`, and the
+  launch names it in `TTE_EVENT_LOGGER_ENDPOINT_FILE`; the mod prefers it over its
+  ModConfig. The key is `TTE_EVENT_API_KEY`, the **prod** API Gateway key (the
+  TShock fleet pushes to prod too), and the URL defaults to the prod stage
+  (`TTE_EVENT_API_BASE`). Without the key the step only warns, so `--only` runs
+  of other steps don't need it, and a re-run without it keeps an existing file.
+  But a box with no file pushes nothing, and **auto-shutoff never sees it idle**.
+  The mod reads the file once at load, so a new key takes effect at the next
+  launch.
 - **`serverconfig.txt` lives in the save directory, not the install directory**,
   because every tModLoader release ships a sample `serverconfig.txt` and an
   upgrade would overwrite ours. S3 is its source of truth, as `config.json` is for
@@ -279,7 +291,9 @@ permanently offline in the UI.
 | `TTE_TML_BUCKET` | `ttesm-resources` | tModLoader only |
 | `TTE_TML_KEY` | `tmodloader/current.zip` | tModLoader only — the GitHub release `tModLoader.zip` |
 | `TTE_TML_MODS_PREFIX` | `tmodloader/mods` | tModLoader only — each mod is `<prefix>/<ModName>.tmod` |
-| `TTE_TML_MODS` | `TteControl,TteInventoryMonitor` | tModLoader only — csv of internal mod names to install and enable; must include `TteControl` |
+| `TTE_TML_MODS` | `TteControl,TteInventoryMonitor,TteEventLogger` | tModLoader only — csv of internal mod names to install and enable; must include `TteControl` |
+| `TTE_EVENT_API_KEY` | — | tModLoader only — the pushLog API Gateway key (the `prod` key). Warned about, not required, but without it the box pushes no events |
+| `TTE_EVENT_API_BASE` | `https://y9q6bctuci.execute-api.us-east-2.amazonaws.com/prod` | tModLoader only — the API stage the event logger pushes to; the instance ID and route are appended |
 | `TTE_TSHOCK_BUCKET` | `ttesm-resources` | |
 | `TTE_TSHOCK_KEY` | `tshock/current.zip` | |
 | `TTE_LOGS_BUCKET` | `ttesm-logs` | |

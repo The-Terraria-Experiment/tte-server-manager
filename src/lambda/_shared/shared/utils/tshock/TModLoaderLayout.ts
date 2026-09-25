@@ -36,6 +36,12 @@ export const TML_LAYOUT = {
 	 * password in front of every operator with file access and copy it into the S3 filestore.
 	 */
 	credentialFile: "/etc/tte/tte-control-credential.json",
+	/**
+	 * TteEventLogger's pushLog endpoint and API key (`{ "endpointUrl", "apiKey" }`), for the same
+	 * reason: the mod's ModConfig lives in the browsable `ModConfigs/`. Root-owned, written by
+	 * `setup.sh`'s `eventlogger` step, and overrides the ModConfig's two fields when it loads.
+	 */
+	eventLoggerEndpointFile: "/etc/tte/tte-event-logger-endpoint.json",
 } as const;
 
 /** The TShock `config.json` counterpart: the app's source of truth for the box's `serverconfig.txt`. */

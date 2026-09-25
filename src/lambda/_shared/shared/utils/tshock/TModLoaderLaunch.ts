@@ -78,7 +78,10 @@ export function buildTModLoaderLaunchCommand(options: TModLoaderLaunchOptions): 
 
 	// Credential by path, never by value: the environment of a process is readable from /proc by
 	// its own user, and a systemd unit's environment is visible to anyone who can `systemctl show` it.
-	const env = [`TTE_CONTROL_CREDENTIAL_FILE=${TML_LAYOUT.credentialFile}`];
+	const env = [
+		`TTE_CONTROL_CREDENTIAL_FILE=${TML_LAYOUT.credentialFile}`,
+		`TTE_EVENT_LOGGER_ENDPOINT_FILE=${TML_LAYOUT.eventLoggerEndpointFile}`,
+	];
 	if (options.mode === "create") {
 		env.push(`TTE_WORLD_EVIL=${options.evil}`);
 	}

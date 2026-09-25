@@ -78,6 +78,18 @@ The response is `200 { "success": true }`, or `{ "success": true, "ignored": tru
 - **Never block the game loop.** Enqueue from the hook and send from a background worker with a bounded queue, as `EventNotifier.Core`'s `NotificationDispatchQueue` does.
 - **The API key is a secret.** Don't log it, and don't print it from any admin command.
 
+## Launch-time environment (tML)
+
+The backend launches tModLoader through `systemd-run` (`_shared/shared/utils/tshock/TModLoaderLaunch.ts`)
+and always sets **`TTE_EVENT_LOGGER_ENDPOINT_FILE`** on the server process. Its value is an absolute
+path, currently `/etc/tte/tte-event-logger-endpoint.json` (`TML_LAYOUT.eventLoggerEndpointFile`).
+- **Contents:** `{ "endpointUrl": "…", "apiKey": "…" }`, UTF-8 JSON, written by `setup.sh`'s `eventlogger` step. The file is `0640 root:<server user>`. `endpointUrl` is the full push URL above, instance ID included, on the **prod** stage.
+- **It overrides the mod's ModConfig** `EndpointUrl` and `ApiKey` when it loads. If the variable is unset (a local dev server), use the ModConfig. If the file is missing, unreadable, malformed or has an empty field, log why once, without the file's contents, and fall back to the ModConfig.
+- **Why it isn't in the ModConfig:** the same reason as TteControl's credential file (`control-rest.md`, "Launch-time environment"). `ModConfigs/` is browsable and downloadable from the web app, and a download copies it into the S3 filestore.
+- **Read it once, at load.** A rotated key reaches the server at its next launch.
+
+TShock has no equivalent: `tshock-event-notifier` reads `tshock/event-notifier.json`, configured by hand.
+
 ## Implementation note (tML)
 
 `EventNotifier.Core` (`TTE/tshock-event-notifier/src/EventNotifier.Core`) is the envelope, serializer, HTTP sender and dispatch queue, with no TShock dependency. tModLoader runs on **.NET 8** and the core currently targets `net9.0`. Multi-target it (`<TargetFrameworks>net8.0;net9.0</TargetFrameworks>`) and have the tML mod reference the `net8.0` build, so both adapters share one implementation of this contract.
