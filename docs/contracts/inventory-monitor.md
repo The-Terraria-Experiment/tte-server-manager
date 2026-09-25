@@ -159,7 +159,9 @@ The response is `{ "status": "200", "scope": "…", "slotsCleared": n, "note": "
 
 ### `GET /inventory/itemnames`
 
-Called by hand from `src/sprite-tools/names.mjs`, never by a lambda.
+Two callers:
+- `src/sprite-tools/names.mjs`, by hand, for the vanilla `items` table.
+- **(tML) `server-manager`'s `GET /server/{id}/items/names`**, when an operator opens the item rules editor on a tModLoader server. It reads only `modItems` and ignores `items`. This is on demand, not polled, but it does go through `tshock-proxy` from a lambda, so the whole response must stay well under a few MB.
 
 The response is `{ "status": "200", "version": "<Terraria version>", "count": n, "items": { "<netId>": "<name>", … } }`. It includes negative ids.
 - **It must answer with nobody online.** It reads only tables that are fixed after startup, so it runs off the main thread.

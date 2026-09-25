@@ -133,7 +133,16 @@ function parseOperation(body: any): EditOperation | string {
 			return `Invalid netId for slot '${globalSlot}'`;
 		}
 
-		slots.push(netId === undefined ? { globalSlot } : { globalSlot, netId });
+		const itemKey = typeof entry === "number" ? undefined : entry?.itemKey;
+		if (itemKey !== undefined && (typeof itemKey !== "string" || !itemKey || itemKey.length > 200)) {
+			return `Invalid itemKey for slot '${globalSlot}'`;
+		}
+
+		slots.push({
+			globalSlot,
+			...(netId === undefined ? {} : { netId }),
+			...(itemKey === undefined ? {} : { itemKey }),
+		});
 	}
 
 	return { op: "remove-slots", slots };
@@ -144,6 +153,7 @@ const auditItem = (item: ResolvedTarget) => ({
 	globalSlot: item.globalSlot,
 	container: item.container,
 	netId: item.netId,
+	...(item.itemKey ? { itemKey: item.itemKey } : {}),
 	name: item.name,
 	stack: item.stack,
 	prefix: item.prefix,

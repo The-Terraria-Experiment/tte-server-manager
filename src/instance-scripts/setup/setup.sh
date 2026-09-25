@@ -46,7 +46,7 @@ INSTANCE_TABLE=${TTE_INSTANCE_TABLE:-ttesm-instance-data}
 TML_BUCKET=${TTE_TML_BUCKET:-ttesm-resources}
 TML_KEY=${TTE_TML_KEY:-tmodloader/current.zip}
 TML_MODS_PREFIX=${TTE_TML_MODS_PREFIX:-tmodloader/mods}
-TML_MODS=${TTE_TML_MODS:-TteControl}
+TML_MODS=${TTE_TML_MODS:-TteControl,TteInventoryMonitor}
 
 # tModLoader layout. NOT overridable, and deliberately so: these mirror TML_LAYOUT
 # in src/lambda/_shared/shared/utils/tshock/TModLoaderLayout.ts, and the lambdas

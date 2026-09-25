@@ -259,8 +259,15 @@ export default {
 			if (this.lastWorldCreateStatus.step === "completed") return "Launching world";
 			return "World creation started";
 		},
+		/**
+		 * Whether to show the progress view instead of the form. `isCreatingWorld` mirrors the backend's
+		 * isWorldgenBlocking, so a failed or abandoned job (whose row is never deleted) gives the form
+		 * back; checking `progress >= 0` held the tile on "World Creation Failed" until the row was
+		 * removed by hand. A completed job stays in view for its short linger before self-deleting.
+		 */
 		worldCreationInProgress() {
-			return this.lastWorldCreateStatus.progress >= 0;
+			if (this.lastWorldCreateStatus.status === "completed") return this.lastWorldCreateStatus.progress >= 0;
+			return this.serverStore.isCreatingWorld(this.selectedInstance);
 		},
 		worldLaunchInProgress() {
 			return this.serverStore.loading.worldLaunch[this.selectedInstance];

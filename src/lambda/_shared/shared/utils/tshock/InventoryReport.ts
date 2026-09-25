@@ -17,12 +17,38 @@ export type InventorySlotEntry = {
 	slot: number,
 	globalSlot: number,
 	netId: number,
+	/**
+	 * tModLoader only (`docs/contracts/inventory-monitor.md`, 1.1): `"Terraria/<netId>"` for vanilla,
+	 * `"ModName/ItemName"` for modded items. Absent on TShock.
+	 */
+	itemKey?: string,
 	name: string,
 	stack: number,
 	prefix: number,
 	prefixName: string | null,
 	favorited: boolean,
 };
+
+/** How tModLoader spells a vanilla item's `itemKey`. */
+export const VANILLA_ITEM_KEY_PREFIX = "Terraria/";
+
+/** `ModName/ItemName`: both halves C# identifiers, as tModLoader requires of mod and item names. */
+const ITEM_KEY_SHAPE = /^[A-Za-z_][A-Za-z0-9_]{0,63}\/[A-Za-z_][A-Za-z0-9_]{0,127}$/;
+
+/** True for a well-formed modded `itemKey`. Vanilla keys (`Terraria/<n>`) are not modded. */
+export const isModdedItemKey = (key: unknown): key is string =>
+	typeof key === "string" && ITEM_KEY_SHAPE.test(key) && !key.startsWith(VANILLA_ITEM_KEY_PREFIX);
+
+/**
+ * The one identity rule entries and live items are compared on.
+ *
+ * A modded item is its `itemKey` and nothing else: its `netId` is only meaningful inside the process
+ * that assigned it. Everything else, vanilla items on either flavor, is its `netId`, which keeps every
+ * rule written before tModLoader support working unchanged. The two spaces can't collide, since one
+ * is prefixed and the other isn't.
+ */
+export const itemIdentity = (item: { netId?: number, itemKey?: string }): string =>
+	isModdedItemKey(item.itemKey) ? item.itemKey : `netId:${item.netId}`;
 
 export type InventoryContainer = {
 	name: string,
@@ -84,6 +110,7 @@ export const normalizeReport = (raw: Record<string, any>): InventoryReport => {
 				slot: pick(item, "slot", -1),
 				globalSlot: pick(item, "globalSlot", -1),
 				netId: pick(item, "netId", 0),
+				...(typeof pick(item, "itemKey", null) === "string" ? { itemKey: pick<string>(item, "itemKey", "") } : {}),
 				name: pick(item, "name", ""),
 				stack: pick(item, "stack", 0),
 				prefix: pick(item, "prefix", 0),

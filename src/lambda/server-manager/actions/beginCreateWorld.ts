@@ -233,7 +233,7 @@ const waitForWorldFileReady = async (
 	// runtime), while a file still growing means worldgen was simply slower than the invocation.
 	if (!everSawFile) {
 		throw new Error(
-			`TShock never created the world file at ${filePath} — the server likely failed to start.` +
+			`The server never created the world file at ${filePath}. It likely failed to start.` +
 			(lastLogLine ? ` Last console output: ${lastLogLine}` : " No console output was produced."),
 		);
 	}

@@ -175,7 +175,8 @@ instance role; no IAM change):
 |---|---|
 | `tmodloader/current.zip` | The GitHub release `tModLoader.zip`, as is. Upload a version-tagged copy beside it before overwriting, as with TShock. |
 | `tmodloader/mods/TteControl.tmod` | Built from `tml-tte-control` (`dotnet build`, then take the `.tmod` from your tModLoader `Mods` folder). **Required**: it is the REST API the web app talks to, so without it the box can't be managed. |
-| `tmodloader/mods/<Mod>.tmod` | Anything else listed in `TTE_TML_MODS`, e.g. `TteInventoryMonitor`, `TteEventLogger` once they exist. |
+| `tmodloader/mods/TteInventoryMonitor.tmod` | Built from `tml-inventory-monitor`, the same way. Installed by default: player inventories, item rules and the snapshot archive all read through it. |
+| `tmodloader/mods/<Mod>.tmod` | Anything else listed in `TTE_TML_MODS`, e.g. `TteEventLogger` once it exists. |
 
 Both are ETag-gated like the TShock zip, so upgrading is: overwrite the object,
 then re-run `--only tmodloader` or `--only tmlmods`. A tModLoader upgrade
@@ -278,7 +279,7 @@ permanently offline in the UI.
 | `TTE_TML_BUCKET` | `ttesm-resources` | tModLoader only |
 | `TTE_TML_KEY` | `tmodloader/current.zip` | tModLoader only — the GitHub release `tModLoader.zip` |
 | `TTE_TML_MODS_PREFIX` | `tmodloader/mods` | tModLoader only — each mod is `<prefix>/<ModName>.tmod` |
-| `TTE_TML_MODS` | `TteControl` | tModLoader only — csv of internal mod names to install and enable; must include `TteControl` |
+| `TTE_TML_MODS` | `TteControl,TteInventoryMonitor` | tModLoader only — csv of internal mod names to install and enable; must include `TteControl` |
 | `TTE_TSHOCK_BUCKET` | `ttesm-resources` | |
 | `TTE_TSHOCK_KEY` | `tshock/current.zip` | |
 | `TTE_LOGS_BUCKET` | `ttesm-logs` | |

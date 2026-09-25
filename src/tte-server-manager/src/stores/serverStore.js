@@ -183,6 +183,7 @@ export const useServerStore = defineStore("serverstore", {
 				tshockversion: data?.tshockversion,		// string, 4 part semantic version num
 				tmodloaderversion: data?.tmodloaderversion,	// string, tModLoader only
 				mods: data?.mods,						// array of { name, displayName, version } loaded now, tModLoader only
+				contractWarnings: data?.contractWarnings,	// array of strings; present only when a mod's contract major differs
 				port: data?.port,						// number
 				playercount: data?.playercount,			// number
 				maxplayers: data?.maxplayers,			// number

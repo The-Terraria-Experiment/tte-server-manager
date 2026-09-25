@@ -1,6 +1,7 @@
 import { SNAPSHOT_GROUPS } from "../tshock/InventorySnapshots.js";
 import type { SnapshotKind } from "../tshock/InventorySnapshots.js";
 import type { ItemArchiveConfig, ItemEnforcementConfig, ItemRuleEntry } from "../../schema/SystemTable.js";
+import { VANILLA_ITEM_KEY_PREFIX, isModdedItemKey, itemIdentity } from "../tshock/InventoryReport.js";
 
 /**
  * Validation for the shape an item ruleset takes on the wire.
@@ -37,7 +38,12 @@ export const MAX_ENTRY_NAME = 120;
 export const MAX_ENTRY_NOTE = 200;
 
 /**
- * Normalizes the submitted entry list: integer ids only, deduplicated, capped.
+ * Normalizes the submitted entry list: each entry names a vanilla item by integer `netId` or a modded
+ * one by `itemKey`, deduplicated, capped.
+ *
+ * A vanilla `itemKey` (`Terraria/<n>`) is stored as the `netId` it spells, so the same item can't be
+ * listed twice under two spellings, and the entry keeps matching on TShock servers too. A modded
+ * entry keeps no `netId` at all — see `ItemRuleEntry` for why one must never be persisted.
  *
  * De-duplication matters more than it looks. The same id listed twice is harmless to the evaluator
  * (it builds a Set), but it renders as two identical rows in the editor, and removing "one of them"
@@ -51,19 +57,37 @@ export const normalizeEntries = (raw: unknown): ItemRuleEntry[] => {
 		throw new Error(`No more than ${MAX_ENTRIES} entries are allowed`);
 	}
 
-	const seen = new Map<number, ItemRuleEntry>();
+	const seen = new Map<string, ItemRuleEntry>();
 
 	for (const entry of raw) {
-		const netId = Number(entry?.netId);
-		if (!Number.isInteger(netId) || netId === 0 || netId < MIN_NET_ID || netId > MAX_NET_ID) {
-			throw new Error(`Invalid item id: ${entry?.netId}`);
-		}
-
-		seen.set(netId, {
-			netId,
+		const extras = {
 			...(entry?.name ? { name: String(entry.name).slice(0, MAX_ENTRY_NAME) } : {}),
 			...(entry?.note ? { note: String(entry.note).slice(0, MAX_ENTRY_NOTE) } : {}),
-		});
+		};
+
+		const rawKey = entry?.itemKey;
+		if (rawKey !== undefined && rawKey !== null && rawKey !== "") {
+			if (isModdedItemKey(rawKey)) {
+				const normalized: ItemRuleEntry = { itemKey: rawKey, ...extras };
+				seen.set(itemIdentity(normalized), normalized);
+				continue;
+			}
+			// A vanilla key falls through to the netId path below, using the id it spells.
+			if (!(typeof rawKey === "string" && rawKey.startsWith(VANILLA_ITEM_KEY_PREFIX))) {
+				throw new Error(`Invalid item key: ${rawKey}`);
+			}
+		}
+
+		const rawNetId = typeof rawKey === "string" && rawKey.startsWith(VANILLA_ITEM_KEY_PREFIX)
+			? rawKey.slice(VANILLA_ITEM_KEY_PREFIX.length)
+			: entry?.netId;
+		const netId = Number(rawNetId);
+		if (!Number.isInteger(netId) || netId === 0 || netId < MIN_NET_ID || netId > MAX_NET_ID) {
+			throw new Error(`Invalid item id: ${rawNetId}`);
+		}
+
+		const normalized: ItemRuleEntry = { netId, ...extras };
+		seen.set(itemIdentity(normalized), normalized);
 	}
 
 	return [...seen.values()];
