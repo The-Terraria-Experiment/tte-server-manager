@@ -165,12 +165,18 @@ export type RealtimeConnectionEntry = {
 };
 
 /**
- * One entry in an instance's item rule list. `netId` is the Terraria item id and the only thing
- * matched on; `name` is carried purely so the editor can render a readable list without needing the
- * item-name map, and is refreshed opportunistically from whatever a snapshot last called that id.
+ * One entry in an instance's item rule list, naming an item by exactly one of:
+ * - `netId`, the Terraria item id: for **vanilla** items, whose ids are stable
+ * - `itemKey`, `"ModName/ItemName"`: for **modded** (tModLoader) items. A modded item's `netId` is
+ *   assigned at load time and changes whenever the enabled mod set does, so persisting one would
+ *   silently start matching a different item after the next mod change
+ *
+ * Matching goes through `itemIdentity` on both sides. `name` is carried purely so the editor can
+ * render a readable list without the item-name map.
  */
 export type ItemRuleEntry = {
-	netId: number,
+	netId?: number,
+	itemKey?: string,
 	name?: string,
 	note?: string,
 };
@@ -285,6 +291,8 @@ export type ItemPresetEntry = {
 /** One flagged item, carrying enough position for the UI to ring the exact square it came from. */
 export type ViolationItem = {
 	netId: number,
+	/** tModLoader only: stable identity, see `ItemRuleEntry`. */
+	itemKey?: string,
 	name: string,
 	stack: number,
 	prefix: number,

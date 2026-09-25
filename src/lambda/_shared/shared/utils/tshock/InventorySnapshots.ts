@@ -1,5 +1,5 @@
 import { TShockAPI } from "./TShockAPI.js";
-import { isRefusedConnectionEnvelope, normalizeReport, pick, type InventoryReport } from "./InventoryReport.js";
+import { isRefusedConnectionEnvelope, itemIdentity, normalizeReport, pick, type InventoryReport } from "./InventoryReport.js";
 import type { ItemRulesEntry, ViolationItem } from "../../schema/SystemTable.js";
 
 /**
@@ -201,19 +201,20 @@ export async function drainSnapshots(
  * to the rules, which keeps this usable if leave captures ever get their own check.
  */
 export function evaluateReport(report: InventoryReport, rules: ItemRulesEntry): ViolationItem[] {
-	const listed = new Set<number>((rules.entries ?? []).map(entry => Number(entry.netId)));
+	const listed = new Set<string>((rules.entries ?? []).map(itemIdentity));
 	const whitelist = rules.mode === "whitelist";
 	const offending: ViolationItem[] = [];
 
 	for (const container of report.containers) {
 		for (const item of container.items) {
-			const inList = listed.has(item.netId);
+			const inList = listed.has(itemIdentity(item));
 			if (whitelist ? inList : !inList) {
 				continue;
 			}
 
 			offending.push({
 				netId: item.netId,
+				...(item.itemKey ? { itemKey: item.itemKey } : {}),
 				name: item.name,
 				stack: item.stack,
 				prefix: item.prefix,
