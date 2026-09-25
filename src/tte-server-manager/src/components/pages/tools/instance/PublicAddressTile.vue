@@ -12,7 +12,7 @@
 		</template>
 		<template #summary>
 			<p :class="['text-2xl truncate', isTarget ? 'text-teal-4' : 'text-gray-8']">
-				{{ isTarget ? "Live here" : "Not here" }}
+				{{ summary }}
 			</p>
 		</template>
 		<template #content>
@@ -38,13 +38,12 @@
 						Affects prod and stage. Anyone on the current server is disconnected.
 					</p>
 					<FlexButton
+						class="shrink-0"
 						:variant="BTN_VARIANT.PRIMARY"
-						leftIcon="network"
-						:loading="routing"
 						:disabled="routing || isShuttingDown"
 						@input="route(false)"
 					>
-						ROUTE HERE
+						<p class="font-main font-bold py-2 px-8 md:px-12">{{ routing ? "ROUTING..." : "ROUTE HERE" }}</p>
 					</FlexButton>
 				</div>
 			</div>
@@ -110,7 +109,13 @@ export default {
 			return this.publicAddress?.targets?.find(t => t.instanceId === this.selectedInstance)?.healthState ?? null;
 		},
 		targetNames() {
-			return (this.publicAddress?.targets ?? []).map(t => t.name || t.instanceId).join(", ");
+			return this.serverStore.publicAddressTargetNames;
+		},
+		summary() {
+			if (this.isTarget) return "Players connect here";
+			if (this.publicAddress?.mixed) return "Split across servers";
+			if (this.publicAddress?.targetInstanceId) return `Routed to ${this.targetNames}`;
+			return "Not routed anywhere";
 		},
 		canRoute() {
 			return this.$checkPermissions(PERMISSIONS.instance.publicaddress.write);

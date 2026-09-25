@@ -102,6 +102,15 @@ export const useServerStore = defineStore("serverstore", {
 	getters: {
 		instanceOptions: (state) => state.instances.map(i => ({ id: i.id, text: i.name })),
 		/**
+		 * The friendly names of the instances the public address points at, joined for display. The
+		 * backend's `name` (the EC2 Name tag) comes first: the accelerator is shared, so its target may be
+		 * registered only for the other environment and missing from this one's instance list. Falls back
+		 * to the list, then to the instance ID.
+		 */
+		publicAddressTargetNames: (state) => (state.publicAddress?.targets ?? [])
+			.map(t => t.name || state.instances.find(i => i.id === t.instanceId)?.name || t.instanceId)
+			.join(", "),
+		/**
 		 * Which game server an instance runs: `{ serverType, displayName, capabilities: Set }`.
 		 *
 		 * Read off the instance *list*, not the status responses. The flavor is fixed at provisioning,

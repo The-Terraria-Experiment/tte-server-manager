@@ -1,4 +1,5 @@
 import { GlobalAcceleratorDao } from "../../aws/GlobalAccelerator.js";
+import { Ec2Dao } from "../../aws/EC2.js";
 import { InstanceRegistry } from "./InstanceRegistry.js";
 
 /**
@@ -18,7 +19,7 @@ import { InstanceRegistry } from "./InstanceRegistry.js";
 
 export type PublicAddressTarget = {
 	instanceId: string,
-	/** The name it was registered under, or null for an endpoint that isn't in the registry. */
+	/** The instance's EC2 Name tag (else its registry name), or null when it has neither. */
 	name: string | null,
 	/** GA's view: HEALTHY / UNHEALTHY / INITIAL. The health check is TCP 3891, so "no server running" reads UNHEALTHY. */
 	healthState: string | null,
@@ -46,9 +47,16 @@ export async function readPublicAddress(): Promise<PublicAddressState> {
 	}
 
 	const endpoints = await new GlobalAcceleratorDao().DescribeEndpoints(groupArn);
+	// Names come from the EC2 Name tag, not this environment's instance list: the accelerator is shared,
+	// so its target can be a box registered only for the *other* environment, which the caller's list
+	// doesn't contain. The registry's own `name` is a fallback; it is usually empty.
+	const statuses = await new Ec2Dao().GetMultipleInstanceStatus(endpoints.map((endpoint) => endpoint.endpointId));
+	const tagNames = new Map(statuses.map((status) => [status.id, status.name]));
 	const targets: PublicAddressTarget[] = await Promise.all(endpoints.map(async (endpoint) => ({
 		instanceId: endpoint.endpointId,
-		name: (await InstanceRegistry.GetEntry(endpoint.endpointId))?.name ?? null,
+		name: tagNames.get(endpoint.endpointId)
+			|| (await InstanceRegistry.GetEntry(endpoint.endpointId))?.name
+			|| null,
 		healthState: endpoint.healthState,
 	})));
 
