@@ -10,6 +10,9 @@
 #   ssh ubuntu@<ip>
 #   sudo TTE_REST_PASSWORD=... /tmp/tte-setup/setup.sh
 #
+# A tModLoader box also wants TTE_EVENT_API_KEY (the pushLog API Gateway key)
+# for the eventlogger step -- see step_eventlogger.
+#
 # The instance role must already be attached before this runs -- the script
 # pulls TShock from S3 and cannot bootstrap its own credentials. See README.
 #
@@ -18,7 +21,7 @@
 #
 # Steps run in order; use --only/--skip to re-run a subset:
 #   tshock:     awscli dotnet layout ssm tshock metrics account config register summary
-#   tmodloader: awscli layout ssm tmodloader tmlmods metrics credential tmlconfig register summary
+#   tmodloader: awscli layout ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary
 # (preflight always runs -- later steps depend on what it resolves.)
 #
 set -euo pipefail
@@ -46,7 +49,7 @@ INSTANCE_TABLE=${TTE_INSTANCE_TABLE:-ttesm-instance-data}
 TML_BUCKET=${TTE_TML_BUCKET:-ttesm-resources}
 TML_KEY=${TTE_TML_KEY:-tmodloader/current.zip}
 TML_MODS_PREFIX=${TTE_TML_MODS_PREFIX:-tmodloader/mods}
-TML_MODS=${TTE_TML_MODS:-TteControl,TteInventoryMonitor}
+TML_MODS=${TTE_TML_MODS:-TteControl,TteInventoryMonitor,TteEventLogger}
 
 # tModLoader layout. NOT overridable, and deliberately so: these mirror TML_LAYOUT
 # in src/lambda/_shared/shared/utils/tshock/TModLoaderLayout.ts, and the lambdas
@@ -59,6 +62,15 @@ TML_CONFIG_FILE="$TML_SAVE_DIR/serverconfig.txt"
 # save directory is browsable from the web UI, and anything browsable can be
 # downloaded (and so copied into the S3 filestore).
 TML_CREDENTIAL_FILE=/etc/tte/tte-control-credential.json
+# TteEventLogger's pushLog endpoint + API key, for the same reason: the mod's
+# ModConfig lives in the browsable ModConfigs/. Mirrors
+# TML_LAYOUT.eventLoggerEndpointFile, which the launch passes to the mod.
+TML_EVENT_ENDPOINT_FILE=/etc/tte/tte-event-logger-endpoint.json
+# The API Gateway key the pushLog route takes (x-api-key), and the API stage the
+# box pushes to. Prod, like the TShock fleet: the player log and auto-shutoff's
+# idle timer are per environment, and prod is where they matter.
+EVENT_API_KEY=${TTE_EVENT_API_KEY:-}
+EVENT_API_BASE=${TTE_EVENT_API_BASE:-https://y9q6bctuci.execute-api.us-east-2.amazonaws.com/prod}
 
 # nickname=path pairs, comma-separated, paths relative to BASE_ROOT/TTE_ROOT.
 # The TShock default matches the existing fleet's validRoots (checked against the
@@ -111,7 +123,7 @@ REST_PERMS=(
 # own runtime, installed by step_tmodloader) and no account/config steps (there is
 # no TShock user table; TteControl reads the credential file step_credential writes).
 case "$SERVER_TYPE" in
-	tmodloader) STEPS=(awscli layout ssm tmodloader tmlmods metrics credential tmlconfig register summary) ;;
+	tmodloader) STEPS=(awscli layout ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary) ;;
 	*)          STEPS=(awscli dotnet layout ssm tshock metrics account config register summary) ;;
 esac
 
@@ -577,6 +589,45 @@ step_credential() {
 	ok "$TML_CREDENTIAL_FILE (user '$REST_USER', mode 0640 root:$RUN_AS)"
 }
 
+step_eventlogger() {
+	log "tte-event-logger endpoint"
+
+	# The event feed is the only input to auto-shutoff's idle timer, the live
+	# roster and the item-rule scan (docs/contracts/event-push.md), so every
+	# way this step can leave it unconfigured says so loudly. It warns rather
+	# than dies so --only runs of other steps don't need the key.
+	if [[ ",$TML_MODS," != *",TteEventLogger,"* ]]; then
+		warn "TteEventLogger isn't in TTE_TML_MODS -- this server will push no player events, and auto-shutoff will never see it idle"
+		return 0
+	fi
+
+	if [ -z "$EVENT_API_KEY" ]; then
+		if [ -f "$TML_EVENT_ENDPOINT_FILE" ]; then
+			ok "$TML_EVENT_ENDPOINT_FILE kept (set TTE_EVENT_API_KEY to rewrite it)"
+		else
+			warn "TTE_EVENT_API_KEY unset and no $TML_EVENT_ENDPOINT_FILE -- TteEventLogger will discard every event, and auto-shutoff will never see this server idle. Re-run with --only eventlogger and the key."
+		fi
+		return 0
+	fi
+
+	# Root-owned, readable by the server's user, outside every validRoots path,
+	# exactly like step_credential. The mod reads it once at load, so a new key
+	# reaches a running server at its next launch.
+	local url="${EVENT_API_BASE%/}/logging/${INSTANCE_ID}/players/push"
+	local dir
+	dir=$(dirname "$TML_EVENT_ENDPOINT_FILE")
+	install -d -o root -g "$RUN_AS" -m 0750 "$dir"
+
+	# Values go through the environment, not --arg: jq's argv is visible in ps.
+	local tmp
+	tmp=$(mktemp)
+	TTE_EVT_URL="$url" TTE_EVT_KEY="$EVENT_API_KEY" 		jq -n '{ endpointUrl: env.TTE_EVT_URL, apiKey: env.TTE_EVT_KEY }' > "$tmp" 		|| { rm -f "$tmp"; die "could not build the event logger endpoint file"; }
+	install -o root -g "$RUN_AS" -m 0640 "$tmp" "$TML_EVENT_ENDPOINT_FILE"
+	rm -f "$tmp"
+
+	ok "$TML_EVENT_ENDPOINT_FILE ($url, mode 0640 root:$RUN_AS)"
+}
+
 step_tmlconfig() {
 	log "tmodloader serverconfig.txt"
 
@@ -1035,6 +1086,7 @@ step_summary() {
 		echo "  dotnet      $([ -x "$TML_INSTALL_DIR/dotnet/dotnet" ] && echo "bundled, present" || echo "bundled, MISSING")"
 		echo "  mods        $(jq -c . "$TML_SAVE_DIR/Mods/enabled.json" 2>/dev/null || echo "none enabled")"
 		echo "  credential  $([ -f "$TML_CREDENTIAL_FILE" ] && echo "$TML_CREDENTIAL_FILE" || echo MISSING)"
+		echo "  events      $([ -f "$TML_EVENT_ENDPOINT_FILE" ] && echo "$TML_EVENT_ENDPOINT_FILE" || echo "MISSING -- auto-shutoff can't see this server idle")"
 		echo "  rest        ${REST_USER}@:3891 (TteControl)"
 	else
 		echo "  tshock      $(ls "$ROOT/tshock/TShock.Server" >/dev/null 2>&1 && echo present || echo MISSING)"
