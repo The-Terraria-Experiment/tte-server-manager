@@ -10,11 +10,11 @@ export const PermissionsMeta = {
 			delete: {value: "server.world.delete", description: "", used: false},
 		},
 		tshock: {
-			execute: {value: "server.tshock.execute", description: pfx + "execute TShock commands"},
+			execute: {value: "server.tshock.execute", description: pfx + "run console commands on the game server (TShock or tModLoader)"},
 		},
 		config: {
-			read: {value: "server.config.read", description: pfx + "read TShock config files (both the main one and plugin configs)"},
-			write: {value: "server.config.write", description: pfx + "edit TShock config files (both the main one and plugin configs)"},
+			read: {value: "server.config.read", description: pfx + "read game server config files (the main one plus plugin and mod configs)"},
+			write: {value: "server.config.write", description: pfx + "edit game server config files (the main one plus plugin and mod configs)"},
 		},
 		mods: {
 			read: {value: "server.mods.read", description: pfx + "view the mods installed on a tModLoader server"},
@@ -59,7 +59,7 @@ export const PermissionsMeta = {
 				},
 			},
 			tshock: {
-				read: {value: "server.logs.tshock.read", description: pfx + "view and search TShock logs"},
+				read: {value: "server.logs.tshock.read", description: pfx + "view and search game server console logs"},
 			}
 		},
 	},

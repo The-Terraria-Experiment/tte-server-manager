@@ -14,6 +14,7 @@ import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import type { AutoShutoffStateEntry, SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 import { readShutdownState } from "../shared/utils/jobs/ShutdownJob.js";
 import { isWorldgenBlocking } from "../shared/utils/jobs/WorldgenJob.js";
+import { contractWarnings } from "../shared/utils/tshock/ContractVersions.js";
 
 /**
  * `?fields=players` — the slim variant, for a refetch that only needs the roster.
@@ -130,14 +131,24 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 			});
 		}
 
+		// A mod built against a different *major* contract version is the drift nothing else would
+		// surface: the calls still succeed and some field just quietly stops meaning what we think.
+		// Reported on the response (the Server Info tile shows it) and in the log line below; only on
+		// the full path, which is where a page load lands, never the per-join slim read.
+		const warnings = contractWarnings(status?.contractVersions);
+
 		await CWLogger.Action(FUNC_NAMES.SERV_MGR, {
 			userId: userId,
 			action: "get-status",
+			...(warnings.length ? { status: "contract-mismatch" } : {}),
 			resource: `${event.httpMethod ?? "unknown method"}: ${event.path ?? "unknown path"}`,
-			details: { ip, instanceId: serverId, status },
+			details: { ip, instanceId: serverId, status, ...(warnings.length ? { contractWarnings: warnings } : {}) },
 		});
 
-		return ResponseUtil.Success({ server: status, ...(full ?? {}) });
+		return ResponseUtil.Success({
+			server: warnings.length ? { ...status, contractWarnings: warnings } : status,
+			...(full ?? {}),
+		});
 	} catch (error: any) {
 		return ResponseUtil.Error(error?.message || "Failed to fetch server status");
 	}

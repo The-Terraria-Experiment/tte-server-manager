@@ -7,6 +7,7 @@ import { ResponseUtil } from "../shared/utils/core/APIResponse.js";
 import { Parsers } from "../shared/utils/core/Parsers.js";
 import { InstanceRegistry } from "../shared/utils/instance/InstanceRegistry.js";
 import { ENVIRONMENTS } from "../shared/vars.js";
+import { flavorFor, toClientFlavor } from "../shared/utils/instance/ServerFlavor.js";
 
 const EC2 = new Ec2Dao();
 
@@ -40,6 +41,8 @@ export const readInstanceRegistry = async (event: AuthorizedEvent, context: Cont
 			missing,
 			registeredAt: entry.registeredAt ?? null,
 			registeredBy: entry.registeredBy ?? null,
+			// Read-only here: setup.sh sets the server type when it provisions the box.
+			...toClientFlavor(flavorFor(entry.serverType)),
 		};
 	});
 
