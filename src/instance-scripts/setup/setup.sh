@@ -63,7 +63,7 @@ TML_CREDENTIAL_FILE=/etc/tte/tte-control-credential.json
 # nickname=path pairs, comma-separated, paths relative to BASE_ROOT/TTE_ROOT.
 # The TShock default matches the existing fleet's validRoots (checked against the
 # live ttesm-instance-data table, not guessed). The tModLoader "worlds" root must
-# stay <save>/Worlds: -autocreate ignores -world and always writes there.
+# stay <save>/Worlds: that is where -autocreate writes, and where worldgen waits for the file.
 case "$SERVER_TYPE" in
 	tmodloader) DEFAULT_VALID_ROOTS="main=/tml-save,worlds=/tml-save/Worlds,mods=/tml-save/Mods,modconfigs=/tml-save/ModConfigs" ;;
 	*)          DEFAULT_VALID_ROOTS="main=/tshock,worlds=/worlds,plugins=/tshock/ServerPlugins" ;;

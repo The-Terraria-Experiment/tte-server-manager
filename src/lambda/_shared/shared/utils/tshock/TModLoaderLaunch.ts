@@ -48,7 +48,7 @@ export function tmlBoxPath(relative: string): string {
 
 /**
  * The full `systemd-run …` line for SSM. `worldPath` (launch mode) is BASE_ROOT-relative, as the UI
- * sends it; worldgen needs no path because tModLoader decides it (`TML_LAYOUT.worldsDir`).
+ * sends it; worldgen derives its path, since tModLoader writes to `TML_LAYOUT.worldsDir` regardless.
  */
 export function buildTModLoaderLaunchCommand(options: TModLoaderLaunchOptions): string {
 	const installDir = tmlBoxPath(TML_LAYOUT.installDir);
@@ -62,7 +62,14 @@ export function buildTModLoaderLaunchCommand(options: TModLoaderLaunchOptions): 
 	if (options.mode === "launch") {
 		args.push("-world", quote(tmlBoxPath(options.worldPath)));
 	} else {
-		args.push("-autocreate", String(options.size), "-worldname", quote(options.worldName));
+		// `-world` is what arms `-autocreate`: without it the server skips generation and sits at the
+		// interactive "Choose World" menu, spinning a core on EOF from /dev/null forever (verified on
+		// tML 2026.07.3). The path is the one tModLoader writes to anyway, so pass exactly that.
+		args.push(
+			"-world", quote(tmlBoxPath(path.posix.join(TML_LAYOUT.worldsDir, `${options.worldName}.wld`))),
+			"-autocreate", String(options.size),
+			"-worldname", quote(options.worldName),
+		);
 		if (options.seed) {
 			args.push("-seed", quote(options.seed));
 		}

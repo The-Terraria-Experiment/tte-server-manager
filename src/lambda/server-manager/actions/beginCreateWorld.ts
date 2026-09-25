@@ -97,13 +97,29 @@ const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFileP
 };
 
 /**
- * Terraria's live worldgen status lines always contain an "-ing" verb ("Growing trees",
- * "Settling liquids", "Generating structures", …) or the word "clean" ("Cleaning up world").
- * Early in a run the log tail can instead catch unrelated TShock startup output, so we only
- * surface lines matching this shape as worldgen statuses and ignore everything else.
+ * tModLoader prints worldgen progress as `57.5% - Settling liquids - 66.2%` (overall, stage, stage
+ * progress), rewritten in place with \r.
  */
-const isWorldgenStatusLine = (line: string): boolean => {
-	return /\w+ing\b/i.test(line) || /clean/i.test(line);
+const TML_PROGRESS_LINE = /^\s*(\d+(?:\.\d+)?)%\s*-\s*(.+?)\s*-\s*\d+(?:\.\d+)?%\s*$/;
+
+/**
+ * The text to show for a log line, or null if it isn't a worldgen status. This reaches every
+ * operator's browser, so anything that could be a path or a command line is refused outright —
+ * tModLoader's launcher echoes its full launch command (install and save paths included), and that
+ * line passed the old "has an -ing word" test on "Using".
+ *
+ * Terraria's own status lines always carry an "-ing" verb ("Growing trees", "Settling liquids") or
+ * the word "clean" ("Cleaning up world"); early in a run the tail can instead catch server startup
+ * output, which the same shape test filters out. tModLoader's progress lines are reduced to
+ * "Stage (NN%)" rather than shown raw.
+ */
+const toWorldgenStatus = (line: string): string | null => {
+	if (/[\/\\"]|command|launch/i.test(line)) return null;
+
+	const tml = TML_PROGRESS_LINE.exec(line);
+	if (tml) return `${tml[2]} (${Math.floor(Number(tml[1]))}%)`;
+
+	return /\w+ing\b/i.test(line) || /clean/i.test(line) ? line : null;
 };
 
 /**
@@ -162,9 +178,10 @@ const waitForWorldFileReady = async (
 			if (delimIdx !== -1) {
 				sizeOutput = rawOutput.slice(0, delimIdx);
 				const logLine = rawOutput.slice(delimIdx + LOG_DELIM.length).trim();
-				if (logLine && logLine !== lastLogLine && isWorldgenStatusLine(logLine)) {
-					lastLogLine = logLine;
-					freshLine = logLine;
+				const status = logLine ? toWorldgenStatus(logLine) : null;
+				if (status && status !== lastLogLine) {
+					lastLogLine = status;
+					freshLine = status;
 				}
 			}
 		}
@@ -304,7 +321,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 	const flavor = await getServerFlavor(params.instanceID);
 	const isTModLoader = flavor.type === "tmodloader";
 
-	// tModLoader ignores -world when creating and always writes to its own Worlds folder, so any other
+	// tModLoader creates worlds in its own Worlds folder (the launch builder points -world there), so any other
 	// choice would generate a world the job then waits for in the wrong place until it times out.
 	if (isTModLoader && path.posix.normalize(worldFolderRoot) !== TML_LAYOUT.worldsDir) {
 		throw new Error(
