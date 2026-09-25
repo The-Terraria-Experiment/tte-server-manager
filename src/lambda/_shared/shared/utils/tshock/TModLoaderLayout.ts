@@ -19,7 +19,8 @@ export const TML_LAYOUT = {
 	 */
 	saveDir: "/tml-save",
 	/**
-	 * Where `-autocreate` writes worlds. tModLoader ignores `-world` when creating and always saves to
+	 * Where `-autocreate` writes worlds. The create command passes `-world` pointing here (without it
+	 * tModLoader doesn't generate at all), and the world is saved to
 	 * `<saveDir>/Worlds/<worldname>.wld` (verified against tML 1.4.4.9), so this is not a choice.
 	 */
 	worldsDir: "/tml-save/Worlds",
