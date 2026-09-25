@@ -1,0 +1,16 @@
+{
+	"name": "tte-contract-check",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "Hand-run check of a live game server's REST responses against docs/contracts/. Not built or deployed by anything -- see README.md.",
+	"scripts": {
+		"check": "node check.mjs"
+	},
+	"dependencies": {
+		"@aws-sdk/client-dynamodb": "^3.900.0",
+		"@aws-sdk/client-ec2": "^3.900.0",
+		"@aws-sdk/client-lambda": "^3.900.0",
+		"@aws-sdk/client-secrets-manager": "^3.900.0"
+	}
+}
