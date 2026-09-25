@@ -13,6 +13,7 @@ import { DynamoDao } from "../shared/aws/DynamoDB.js";
 import { SYSTEM_TABLE, WORLD_CREATE_KEY } from "../shared/vars.js";
 import type { AutoShutoffStateEntry, SystemWorldCreateEntry } from "../shared/schema/SystemTable.js";
 import { readShutdownState } from "../shared/utils/jobs/ShutdownJob.js";
+import { isWorldgenBlocking } from "../shared/utils/jobs/WorldgenJob.js";
 
 /**
  * `?fields=players` — the slim variant, for a refetch that only needs the roster.
@@ -97,9 +98,12 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 		// Skipped on the slim path: a third Dynamo read to predict an answer TShock is about to give us
 		// anyway, since a world being generated means no REST server and therefore no players.
 		if (!playersOnly) {
-			const createWorldStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${serverId}`) as SystemWorldCreateEntry;
+			const createWorldStatus = await DB.GetItem(SYSTEM_TABLE, `${WORLD_CREATE_KEY}#${serverId}`) as SystemWorldCreateEntry | null;
 
-			if (createWorldStatus) {
+			// Only a job that is genuinely still running, never "a row exists". A failed row is never
+			// deleted (only a completed one self-deletes), so a presence check reported the server as
+			// unreachable forever after one failed creation — the same wedge isShutdownBlocking avoids.
+			if (isWorldgenBlocking(createWorldStatus)) {
 				return unreachable();
 			}
 		}
