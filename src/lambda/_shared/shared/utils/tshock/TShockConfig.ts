@@ -1,6 +1,8 @@
 import { S3Dao } from "../../aws/S3.js";
 import { SsmDao } from "../../aws/SSM.js";
 import { Assert } from "../core/Assert.js";
+import { TML_LAYOUT, setServerConfigValues, tmlConfigS3Key } from "./TModLoaderLayout.js";
+import { tmlBoxPath } from "./TModLoaderLaunch.js";
 
 /**
  * Writes a server password into the instance's tshock/config.json before a world is launched or
@@ -60,4 +62,55 @@ export const applyServerPasswordToConfig = async (instanceID: string, password: 
 
 	const SSM = new SsmDao();
 	await SSM.PollForCommandCompletion(commandId, instanceID);
+};
+
+/**
+ * The tModLoader counterpart of {@link applyServerPasswordToConfig}: sets `key=value` lines in the
+ * instance's `serverconfig.txt` (S3 is the source of truth, `inst#<id>/serverconfig.txt`), then syncs
+ * it down and waits, so the file is in place before the server reads it at launch.
+ *
+ * Used for the password and, for worldgen, `difficulty` — which tModLoader only accepts from the
+ * config file. Unlike TShock's config.json there is no default to fall back to: an absent object
+ * starts an empty file, since every key has a built-in default and setup.sh seeds the real one.
+ * Values must already be validated; nothing here escapes them.
+ */
+export const applyTModLoaderServerConfig = async (instanceID: string, updates: Record<string, string | number>): Promise<void> => {
+	const current = (await readTModLoaderServerConfig(instanceID)) ?? "";
+	const { commandId } = await writeTModLoaderServerConfig(instanceID, setServerConfigValues(current, updates));
+	await new SsmDao().PollForCommandCompletion(commandId, instanceID);
+};
+
+/** The stored `serverconfig.txt`, or `null` if none has been written for this instance yet. */
+export const readTModLoaderServerConfig = async (instanceID: string): Promise<string | null> => {
+	const bucket = process.env.S3_CONFIG_BUCKET_NAME;
+	Assert.IsTruthyString(bucket, "S3 bucket config missing (S3_CONFIG_BUCKET_NAME not set)");
+
+	return (await new S3Dao().GetObject(bucket!, tmlConfigS3Key(instanceID))) || null;
+};
+
+/**
+ * Replaces the stored `serverconfig.txt` and starts the sync down to the box, **without waiting for
+ * it** — callers that must have the file in place before a launch poll the returned command
+ * themselves (as {@link applyTModLoaderServerConfig} does). Assumes the instance is running with SSM
+ * ready; the S3 write happens first either way, so a failed sync still leaves the source of truth
+ * updated for the next launch.
+ */
+export const writeTModLoaderServerConfig = async (instanceID: string, text: string): Promise<{ commandId: string }> => {
+	const bucket = process.env.S3_CONFIG_BUCKET_NAME;
+	Assert.IsTruthyString(bucket, "S3 bucket config missing (S3_CONFIG_BUCKET_NAME not set)");
+
+	const S3 = new S3Dao();
+	const s3Key = tmlConfigS3Key(instanceID);
+	await S3.PutTextObject(bucket!, s3Key, text);
+
+	const { commandId } = await S3.SyncS3ToInstance({
+		instanceId: instanceID,
+		bucketName: bucket!,
+		sourceKey: s3Key,
+		localPath: tmlBoxPath(TML_LAYOUT.configFile),
+		isFolder: false,
+		overwriteExisting: true,
+	});
+
+	return { commandId };
 };

@@ -14,7 +14,17 @@ import { CWLogger } from "../shared/aws/CloudWatch.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { Delay } from "../shared/utils/core/Delay.js";
 import { S3Dao } from "../shared/aws/S3.js";
-import { applyServerPasswordToConfig } from "../shared/utils/tshock/TShockConfig.js";
+import { applyServerPasswordToConfig, applyTModLoaderServerConfig } from "../shared/utils/tshock/TShockConfig.js";
+import { buildTModLoaderLaunchCommand, type TModLoaderWorldEvil } from "../shared/utils/tshock/TModLoaderLaunch.js";
+import { TML_LAYOUT } from "../shared/utils/tshock/TModLoaderLayout.js";
+import { getServerFlavor } from "../shared/utils/instance/ServerFlavor.js";
+
+/** The form's evil option (validated 1-3 by queueCreateWorld), as both launch paths name it. */
+const WORLD_EVIL_BY_OPTION: Record<number, TModLoaderWorldEvil> = {
+	1: "random",
+	2: "corrupt",
+	3: "crimson",
+};
 import { writeWorldgenProgress } from "../shared/utils/jobs/WorldgenJob.js";
 
 /**
@@ -87,13 +97,29 @@ const buildCreateWorldTShockCommand = (params: NewWorldRequestParams, worldFileP
 };
 
 /**
- * Terraria's live worldgen status lines always contain an "-ing" verb ("Growing trees",
- * "Settling liquids", "Generating structures", …) or the word "clean" ("Cleaning up world").
- * Early in a run the log tail can instead catch unrelated TShock startup output, so we only
- * surface lines matching this shape as worldgen statuses and ignore everything else.
+ * tModLoader prints worldgen progress as `57.5% - Settling liquids - 66.2%` (overall, stage, stage
+ * progress), rewritten in place with \r.
  */
-const isWorldgenStatusLine = (line: string): boolean => {
-	return /\w+ing\b/i.test(line) || /clean/i.test(line);
+const TML_PROGRESS_LINE = /^\s*(\d+(?:\.\d+)?)%\s*-\s*(.+?)\s*-\s*\d+(?:\.\d+)?%\s*$/;
+
+/**
+ * The text to show for a log line, or null if it isn't a worldgen status. This reaches every
+ * operator's browser, so anything that could be a path or a command line is refused outright —
+ * tModLoader's launcher echoes its full launch command (install and save paths included), and that
+ * line passed the old "has an -ing word" test on "Using".
+ *
+ * Terraria's own status lines always carry an "-ing" verb ("Growing trees", "Settling liquids") or
+ * the word "clean" ("Cleaning up world"); early in a run the tail can instead catch server startup
+ * output, which the same shape test filters out. tModLoader's progress lines are reduced to
+ * "Stage (NN%)" rather than shown raw.
+ */
+const toWorldgenStatus = (line: string): string | null => {
+	if (/[\/\\"]|command|launch/i.test(line)) return null;
+
+	const tml = TML_PROGRESS_LINE.exec(line);
+	if (tml) return `${tml[2]} (${Math.floor(Number(tml[1]))}%)`;
+
+	return /\w+ing\b/i.test(line) || /clean/i.test(line) ? line : null;
 };
 
 /**
@@ -152,9 +178,10 @@ const waitForWorldFileReady = async (
 			if (delimIdx !== -1) {
 				sizeOutput = rawOutput.slice(0, delimIdx);
 				const logLine = rawOutput.slice(delimIdx + LOG_DELIM.length).trim();
-				if (logLine && logLine !== lastLogLine && isWorldgenStatusLine(logLine)) {
-					lastLogLine = logLine;
-					freshLine = logLine;
+				const status = logLine ? toWorldgenStatus(logLine) : null;
+				if (status && status !== lastLogLine) {
+					lastLogLine = status;
+					freshLine = status;
 				}
 			}
 		}
@@ -206,7 +233,7 @@ const waitForWorldFileReady = async (
 	// runtime), while a file still growing means worldgen was simply slower than the invocation.
 	if (!everSawFile) {
 		throw new Error(
-			`TShock never created the world file at ${filePath} — the server likely failed to start.` +
+			`The server never created the world file at ${filePath}. It likely failed to start.` +
 			(lastLogLine ? ` Last console output: ${lastLogLine}` : " No console output was produced."),
 		);
 	}
@@ -279,6 +306,30 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 	const fsRoot = (process.env.BASE_ROOT || "").replace(/\/$/, "");
 	Assert.IsTruthyString(fsRoot, "Filesystem root not configured (BASE_ROOT env var missing)");
 
+	// `worldFolderPath` is a validRoots *nickname*, not a directory. This used to be joined onto
+	// BASE_ROOT as if it were one, which only worked because the TShock fleet's nickname "worlds"
+	// happens to map to the directory "/worlds". Resolving it is what puts the world where the Instance
+	// Files page (and the filestore key below) expect it, on any layout.
+	const worldFolderRoot = instanceData?.validRoots?.[params.params.worldFolderPath];
+	if (!worldFolderRoot) {
+		throw new Error(
+			`World folder "${params.params.worldFolderPath}" has no validRoots entry on ${params.instanceID}. ` +
+			`Check the instance's validRoots.`,
+		);
+	}
+
+	const flavor = await getServerFlavor(params.instanceID);
+	const isTModLoader = flavor.type === "tmodloader";
+
+	// tModLoader creates worlds in its own Worlds folder (the launch builder points -world there), so any other
+	// choice would generate a world the job then waits for in the wrong place until it times out.
+	if (isTModLoader && path.posix.normalize(worldFolderRoot) !== TML_LAYOUT.worldsDir) {
+		throw new Error(
+			`tModLoader always creates worlds in ${TML_LAYOUT.worldsDir}, but "${params.params.worldFolderPath}" ` +
+			`maps to ${worldFolderRoot}. Pick the world folder that maps to ${TML_LAYOUT.worldsDir}.`,
+		);
+	}
+
 	CWLogger.CAction(4, FUNC_NAMES.SERV_MGR, {
 		userId: params.requestedBy,
 		action: "create-world",
@@ -286,10 +337,21 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 		details: {}
 	});
 
-	const worldFolderNormalized = path.posix.normalize(`${fsRoot}/${params.params.worldFolderPath}`);
+	const worldFolderNormalized = path.posix.normalize(`${fsRoot}/${worldFolderRoot}`);
 	const worldFilePath = path.posix.join(worldFolderNormalized, `${params.params.worldName}.wld`);
-	const command = buildCreateWorldTShockCommand(params.params, worldFilePath);
-	const s3Key = path.posix.join(params.instanceID, params.params.worldFolderPath, `${params.params.worldName}.wld`);
+	const command = isTModLoader
+		? buildTModLoaderLaunchCommand({
+			mode: "create",
+			size: Number(params.params.size),
+			worldName: params.params.worldName,
+			...(params.params.seed ? { seed: params.params.seed } : {}),
+			evil: WORLD_EVIL_BY_OPTION[Number(params.params.evil)] ?? "random",
+			port: Number(params.params.port),
+			maxPlayers: Number(params.params.maxPlayers),
+		})
+		: buildCreateWorldTShockCommand(params.params, worldFilePath);
+	// Same shape as every other filestore key: `{instanceId}/{validRoots path}/{file}`.
+	const s3Key = path.posix.join(params.instanceID, worldFolderRoot.replace(/^\/+/, ""), `${params.params.worldName}.wld`);
 
 	// Never log the plaintext password to CloudWatch.
 	const loggableParams = { ...params.params, password: params.params.password ? "[redacted]" : "" };
@@ -306,8 +368,16 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 	// the -autocreate run (which generates the world and then serves it) reads it. Blank = leave the
 	// existing config password untouched. The instance is already running with SSM ready (ensured by
 	// queueCreateWorld before this worker was invoked).
-	if (params.params.password && String(params.params.password).trim()) {
-		await applyServerPasswordToConfig(params.instanceID, String(params.params.password));
+	const password = params.params.password && String(params.params.password).trim() ? String(params.params.password) : null;
+	if (isTModLoader) {
+		// Always written: difficulty is a config-file-only setting on tModLoader (no -difficulty), and
+		// the `-autocreate` run reads it. The form's 1-4 maps to Terraria's 0-3 exactly as TShock's does.
+		await applyTModLoaderServerConfig(params.instanceID, {
+			difficulty: Number(params.params.difficulty) - 1,
+			...(password ? { password } : {}),
+		});
+	} else if (password) {
+		await applyServerPasswordToConfig(params.instanceID, password);
 	}
 
 	const SSM = new SsmDao();
@@ -332,7 +402,7 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 	await writeWorldgenProgress(params.instanceID, creationUpdate2);
 	
 	const outLogPath = resolveOutLogPath();
-	await waitForWorldFileReady(worldFilePath, params.instanceID, outLogPath, boundedWaitDeadline(context, POST_WAIT_RESERVE_MS), async (line) => {
+	const onDetail = async (line: string | null) => {
 		const detailUpdate: SystemWorldCreateEntry = {
 			...(line !== null ? { detail: line } : {}),
 			updatedAt: new Date().toISOString()
@@ -340,7 +410,18 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 		await DB.UpdateItem(SYSTEM_TABLE, jobKey, {
 			updates: detailUpdate
 		});
-	});
+	};
+	const waitDeadline = boundedWaitDeadline(context, POST_WAIT_RESERVE_MS);
+	await waitForWorldFileReady(worldFilePath, params.instanceID, outLogPath, waitDeadline, onDetail);
+
+	// A tModLoader world is two files: the vanilla .wld and a .twld holding everything modded (tiles,
+	// items, chests, mod world data). The .twld is written *after* the .wld ("Saving modded world
+	// data"), so a stable .wld doesn't mean the pair is done, and uploading only the .wld would archive
+	// a world that loses all of its modded content on its next load.
+	const moddedWorldFilePath = isTModLoader ? worldFilePath.replace(/\.wld$/, ".twld") : null;
+	if (moddedWorldFilePath) {
+		await waitForWorldFileReady(moddedWorldFilePath, params.instanceID, outLogPath, waitDeadline, onDetail);
+	}
 
 	const creationUpdate3: SystemWorldCreateEntry = {
 		step: "uploading-world-file",
@@ -369,6 +450,17 @@ export const beginCreateWorld = async (params: NewWorldRequestData, context: Con
 		isFolder: false,
 	});
 	await SSM.PollForCommandCompletion(upload.commandId, params.instanceID);
+
+	if (moddedWorldFilePath) {
+		const moddedUpload = await S3.SyncInstanceToS3({
+			instanceId: params.instanceID,
+			localPath: moddedWorldFilePath,
+			bucketName: worldsBucket!,
+			destinationKey: s3Key.replace(/\.wld$/, ".twld"),
+			isFolder: false,
+		});
+		await SSM.PollForCommandCompletion(moddedUpload.commandId, params.instanceID);
+	}
 
 	const creationUpdate4: SystemWorldCreateEntry = {
 		status: "completed",

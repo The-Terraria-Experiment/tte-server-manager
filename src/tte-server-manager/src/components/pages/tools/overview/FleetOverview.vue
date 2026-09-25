@@ -37,6 +37,10 @@
 						@click="openInstance(instance)"
 					>
 						<p class="font-main font-bold text-lg text-teal-4 break-all">{{ instance.name }}</p>
+						<p
+							v-if="serverStore.publicAddress?.targetInstanceId === instance.id"
+							class="mt-1 inline-block rounded bg-teal-1 px-2 py-0.5 font-mono text-xs text-white-0"
+						>LIVE ON {{ serverStore.publicAddress.hostname || "PUBLIC ADDRESS" }}</p>
 
 						<div class="mt-1 flex items-center">
 							<Icon v-if="instance.missing" icon="warning" color="text-red-3" size="4" svgStyle="mr-1" />
@@ -175,6 +179,8 @@ export default {
 			this.$router.push(this.$checkPermissions(PERMISSIONS.server.status.read) ? "/server" : "/instance");
 		},
 		async refresh() {
+			// Badge only; a failure here must not look like the fleet failing to load.
+			this.serverStore.fetchPublicAddress().catch(e => console.error("Error reading public address:", e));
 			try {
 				await this.serverStore.fetchFleetOverview();
 			} catch (e) {

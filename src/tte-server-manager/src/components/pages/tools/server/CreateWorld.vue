@@ -252,14 +252,22 @@ export default {
 		worldCreateStepLabel() {
 			if (this.lastWorldCreateStatus.step === "preparing-instance") return "Launching Instance";
 			if (this.lastWorldCreateStatus.step === "queued") return "Queued";
-			if (this.lastWorldCreateStatus.step === "starting-tshock") return "Starting TShock";
+			// The step id predates tModLoader support; the server it starts is whichever this box runs.
+			if (this.lastWorldCreateStatus.step === "starting-tshock") return `Starting ${this.serverStore.selectedServerFlavor.displayName}`;
 			if (this.lastWorldCreateStatus.step === "waiting-for-world-file") return "Generating world file";
 			if (this.lastWorldCreateStatus.step === "uploading-world-file") return "Uploading world file";
 			if (this.lastWorldCreateStatus.step === "completed") return "Launching world";
 			return "World creation started";
 		},
+		/**
+		 * Whether to show the progress view instead of the form. `isCreatingWorld` mirrors the backend's
+		 * isWorldgenBlocking, so a failed or abandoned job (whose row is never deleted) gives the form
+		 * back; checking `progress >= 0` held the tile on "World Creation Failed" until the row was
+		 * removed by hand. A completed job stays in view for its short linger before self-deleting.
+		 */
 		worldCreationInProgress() {
-			return this.lastWorldCreateStatus.progress >= 0;
+			if (this.lastWorldCreateStatus.status === "completed") return this.lastWorldCreateStatus.progress >= 0;
+			return this.serverStore.isCreatingWorld(this.selectedInstance);
 		},
 		worldLaunchInProgress() {
 			return this.serverStore.loading.worldLaunch[this.selectedInstance];

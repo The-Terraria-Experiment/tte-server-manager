@@ -89,8 +89,25 @@ if [ -n "$SSH_KEY" ] && [ ! -f "$SSH_KEY" ]; then
 	echo "  (not paste) to rule out anything your clipboard is carrying along." >&2
 	exit 1
 fi
-ask_secret REST_PASSWORD "TShock REST password (must match Secrets Manager)" "${REST_PASSWORD:-}"
+# Asked every time and deliberately not remembered, for the same reason as the IP:
+# a silently reused default would provision the wrong kind of server.
+ask SERVER_TYPE "Server type (tshock / tmodloader)" "tshock"
+case "$SERVER_TYPE" in
+	tshock|tmodloader) ;;
+	*) echo "server type must be 'tshock' or 'tmodloader'" >&2; exit 1 ;;
+esac
+
+ask_secret REST_PASSWORD "REST password (TSHOCK_PASSWORD in Secrets Manager; used for TShock and TteControl alike)" "${REST_PASSWORD:-}"
 [ -n "$REST_PASSWORD" ] || { echo "a REST password is required" >&2; exit 1; }
+
+# The pushLog API key (the "prod" API Gateway key) that TteEventLogger sends.
+# Remembered like the REST password: it is one fleet-wide value. Blank is
+# allowed but leaves the box unable to push events, so auto-shutoff never fires.
+EVENT_API_KEY=${EVENT_API_KEY:-}
+if [ "$SERVER_TYPE" = tmodloader ]; then
+	ask_secret EVENT_API_KEY "pushLog API key (the 'prod' API Gateway key; blank skips the event logger)" "$EVENT_API_KEY"
+	[ -n "$EVENT_API_KEY" ] || echo "warning: no pushLog API key -- this server's events won't reach the web app, and auto-shutoff will never see it idle" >&2
+fi
 
 TTE_ROOT_OVERRIDE=""
 TTE_TSHOCK_BUCKET_OVERRIDE=""
@@ -104,23 +121,36 @@ TTE_REST_PORT_OVERRIDE=""
 TTE_REST_USER_OVERRIDE=""
 TTE_REST_GROUP_OVERRIDE=""
 TTE_DOTNET_MAJOR_OVERRIDE=""
+TTE_TML_BUCKET_OVERRIDE=""
+TTE_TML_KEY_OVERRIDE=""
+TTE_TML_MODS_OVERRIDE=""
+TTE_EVENT_API_BASE_OVERRIDE=""
 
 ADVANCED=""
 ask ADVANCED "Customize bucket/port/account settings? (y/N)" "n"
 if [[ "$ADVANCED" =~ ^[Yy] ]]; then
 	echo "(blank on any of these keeps setup.sh's own default)"
 	ask TTE_ROOT_OVERRIDE               "Root folder on the instance"
-	ask TTE_TSHOCK_BUCKET_OVERRIDE       "TShock artifact bucket"
-	ask TTE_TSHOCK_KEY_OVERRIDE          "TShock artifact key"
+	if [ "$SERVER_TYPE" = tmodloader ]; then
+		ask TTE_TML_BUCKET_OVERRIDE      "tModLoader artifact bucket"
+		ask TTE_TML_KEY_OVERRIDE         "tModLoader release zip key"
+		ask TTE_TML_MODS_OVERRIDE        "Mods to install and enable (csv, must include TteControl)"
+		ask TTE_EVENT_API_BASE_OVERRIDE  "API base the event logger pushes to (default: the prod stage)"
+	else
+		ask TTE_TSHOCK_BUCKET_OVERRIDE   "TShock artifact bucket"
+		ask TTE_TSHOCK_KEY_OVERRIDE      "TShock artifact key"
+	fi
 	ask TTE_LOGS_BUCKET_OVERRIDE         "Logs bucket"
 	ask TTE_CONFIG_BUCKET_OVERRIDE       "Config bucket"
 	ask TTE_INSTANCE_TABLE_OVERRIDE      "Instance DynamoDB table"
 	ask TTE_VALID_ROOTS_OVERRIDE         "validRoots (nickname=path,nickname=path)"
 	ask TTE_WORLD_PATH_NICKNAMES_OVERRIDE "worldPaths nicknames (csv)"
-	ask TTE_REST_PORT_OVERRIDE           "TShock REST port"
-	ask TTE_REST_USER_OVERRIDE           "TShock REST username"
-	ask TTE_REST_GROUP_OVERRIDE          "TShock REST group"
-	ask TTE_DOTNET_MAJOR_OVERRIDE        "Dotnet major version"
+	ask TTE_REST_USER_OVERRIDE           "REST username"
+	if [ "$SERVER_TYPE" = tshock ]; then
+		ask TTE_REST_PORT_OVERRIDE       "TShock REST port"
+		ask TTE_REST_GROUP_OVERRIDE      "TShock REST group"
+		ask TTE_DOTNET_MAJOR_OVERRIDE    "Dotnet major version"
+	fi
 fi
 
 # Remember the fleet-wide constants (never the IP -- see header). Values go
@@ -133,6 +163,7 @@ umask 077
 	printf 'SSH_USER=%q\n' "$SSH_USER"
 	printf 'SSH_KEY=%q\n' "$SSH_KEY"
 	printf 'REST_PASSWORD=%q\n' "$REST_PASSWORD"
+	printf 'EVENT_API_KEY=%q\n' "$EVENT_API_KEY"
 } > "$STATE_FILE"
 chmod 600 "$STATE_FILE"
 
@@ -147,6 +178,12 @@ trap cleanup EXIT
 {
 	echo "TTE_USER=$SSH_USER"
 	echo "TTE_REST_PASSWORD=$REST_PASSWORD"
+	echo "TTE_SERVER_TYPE=$SERVER_TYPE"
+	[ -n "$TTE_TML_BUCKET_OVERRIDE" ]          && echo "TTE_TML_BUCKET=$TTE_TML_BUCKET_OVERRIDE"
+	[ -n "$TTE_TML_KEY_OVERRIDE" ]             && echo "TTE_TML_KEY=$TTE_TML_KEY_OVERRIDE"
+	[ -n "$TTE_TML_MODS_OVERRIDE" ]            && echo "TTE_TML_MODS=$TTE_TML_MODS_OVERRIDE"
+	[ "$SERVER_TYPE" = tmodloader ] && [ -n "$EVENT_API_KEY" ] && echo "TTE_EVENT_API_KEY=$EVENT_API_KEY"
+	[ -n "$TTE_EVENT_API_BASE_OVERRIDE" ]      && echo "TTE_EVENT_API_BASE=$TTE_EVENT_API_BASE_OVERRIDE"
 	[ -n "$TTE_ROOT_OVERRIDE" ]               && echo "TTE_ROOT=$TTE_ROOT_OVERRIDE"
 	[ -n "$TTE_TSHOCK_BUCKET_OVERRIDE" ]       && echo "TTE_TSHOCK_BUCKET=$TTE_TSHOCK_BUCKET_OVERRIDE"
 	[ -n "$TTE_TSHOCK_KEY_OVERRIDE" ]          && echo "TTE_TSHOCK_KEY=$TTE_TSHOCK_KEY_OVERRIDE"

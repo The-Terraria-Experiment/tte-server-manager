@@ -131,12 +131,23 @@ export default {
 			selectedRelativePath: null,
 			fileContent: "",
 			editorOpen: false,
-			disallowPickerFiles: new Set(["/tshock/config.json"]),
 		}
 	},
 	computed: {
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
+		},
+		/**
+		 * The main config file, which the main config tile owns: S3 is its source of truth and the
+		 * next write from that tile would silently overwrite an edit made here. Relative to the
+		 * `main` root, which is the install root on TShock and the tML save directory on tModLoader.
+		 */
+		disallowPickerFiles() {
+			return new Set([
+				this.serverStore.selectedServerFlavor.serverType === "tmodloader"
+					? "/serverconfig.txt"
+					: "/tshock/config.json",
+			]);
 		},
 		summaryText() {
 			return this.selectedFileName

@@ -10,11 +10,18 @@
 #   ssh ubuntu@<ip>
 #   sudo TTE_REST_PASSWORD=... /tmp/tte-setup/setup.sh
 #
+# A tModLoader box also wants TTE_EVENT_API_KEY (the pushLog API Gateway key)
+# for the eventlogger step -- see step_eventlogger.
+#
 # The instance role must already be attached before this runs -- the script
 # pulls TShock from S3 and cannot bootstrap its own credentials. See README.
 #
+# Provisions ONE game server flavor per instance, chosen by TTE_SERVER_TYPE
+# (tshock, the default, or tmodloader) and recorded on the inst# row.
+#
 # Steps run in order; use --only/--skip to re-run a subset:
-#   awscli dotnet layout ssm tshock metrics account config summary
+#   tshock:     awscli dotnet layout ssm tshock metrics account config register summary
+#   tmodloader: awscli layout ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary
 # (preflight always runs -- later steps depend on what it resolves.)
 #
 set -euo pipefail
@@ -25,6 +32,10 @@ set -euo pipefail
 ROOT=${TTE_ROOT:-/home/ubuntu/terraria}
 RUN_AS=${TTE_USER:-ubuntu}
 
+# Which game server this box runs: tshock or tmodloader. Written to the inst#
+# row as serverType, which is how the lambdas know how to launch and manage it.
+SERVER_TYPE=${TTE_SERVER_TYPE:-tshock}
+
 TSHOCK_BUCKET=${TTE_TSHOCK_BUCKET:-ttesm-resources}
 TSHOCK_KEY=${TTE_TSHOCK_KEY:-tshock/current.zip}
 
@@ -32,10 +43,44 @@ LOGS_BUCKET=${TTE_LOGS_BUCKET:-ttesm-logs}
 CONFIG_BUCKET=${TTE_CONFIG_BUCKET:-ttesm-server-configs}
 INSTANCE_TABLE=${TTE_INSTANCE_TABLE:-ttesm-instance-data}
 
-# Default matches the shape used by the existing fleet's validRoots (checked
-# against the live ttesm-instance-data table, not guessed) -- nickname=path
-# pairs, comma-separated, paths relative to BASE_ROOT/TTE_ROOT.
-VALID_ROOTS=${TTE_VALID_ROOTS:-"main=/tshock,worlds=/worlds,plugins=/tshock/ServerPlugins"}
+# tModLoader artifacts. The release zip is the GitHub tModLoader.zip, mirrored
+# into the bucket the same way TShock's is (a static current.zip pointer, ETag
+# gated). Each mod in TML_MODS comes from <prefix>/<ModName>.tmod and is enabled.
+TML_BUCKET=${TTE_TML_BUCKET:-ttesm-resources}
+TML_KEY=${TTE_TML_KEY:-tmodloader/current.zip}
+TML_MODS_PREFIX=${TTE_TML_MODS_PREFIX:-tmodloader/mods}
+TML_MODS=${TTE_TML_MODS:-TteControl,TteInventoryMonitor,TteEventLogger}
+
+# tModLoader layout. NOT overridable, and deliberately so: these mirror TML_LAYOUT
+# in src/lambda/_shared/shared/utils/tshock/TModLoaderLayout.ts, and the lambdas
+# launch from those exact paths (relative to BASE_ROOT, which must equal ROOT).
+# Change one, change both.
+TML_INSTALL_DIR="$ROOT/tmodloader"
+TML_SAVE_DIR="$ROOT/tml-save"
+TML_CONFIG_FILE="$TML_SAVE_DIR/serverconfig.txt"
+# TteControl's REST credential. Outside every validRoots path on purpose: the
+# save directory is browsable from the web UI, and anything browsable can be
+# downloaded (and so copied into the S3 filestore).
+TML_CREDENTIAL_FILE=/etc/tte/tte-control-credential.json
+# TteEventLogger's pushLog endpoint + API key, for the same reason: the mod's
+# ModConfig lives in the browsable ModConfigs/. Mirrors
+# TML_LAYOUT.eventLoggerEndpointFile, which the launch passes to the mod.
+TML_EVENT_ENDPOINT_FILE=/etc/tte/tte-event-logger-endpoint.json
+# The API Gateway key the pushLog route takes (x-api-key), and the API stage the
+# box pushes to. Prod, like the TShock fleet: the player log and auto-shutoff's
+# idle timer are per environment, and prod is where they matter.
+EVENT_API_KEY=${TTE_EVENT_API_KEY:-}
+EVENT_API_BASE=${TTE_EVENT_API_BASE:-https://y9q6bctuci.execute-api.us-east-2.amazonaws.com/prod}
+
+# nickname=path pairs, comma-separated, paths relative to BASE_ROOT/TTE_ROOT.
+# The TShock default matches the existing fleet's validRoots (checked against the
+# live ttesm-instance-data table, not guessed). The tModLoader "worlds" root must
+# stay <save>/Worlds: that is where -autocreate writes, and where worldgen waits for the file.
+case "$SERVER_TYPE" in
+	tmodloader) DEFAULT_VALID_ROOTS="main=/tml-save,worlds=/tml-save/Worlds,mods=/tml-save/Mods,modconfigs=/tml-save/ModConfigs" ;;
+	*)          DEFAULT_VALID_ROOTS="main=/tshock,worlds=/worlds,plugins=/tshock/ServerPlugins" ;;
+esac
+VALID_ROOTS=${TTE_VALID_ROOTS:-$DEFAULT_VALID_ROOTS}
 WORLD_PATH_NICKNAMES=${TTE_WORLD_PATH_NICKNAMES:-worlds}
 
 REST_PORT=${TTE_REST_PORT:-3891}
@@ -74,8 +119,13 @@ REST_PERMS=(
 )
 
 # preflight is deliberately absent -- it always runs, since later steps depend on
-# the ARCH/INSTANCE_ID it resolves.
-STEPS=(awscli dotnet layout ssm tshock metrics account config register summary)
+# the ARCH/INSTANCE_ID it resolves. tModLoader has no dotnet step (it carries its
+# own runtime, installed by step_tmodloader) and no account/config steps (there is
+# no TShock user table; TteControl reads the credential file step_credential writes).
+case "$SERVER_TYPE" in
+	tmodloader) STEPS=(awscli layout ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary) ;;
+	*)          STEPS=(awscli dotnet layout ssm tshock metrics account config register summary) ;;
+esac
 
 # --- plumbing -----------------------------------------------------------------
 
@@ -131,7 +181,7 @@ while [ $# -gt 0 ]; do
 		--skip) SKIP=$2; shift 2 ;;
 		--help|-h)
 			echo "usage: sudo [ENV=...] $0 [--only step,step] [--skip step,step]"
-			echo "steps: ${STEPS[*]}"
+			echo "steps (TTE_SERVER_TYPE=$SERVER_TYPE): ${STEPS[*]}"
 			exit 0 ;;
 		*) die "unknown argument: $1" ;;
 	esac
@@ -157,11 +207,24 @@ step_preflight() {
 
 	command -v apt-get >/dev/null 2>&1 || die "expected a Debian/Ubuntu instance (no apt-get)"
 
+	case "$SERVER_TYPE" in
+		tshock|tmodloader) ;;
+		*) die "TTE_SERVER_TYPE must be 'tshock' or 'tmodloader' (got '$SERVER_TYPE')" ;;
+	esac
+
 	# Everything downstream needs at least one of these; fail now with a clear
 	# message rather than halfway through an install.
-	[ -n "$TSHOCK_BUCKET" ] || die "TTE_TSHOCK_BUCKET must be set (bucket holding the TShock zip)"
+	if [ "$SERVER_TYPE" = tmodloader ]; then
+		[ -n "$TML_BUCKET" ] || die "TTE_TML_BUCKET must be set (bucket holding the tModLoader zip and mods)"
+		[[ ",$TML_MODS," == *",TteControl,"* ]] || die "TTE_TML_MODS must include TteControl -- without it the server has no REST API and the web app cannot manage it"
+	else
+		[ -n "$TSHOCK_BUCKET" ] || die "TTE_TSHOCK_BUCKET must be set (bucket holding the TShock zip)"
+	fi
 	[ -n "$LOGS_BUCKET" ]   || die "TTE_LOGS_BUCKET must be set (logs bucket, for metrics + console logs)"
 	[ -n "$REST_PASSWORD" ] || die "TTE_REST_PASSWORD must be set, and must match TSHOCK_PASSWORD in the Secrets Manager secret"
+	if [ "$SERVER_TYPE" = tmodloader ] && [ "$REST_PORT" != 3891 ]; then
+		warn "TTE_REST_PORT=$REST_PORT only applies to TShock; TteControl's port comes from its own ModConfig (default 3891) and must match the lambdas' TSHOCK_API_PORT"
+	fi
 
 	ARCH=$(uname -m)
 	case "$ARCH" in
@@ -257,7 +320,6 @@ step_layout() {
 	log "file layout"
 
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT"
-	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/tshock"
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/logs"
 	# TSHOCK_OUT_LOGS / TSHOCK_ERR_LOGS point *inside* logs/, and the launch command redirects into
 	# them with `1>> .../stdout/DATE.log`. Shell redirection creates the file but never the directory,
@@ -265,6 +327,22 @@ step_layout() {
 	# no world file, no console output, nothing to diagnose from.
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/logs/stdout"
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/logs/errout"
+
+	if [ "$SERVER_TYPE" = tmodloader ]; then
+		# The save directory (-tmlsavedirectory) is where tModLoader derives
+		# Worlds/, Mods/ and ModConfigs/ from. Created here rather than left to the
+		# first launch so the mods step has somewhere to put .tmod files, and so the
+		# file browser's roots exist before anything has run.
+		install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$TML_INSTALL_DIR"
+		install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$TML_SAVE_DIR"
+		install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$TML_SAVE_DIR/Worlds"
+		install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$TML_SAVE_DIR/Mods"
+		install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$TML_SAVE_DIR/ModConfigs"
+		ok "$ROOT/{tmodloader,tml-save/{Worlds,Mods,ModConfigs},logs/{stdout,errout}}"
+		return
+	fi
+
+	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/tshock"
 	# Sibling to tshock/, not inside it -- matches the existing fleet's "worlds"
 	# validRoots entry, and keeps world saves out of the REST-account bootstrap's
 	# throwaway world (which lives in /tmp, not here).
@@ -359,6 +437,241 @@ step_tshock() {
 	rm -f "$ROOT/tshock/.tte-installed-key"
 
 	ok "installed from s3://$TSHOCK_BUCKET/$TSHOCK_KEY (etag $remote_etag)"
+}
+
+# Prints an S3 object's ETag, unquoted, or dies naming the object. Same approach
+# and reasoning as step_tshock's inline version (which predates this and is left
+# alone): upgrades are gated on content, not on the key string, because the keys
+# are static pointers that get overwritten in place.
+s3_etag() {
+	local bucket=$1 key=$2 etag
+	etag=$(aws s3api head-object --bucket "$bucket" --key "$key" --query 'ETag' --output text 2>/dev/null) \
+		|| die "could not read s3://${bucket}/${key} -- check the key and the instance role's s3:GetObject"
+	etag=${etag//\"/}
+	[ -n "$etag" ] && [ "$etag" != "None" ] || die "head-object returned no ETag for s3://${bucket}/${key}"
+	printf '%s' "$etag"
+}
+
+step_tmodloader() {
+	log "tmodloader"
+
+	local marker="$TML_INSTALL_DIR/.tte-installed-etag"
+	local remote_etag
+	remote_etag=$(s3_etag "$TML_BUCKET" "$TML_KEY")
+
+	if [ -f "$marker" ] && [ "$(cat "$marker")" = "$remote_etag" ] && [ -f "$TML_INSTALL_DIR/tModLoader.dll" ]; then
+		ok "already installed (s3://$TML_BUCKET/$TML_KEY unchanged, etag $remote_etag)"
+	else
+		# Replacing the install under a running server would swap its DLLs out from
+		# under it. Nothing of ours lives in the install directory (saves, config and
+		# the credential are all elsewhere), so the replace itself is safe once it's stopped.
+		if pgrep -f 'tModLoader.dll' >/dev/null 2>&1; then
+			die "a tModLoader server is running on this box -- stop it from the web UI before upgrading"
+		fi
+
+		local tmp
+		tmp=$(mktemp -d)
+		aws s3 cp "s3://${TML_BUCKET}/${TML_KEY}" "$tmp/tml.zip" >/dev/null \
+			|| die "could not download s3://${TML_BUCKET}/${TML_KEY}"
+		unzip -q -o "$tmp/tml.zip" -d "$tmp/unpacked"
+
+		local src="$tmp/unpacked"
+		if [ ! -f "$src/tModLoader.dll" ]; then
+			local nested
+			nested=$(find "$src" -maxdepth 2 -name tModLoader.dll -printf '%h\n' -quit)
+			[ -n "$nested" ] || die "tModLoader.dll not found in the zip -- expected the GitHub release tModLoader.zip"
+			src=$nested
+		fi
+
+		# Wholesale replace, not an overlay like TShock's: a release that drops a
+		# library would otherwise leave the old one beside tModLoader.dll to be
+		# loaded. The bundled runtime (dotnet/) goes too and is reinstalled below.
+		rm -rf "$TML_INSTALL_DIR"
+		install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$TML_INSTALL_DIR"
+		cp -a "$src/." "$TML_INSTALL_DIR/"
+		# Zips don't reliably carry the executable bit.
+		chmod +x "$TML_INSTALL_DIR"/LaunchUtils/*.sh "$TML_INSTALL_DIR"/*.sh 2>/dev/null || true
+		printf '%s' "$remote_etag" > "$marker"
+		chown -R "$RUN_AS:$RUN_AS" "$TML_INSTALL_DIR"
+		rm -rf "$tmp"
+		ok "installed from s3://$TML_BUCKET/$TML_KEY (etag $remote_etag)"
+	fi
+
+	# tModLoader runs on the .NET runtime it pins in tModLoader.runtimeconfig.json,
+	# installed into <install>/dotnet by its own LaunchUtils. ScriptCaller.sh does
+	# this on every launch too, but only here can a failed download be seen: at
+	# launch time it happens inside a detached systemd unit, and the server simply
+	# never comes up. Run as the server user so the files are owned correctly.
+	runuser -u "$RUN_AS" -- bash -c '
+		cd "$1/LaunchUtils" || exit 1
+		. ./BashUtils.sh
+		LogFile=/dev/null
+		. ./DotNetVersion.sh
+		run_script ./InstallDotNet.sh
+	' _ "$TML_INSTALL_DIR" >/dev/null 2>&1 || true
+	[ -x "$TML_INSTALL_DIR/dotnet/dotnet" ] \
+		|| die "tModLoader's bundled .NET runtime did not install into $TML_INSTALL_DIR/dotnet -- re-run with --only tmodloader and check outbound HTTPS to dot.net"
+
+	ok "runtime ready ($("$TML_INSTALL_DIR/dotnet/dotnet" --list-runtimes 2>/dev/null | grep -m1 NETCore.App || echo unknown))"
+}
+
+step_tmlmods() {
+	log "tmodloader mods"
+
+	local mods_dir="$TML_SAVE_DIR/Mods"
+	local enabled="$mods_dir/enabled.json"
+	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$mods_dir"
+
+	local -a mods
+	IFS=',' read -ra mods <<< "$TML_MODS"
+
+	local mod
+	for mod in "${mods[@]}"; do
+		# The internal mod name is also the file name and the enabled.json entry.
+		[[ "$mod" =~ ^[A-Za-z0-9_]+$ ]] || die "invalid mod name in TTE_TML_MODS: '$mod'"
+
+		local key="${TML_MODS_PREFIX}/${mod}.tmod"
+		local marker="$mods_dir/.tte-etag-${mod}"
+		local etag
+		etag=$(s3_etag "$TML_BUCKET" "$key")
+
+		if [ -f "$marker" ] && [ "$(cat "$marker")" = "$etag" ] && [ -f "$mods_dir/${mod}.tmod" ]; then
+			ok "$mod unchanged (etag $etag)"
+			continue
+		fi
+
+		# Download beside, then rename: a half-written .tmod in Mods/ is a mod
+		# tModLoader will try, and fail, to load.
+		aws s3 cp "s3://${TML_BUCKET}/${key}" "$mods_dir/.${mod}.tmod.part" >/dev/null \
+			|| die "could not download s3://${TML_BUCKET}/${key}"
+		mv -f "$mods_dir/.${mod}.tmod.part" "$mods_dir/${mod}.tmod"
+		printf '%s' "$etag" > "$marker"
+		ok "$mod installed (etag $etag) -- takes effect at the next server launch"
+	done
+
+	# enabled.json is a JSON array of internal mod names: what the next launch
+	# loads. Merged, never replaced, so mods enabled by hand or from the web UI
+	# survive a re-run.
+	local current='[]'
+	if [ -f "$enabled" ]; then
+		current=$(cat "$enabled")
+	fi
+	local add merged
+	add=$(jq -n '$ARGS.positional' --args "${mods[@]}")
+	merged=$(jq --argjson add "$add" '(. + $add) | unique' <<< "$current") \
+		|| die "$enabled is not a JSON array -- fix or delete it, then re-run --only tmlmods"
+	printf '%s\n' "$merged" > "$enabled"
+
+	chown -R "$RUN_AS:$RUN_AS" "$mods_dir"
+	ok "enabled: $(jq -c . <<< "$merged")"
+}
+
+step_credential() {
+	log "tte-control credential"
+
+	# Readable by the server's user (it runs TteControl), writable only by root,
+	# and outside every validRoots path -- see TML_CREDENTIAL_FILE above. Rewritten
+	# on every run, so re-running this step is how a rotated password reaches the
+	# box; the server picks it up at its next world load.
+	local dir
+	dir=$(dirname "$TML_CREDENTIAL_FILE")
+	install -d -o root -g "$RUN_AS" -m 0750 "$dir"
+
+	# Values go through the environment, not --arg: jq's argv is visible in ps.
+	local tmp
+	tmp=$(mktemp)
+	TTE_CRED_USER="$REST_USER" TTE_CRED_PASS="$REST_PASSWORD" \
+		jq -n '{ username: env.TTE_CRED_USER, password: env.TTE_CRED_PASS }' > "$tmp" \
+		|| { rm -f "$tmp"; die "could not build the credential file"; }
+	install -o root -g "$RUN_AS" -m 0640 "$tmp" "$TML_CREDENTIAL_FILE"
+	rm -f "$tmp"
+
+	ok "$TML_CREDENTIAL_FILE (user '$REST_USER', mode 0640 root:$RUN_AS)"
+}
+
+step_eventlogger() {
+	log "tte-event-logger endpoint"
+
+	# The event feed is the only input to auto-shutoff's idle timer, the live
+	# roster and the item-rule scan (docs/contracts/event-push.md), so every
+	# way this step can leave it unconfigured says so loudly. It warns rather
+	# than dies so --only runs of other steps don't need the key.
+	if [[ ",$TML_MODS," != *",TteEventLogger,"* ]]; then
+		warn "TteEventLogger isn't in TTE_TML_MODS -- this server will push no player events, and auto-shutoff will never see it idle"
+		return 0
+	fi
+
+	if [ -z "$EVENT_API_KEY" ]; then
+		if [ -f "$TML_EVENT_ENDPOINT_FILE" ]; then
+			ok "$TML_EVENT_ENDPOINT_FILE kept (set TTE_EVENT_API_KEY to rewrite it)"
+		else
+			warn "TTE_EVENT_API_KEY unset and no $TML_EVENT_ENDPOINT_FILE -- TteEventLogger will discard every event, and auto-shutoff will never see this server idle. Re-run with --only eventlogger and the key."
+		fi
+		return 0
+	fi
+
+	# Root-owned, readable by the server's user, outside every validRoots path,
+	# exactly like step_credential. The mod reads it once at load, so a new key
+	# reaches a running server at its next launch.
+	local url="${EVENT_API_BASE%/}/logging/${INSTANCE_ID}/players/push"
+	local dir
+	dir=$(dirname "$TML_EVENT_ENDPOINT_FILE")
+	install -d -o root -g "$RUN_AS" -m 0750 "$dir"
+
+	# Values go through the environment, not --arg: jq's argv is visible in ps.
+	local tmp
+	tmp=$(mktemp)
+	TTE_EVT_URL="$url" TTE_EVT_KEY="$EVENT_API_KEY" 		jq -n '{ endpointUrl: env.TTE_EVT_URL, apiKey: env.TTE_EVT_KEY }' > "$tmp" 		|| { rm -f "$tmp"; die "could not build the event logger endpoint file"; }
+	install -o root -g "$RUN_AS" -m 0640 "$tmp" "$TML_EVENT_ENDPOINT_FILE"
+	rm -f "$tmp"
+
+	ok "$TML_EVENT_ENDPOINT_FILE ($url, mode 0640 root:$RUN_AS)"
+}
+
+step_tmlconfig() {
+	log "tmodloader serverconfig.txt"
+
+	# S3 (inst#<id>/serverconfig.txt) is the source of truth, exactly as config.json
+	# is for TShock: the lambdas write password= and difficulty= there and sync it
+	# down before launches. So an existing object wins -- a rebuilt box gets its
+	# settings back -- and only a genuinely new instance is seeded from here.
+	if [ -n "$CONFIG_BUCKET" ]; then
+		local key="inst#${INSTANCE_ID}/serverconfig.txt"
+		if aws s3 ls "s3://${CONFIG_BUCKET}/${key}" >/dev/null 2>&1; then
+			aws s3 cp "s3://${CONFIG_BUCKET}/${key}" "$TML_CONFIG_FILE" >/dev/null \
+				|| die "failed to download s3://${CONFIG_BUCKET}/${key}"
+			ok "restored from s3://${CONFIG_BUCKET}/${key}"
+		else
+			if [ ! -f "$TML_CONFIG_FILE" ]; then
+				cat > "$TML_CONFIG_FILE" <<-'EOF'
+					# tModLoader server config, managed by tte-server-manager.
+					# The source of truth is s3://<config bucket>/inst#<id>/serverconfig.txt: the web app
+					# sets password= and difficulty= there and syncs it here before launches, so edit it
+					# from the web app rather than on the box. Port, max players and the world are passed
+					# on the command line at launch and don't belong here.
+				EOF
+			fi
+			aws s3 cp "$TML_CONFIG_FILE" "s3://${CONFIG_BUCKET}/${key}" >/dev/null \
+				|| die "failed to seed s3://${CONFIG_BUCKET}/${key}"
+			ok "seeded s3://${CONFIG_BUCKET}/${key}"
+		fi
+	else
+		warn "TTE_CONFIG_BUCKET unset -- skipping the S3 config seed. Launch passwords and world creation will fail until inst#${INSTANCE_ID}/serverconfig.txt can be written."
+		[ -f "$TML_CONFIG_FILE" ] || : > "$TML_CONFIG_FILE"
+	fi
+	chown "$RUN_AS:$RUN_AS" "$TML_CONFIG_FILE"
+
+	cat > /etc/tte-instance.env <<-EOF
+		TTE_ROOT=$ROOT
+		TTE_INSTANCE_ID=$INSTANCE_ID
+		TTE_SERVER_TYPE=$SERVER_TYPE
+		TTE_REST_USER=$REST_USER
+		TTE_LOGS_BUCKET=$LOGS_BUCKET
+		TTE_CONFIG_BUCKET=$CONFIG_BUCKET
+		TTE_TML_SOURCE=s3://$TML_BUCKET/$TML_KEY
+		TTE_TML_MODS=$TML_MODS
+	EOF
+	chmod 0644 /etc/tte-instance.env
 }
 
 # Pulls one field out of the inst# row's metricsConfig map, or prints nothing.
@@ -626,8 +939,41 @@ step_register() {
 	local key
 	key=$(printf '{"uid":{"S":"inst#%s"}}' "$INSTANCE_ID")
 
+	# serverType is written on EVERY run, not only for a new row: it is what the
+	# lambdas branch launch, worldgen and config handling on, so a box reprovisioned
+	# as the other flavor must not keep reporting the old one. Read the previous
+	# value first -- a flavor change also invalidates the stored validRoots (they
+	# point into the old layout), so those get reseeded below instead of kept.
+	local previous_type
+	if ! previous_type=$(aws dynamodb get-item --table-name "$INSTANCE_TABLE" --key "$key" \
+			--query 'Item.serverType.S' --output text 2>&1); then
+		printf '%s\n' "$previous_type" >&2
+		die "could not read inst#${INSTANCE_ID} from ${INSTANCE_TABLE} -- the instance role needs dynamodb:GetItem and dynamodb:UpdateItem on that table (see README, 'Instance role')"
+	fi
+	# An absent attribute reads as "None"; absent means tshock, same as the lambdas.
+	[ -n "$previous_type" ] && [ "$previous_type" != "None" ] || previous_type=tshock
+
+	aws dynamodb update-item --table-name "$INSTANCE_TABLE" --key "$key" \
+		--update-expression "SET serverType = :t, updatedAt = :now" \
+		--expression-attribute-values "$(printf '{":t":{"S":"%s"},":now":{"S":"%s"}}' \
+			"$SERVER_TYPE" "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)")" >/dev/null \
+		|| die "failed to write serverType to inst#${INSTANCE_ID}"
+
+	# The lambdas cache the instance registry (serverType included) per container
+	# and only re-read it when this version row changes. Without the bump a warm
+	# container keeps launching this box as its old flavor until it is recycled.
+	aws dynamodb update-item --table-name "$INSTANCE_TABLE" \
+		--key '{"uid":{"S":"cache#instances"}}' \
+		--update-expression "SET version = :v, updatedAt = :now" \
+		--expression-attribute-values "$(printf '{":v":{"S":"%s-setup-%s"},":now":{"S":"%s"}}' \
+			"$(date +%s%3N)" "$INSTANCE_ID" "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)")" >/dev/null \
+		|| die "failed to bump the instance registry cache version"
+
+	ok "inst#${INSTANCE_ID} serverType=${SERVER_TYPE}$([ "$previous_type" != "$SERVER_TYPE" ] && echo " (was ${previous_type})")"
+
 	# Don't clobber an entry someone has since hand-edited via the Users page's
-	# path editor (editPaths.ts) -- only seed defaults for a truly new row.
+	# path editor (editPaths.ts) -- only seed defaults for a truly new row, or one
+	# whose flavor just changed (its roots point into the other layout).
 	#
 	# A read that FAILS is not a row that is ABSENT, and conflating the two is how
 	# this guard stops guarding. It used to be `2>/dev/null || true`, so when the
@@ -641,8 +987,11 @@ step_register() {
 		die "could not read inst#${INSTANCE_ID} from ${INSTANCE_TABLE} -- the instance role needs dynamodb:GetItem and dynamodb:UpdateItem on that table (see README, 'Instance role')"
 	fi
 	if [ -n "$existing" ] && [ "$existing" != "None" ]; then
-		ok "inst#${INSTANCE_ID} already has validRoots, leaving it alone"
-		return
+		if [ "$previous_type" = "$SERVER_TYPE" ]; then
+			ok "inst#${INSTANCE_ID} already has validRoots, leaving it alone"
+			return
+		fi
+		warn "server type changed ${previous_type} -> ${SERVER_TYPE}: replacing validRoots/worldPaths with the ${SERVER_TYPE} layout"
 	fi
 
 	# Build the validRoots map and worldPaths list as DynamoDB JSON from the
@@ -730,10 +1079,20 @@ step_summary() {
 
 	echo
 	echo "  instance    $INSTANCE_ID"
+	echo "  type        $SERVER_TYPE"
 	echo "  root        $ROOT"
-	echo "  tshock      $(ls "$ROOT/tshock/TShock.Server" >/dev/null 2>&1 && echo present || echo MISSING)"
-	echo "  dotnet      $(dotnet --list-runtimes 2>/dev/null | grep -c "Microsoft.NETCore.App ${DOTNET_MAJOR}\.") runtime(s)"
-	echo "  rest        ${REST_USER}@:${REST_PORT}"
+	if [ "$SERVER_TYPE" = tmodloader ]; then
+		echo "  tmodloader  $([ -f "$TML_INSTALL_DIR/tModLoader.dll" ] && echo present || echo MISSING)"
+		echo "  dotnet      $([ -x "$TML_INSTALL_DIR/dotnet/dotnet" ] && echo "bundled, present" || echo "bundled, MISSING")"
+		echo "  mods        $(jq -c . "$TML_SAVE_DIR/Mods/enabled.json" 2>/dev/null || echo "none enabled")"
+		echo "  credential  $([ -f "$TML_CREDENTIAL_FILE" ] && echo "$TML_CREDENTIAL_FILE" || echo MISSING)"
+		echo "  events      $([ -f "$TML_EVENT_ENDPOINT_FILE" ] && echo "$TML_EVENT_ENDPOINT_FILE" || echo "MISSING -- auto-shutoff can't see this server idle")"
+		echo "  rest        ${REST_USER}@:3891 (TteControl)"
+	else
+		echo "  tshock      $(ls "$ROOT/tshock/TShock.Server" >/dev/null 2>&1 && echo present || echo MISSING)"
+		echo "  dotnet      $(dotnet --list-runtimes 2>/dev/null | grep -c "Microsoft.NETCore.App ${DOTNET_MAJOR}\.") runtime(s)"
+		echo "  rest        ${REST_USER}@:${REST_PORT}"
+	fi
 	echo "  metrics     $(systemctl is-active tte-metrics-collect.timer 2>/dev/null || echo inactive)"
 	echo "  ssm         $(systemctl is-active snap.amazon-ssm-agent.amazon-ssm-agent.service 2>/dev/null || systemctl is-active amazon-ssm-agent 2>/dev/null || echo inactive)"
 	echo "  inst# row   $([ -n "$INSTANCE_TABLE" ] && echo "seeded/checked in $INSTANCE_TABLE" || echo "SKIPPED (TTE_INSTANCE_TABLE unset)")"

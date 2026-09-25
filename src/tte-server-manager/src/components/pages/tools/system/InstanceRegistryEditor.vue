@@ -36,6 +36,8 @@
 					>
 						<p class="font-bold text-lg text-teal-4 break-all">{{ entry.name }}</p>
 						<p class="mt-1 font-mono text-sm text-gray-7 break-all">{{ entry.id }}</p>
+						<!-- Set by setup.sh at provisioning; not editable here. -->
+						<p v-if="entry.serverDisplayName" class="font-mono text-xs text-teal-5">{{ entry.serverDisplayName }}</p>
 
 						<div class="mt-2 flex flex-wrap items-center gap-1">
 							<span

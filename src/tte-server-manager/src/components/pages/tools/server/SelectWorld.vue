@@ -14,6 +14,10 @@
 			<p class="text-2xl text-teal-4">{{ instanceWorldFiles.length }} world{{ plural(instanceWorldFiles.length) }} available</p>
 		</template>
 		<template #content v-if="serverIsAvailable">
+			<div v-if="publicAddressElsewhere" class="mx-4 mb-3 rounded-lg bg-gray-2 border border-yellow-2 p-3 flex items-start">
+				<Icon icon="warning" size="4" color="text-yellow-2" />
+				<p class="font-mono text-xs text-gray-8 ml-2">{{ publicAddressElsewhere }}</p>
+			</div>
 			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
 			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
 				<div :class="['grid px-2 py-2 overflow-x-auto', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
@@ -33,6 +37,13 @@
 						</div>
 						<div :class="['flex items-center rounded-r sm:rounded-none', getWorldFileBG(idx)]" @click="selectWorldFile(world)">
 							<p class="font-mono text-white-0 font-semibold text-sm cursor-pointer">{{ world.name }}</p>
+							<p
+								v-if="world.missingModData"
+								class="font-mono text-xs text-yellow-2 ml-3"
+								title="tModLoader keeps all modded tiles, items and chests in the .twld beside the .wld. Launching without it loses them."
+							>
+								no .twld
+							</p>
 						</div>
 						<div v-if="!isMobile" :class="['flex items-center rounded-r pr-2', getWorldFileBG(idx)]">
 							<p class="font-mono text-white-0 font-semibold text-sm">{{ formatFileSize(world.size) }}</p>
@@ -152,9 +163,21 @@ export default {
 				.filter(nickname => this.$checkResourceAccess(`filepath::${this.selectedInstance}::${nickname}`))
 				.map(nickname => fileRoots[nickname])
 				.filter((path) => !!path);
-			return (this.serverStore.instanceFiles[this.selectedInstance] || [])
+			const files = (this.serverStore.instanceFiles[this.selectedInstance] || [])
 				.filter(p => worldRoots.some(root => p.key.startsWith(`${this.selectedInstance}${root}/`)))
 				.map(s => ({ name: s.key.replace(this.selectedInstance, ""), size: s.size }));
+
+			if (this.serverStore.selectedServerFlavor.serverType !== "tmodloader") {
+				return files;
+			}
+
+			// A tModLoader world is a .wld plus a .twld holding every modded tile, item and chest, and
+			// the folder also collects .bak copies of both. Only the .wld is launchable; a missing .twld
+			// is flagged rather than hidden, since the vanilla half still loads.
+			const names = new Set(files.map(f => f.name));
+			return files
+				.filter(f => f.name.endsWith(".wld"))
+				.map(f => ({ ...f, missingModData: !names.has(f.name.replace(/\.wld$/, ".twld")) }));
 		},
 		selectedInstance() {
 			return this.serverStore.selectedInstanceID;
@@ -175,6 +198,19 @@ export default {
 		},
 		selectedServerData() {
 			return this.serverStore.selectedServerData;
+		},
+		/**
+		 * Set when the public address reaches some other instance. Launching here is still allowed (it's
+		 * how you'd test before switching), but nobody using the public address will land on it.
+		 */
+		publicAddressElsewhere() {
+			const address = this.serverStore.publicAddress;
+			if (!address?.configured || !this.selectedInstance) return "";
+			if (address.targetInstanceId === this.selectedInstance) return "";
+			const host = address.hostname || "the public address";
+			const names = this.serverStore.publicAddressTargetNames;
+			return `Players can't reach this server at ${host}: it points at ${names || "no instance"}. ` +
+				"Use the Public Address tile on the Instance page to route it here.";
 		},
 		serverIsAvailable() {
 			return this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;

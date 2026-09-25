@@ -48,12 +48,15 @@ export const isClearScope = (value: unknown): value is ClearScope =>
 export type SlotRemovalRequest = {
 	globalSlot: number,
 	netId?: number,
+	/** tModLoader only. When both sides carry one, it is compared as well as `netId`. */
+	itemKey?: string,
 };
 
 /** A slot resolved against the live report, carrying enough detail to make a useful audit record. */
 export type ResolvedTarget = {
 	globalSlot: number,
 	netId: number,
+	itemKey?: string,
 	name: string,
 	stack: number,
 	prefix: number,
@@ -65,6 +68,8 @@ export type SkippedChange = {
 	expectedNetId: number,
 	actualNetId: number,
 	actualName: string,
+	expectedItemKey?: string,
+	actualItemKey?: string,
 };
 
 export type TargetResolution = {
@@ -96,6 +101,7 @@ export function resolveRemovalTargets(report: InventoryReport, requested: SlotRe
 			live.set(item.globalSlot, {
 				globalSlot: item.globalSlot,
 				netId: item.netId,
+				...(item.itemKey ? { itemKey: item.itemKey } : {}),
 				name: item.name,
 				stack: item.stack,
 				prefix: item.prefix,
@@ -118,12 +124,16 @@ export function resolveRemovalTargets(report: InventoryReport, requested: SlotRe
 			continue;
 		}
 
-		if (request.netId !== undefined && request.netId !== actual.netId) {
+		// Within one server process a modded netId is stable, so netId alone is a sound check; itemKey
+		// is compared too when both sides have one, as the contract asks for anything identity-shaped.
+		const keyChanged = request.itemKey !== undefined && actual.itemKey !== undefined && request.itemKey !== actual.itemKey;
+		if ((request.netId !== undefined && request.netId !== actual.netId) || keyChanged) {
 			skippedChanged.push({
 				globalSlot: request.globalSlot,
-				expectedNetId: request.netId,
+				expectedNetId: request.netId ?? actual.netId,
 				actualNetId: actual.netId,
 				actualName: actual.name,
+				...(keyChanged ? { expectedItemKey: request.itemKey!, actualItemKey: actual.itemKey! } : {}),
 			});
 			continue;
 		}

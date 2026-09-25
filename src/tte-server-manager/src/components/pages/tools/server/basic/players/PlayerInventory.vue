@@ -161,6 +161,7 @@
 </template>
 
 <script>
+import { itemIdentity } from '../../../../../../util/itemIdentity';
 import { useServerStore } from '../../../../../../stores/serverStore';
 import { useSpriteStore } from '../../../../../../stores/spriteStore';
 import { PERMISSIONS } from '../../../../../../util/permissionValues';
@@ -170,6 +171,17 @@ import Icon from '../../../../../common/Icon.vue';
 import FlexButton from '../../../../../common/FlexButton.vue';
 import RefreshButton from '../../../../../common/RefreshButton.vue';
 import InventoryGrid from './InventoryGrid.vue';
+
+/**
+ * What a removal request carries for one slot: where it is, and what the operator saw in it. The
+ * backend refuses the slot if the live item no longer matches (see `resolveRemovalTargets`).
+ */
+const slotRequestFor = (item) => ({
+	globalSlot: item.globalSlot,
+	netId: item.netId,
+	...(item.itemKey ? { itemKey: item.itemKey } : {}),
+	name: item.name,
+});
 
 /**
  * The live inventory of a player who is online right now.
@@ -309,16 +321,20 @@ export default {
 			return Object.keys(this.selection).length;
 		},
 		/**
-		 * Item ids from this player's violation, for SELECT FLAGGED.
+		 * Item identities from this player's violation, for SELECT FLAGGED.
 		 *
-		 * Matched by `netId` rather than by the violation's stored `globalSlot` deliberately. A
+		 * Matched by `itemIdentity` (the netId, or on tModLoader a modded item's `itemKey`) rather than
+		 * by raw netId, because a flag outlives the server session and a modded netId can name a
+		 * different item after a restart with a different mod set.
+		 *
+		 * Matched by identity rather than by the violation's stored `globalSlot` deliberately. A
 		 * violation is captured from a *join* snapshot, so its slot indices describe where the items sat
 		 * the moment the player connected — by the time anyone acts on it they have usually moved. Slot
 		 * matching would quietly select the wrong squares, and the backend's stale-slot check would then
 		 * refuse the removal for reasons the operator could not make sense of.
 		 */
-		flaggedNetIds() {
-			return new Set((this.violation?.items ?? []).map(item => item.netId));
+		flaggedIdentities() {
+			return new Set((this.violation?.items ?? []).map(itemIdentity));
 		},
 		outcomeSummary() {
 			if (!this.outcome) {
@@ -406,11 +422,7 @@ export default {
 				delete this.selection[item.globalSlot];
 				return;
 			}
-			this.selection[item.globalSlot] = {
-				globalSlot: item.globalSlot,
-				netId: item.netId,
-				name: item.name,
-			};
+			this.selection[item.globalSlot] = slotRequestFor(item);
 		},
 		clearSelection() {
 			this.selection = {};
@@ -419,12 +431,8 @@ export default {
 		selectFlagged() {
 			for (const container of this.inventory?.containers ?? []) {
 				for (const item of container.items) {
-					if (this.flaggedNetIds.has(item.netId)) {
-						this.selection[item.globalSlot] = {
-							globalSlot: item.globalSlot,
-							netId: item.netId,
-							name: item.name,
-						};
+					if (this.flaggedIdentities.has(itemIdentity(item))) {
+						this.selection[item.globalSlot] = slotRequestFor(item);
 					}
 				}
 			}
@@ -440,7 +448,11 @@ export default {
 			return bySlot;
 		},
 		confirmRemoveSelected() {
-			const slots = Object.values(this.selection).map(({ globalSlot, netId }) => ({ globalSlot, netId }));
+			const slots = Object.values(this.selection).map(({ globalSlot, netId, itemKey }) => ({
+				globalSlot,
+				netId,
+				...(itemKey ? { itemKey } : {}),
+			}));
 			this.pending = {
 				label: `Destroy ${slots.length} item${plural(slots.length)} from ${this.playerName}?`,
 				payload: { op: "remove-slots", slots },
@@ -456,7 +468,10 @@ export default {
 			const bySlot = this.itemsByGlobalSlot();
 			const slots = globalSlots
 				.filter(globalSlot => bySlot[globalSlot])
-				.map(globalSlot => ({ globalSlot, netId: bySlot[globalSlot].netId }));
+				.map(globalSlot => {
+					const { netId, itemKey } = slotRequestFor(bySlot[globalSlot]);
+					return { globalSlot, netId, ...(itemKey ? { itemKey } : {}) };
+				});
 
 			this.pending = {
 				label: `Destroy all ${slots.length} item${plural(slots.length)} in ${title} from ${this.playerName}?`,

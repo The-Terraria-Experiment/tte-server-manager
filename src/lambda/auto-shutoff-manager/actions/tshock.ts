@@ -3,6 +3,7 @@ import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SsmDao } from "../shared/aws/SSM.js";
 import { FUNC_NAMES } from "../shared/constants.js";
 import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
+import { gameServerProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
 
 const AUTO_SHUTOFF_USER_ID = "[auto-shutoff]";
 
@@ -108,9 +109,12 @@ export async function getOnlinePlayerCount(target: TShockTarget): Promise<number
 export async function checkTShockProcessViaSSM(serverId: string): Promise<boolean> {
 	try {
 		const ssm = new SsmDao();
+		// The shared pattern, not a local copy: this used to hard-code 'TerrariaServer|TShock', which
+		// disagreed with the launch guard and shutdown stop whenever TSHOCK_PATH named a different
+		// binary, and could never see a tModLoader server at all.
 		const result = await ssm.ExecuteCommandGetResult(
 			serverId,
-			["if pgrep -af 'TerrariaServer|TShock' >/dev/null 2>&1; then echo 'TSHOCK_RUNNING'; else echo 'TSHOCK_NOT_RUNNING'; fi"],
+			[`if pgrep -af '${gameServerProcessPattern()}' >/dev/null 2>&1; then echo 'TSHOCK_RUNNING'; else echo 'TSHOCK_NOT_RUNNING'; fi`],
 		);
 		return !(result.stdout || "").includes("TSHOCK_NOT_RUNNING");
 	} catch (error) {

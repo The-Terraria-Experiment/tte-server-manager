@@ -27,9 +27,11 @@ import { stop } from "./actions/stop.js";
 import { readConfig } from "./actions/readConfig.js";
 import { writeConfig } from "./actions/writeConfig.js";
 import { reloadConfig } from "./actions/reloadConfig.js";
+import { readMods, writeMods } from "./actions/mods.js";
 import { dropCache } from "./actions/dropCache.js";
 import { runCommand } from "./actions/runCommand.js";
 import { getItemRules } from "./actions/getItemRules.js";
+import { readModItemNames } from "./actions/readModItemNames.js";
 import { putItemRules } from "./actions/putItemRules.js";
 import { getItemViolations } from "./actions/getItemViolations.js";
 import { queueItemScan } from "./actions/queueItemScan.js";
@@ -75,6 +77,15 @@ const endpoints: EndpointList = {
 	"POST /server/{id}/config/reload": {
 		action: reloadConfig,
 		permRequired: PERMISSIONS.server.config.write,
+	},
+	// tModLoader only; other flavors get 409 NOT_SUPPORTED_FOR_SERVER_TYPE from the action.
+	"GET /server/{id}/mods": {
+		action: readMods,
+		permRequired: PERMISSIONS.server.mods.read,
+	},
+	"POST /server/{id}/mods": {
+		action: writeMods,
+		permRequired: PERMISSIONS.server.mods.write,
 	},
 	"POST /server/{id}/tshock/command": {
 		action: runCommand,
@@ -140,6 +151,11 @@ const endpoints: EndpointList = {
 	},
 	"GET /server/{id}/items/rules": {
 		action: getItemRules,
+		permRequired: PERMISSIONS.server.player.inventory.rules.read
+	},
+	// Modded item names for the rules editor. tModLoader only; 409 NOT_SUPPORTED_FOR_SERVER_TYPE elsewhere.
+	"GET /server/{id}/items/names": {
+		action: readModItemNames,
 		permRequired: PERMISSIONS.server.player.inventory.rules.read
 	},
 	"PUT /server/{id}/items/rules": {

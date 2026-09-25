@@ -15,14 +15,22 @@
 		</template>
 		<template #content v-if="selectedServerData.state">
 			<div class="max-h-100 overflow-y-auto">
+				<div v-if="selectedServerData.contractWarnings?.length" class="mx-4 mb-3 rounded-lg bg-gray-2 border border-yellow-2 p-3">
+					<div class="flex items-center mb-1">
+						<Icon icon="warning" size="4" color="text-yellow-2" />
+						<p class="font-main font-bold text-yellow-2 ml-2">Mod version mismatch</p>
+					</div>
+					<p class="font-mono text-xs text-gray-8 mb-1">Some features may misbehave until the server's mods and this site are updated together.</p>
+					<p v-for="warning in selectedServerData.contractWarnings" :key="warning" class="font-mono text-xs text-white-0">{{ warning }}</p>
+				</div>
 				<p class="font-main font-bold text-gray-7 px-5">SERVER INFO</p>
 				<div class="grid info-grid font-mono m-4 bg-gray-4 rounded-lg text-white-0 text-sm">
 					<div class="px-2 py-1">Active World</div>
 					<div class="px-2 py-1 text-right">{{ selectedServerData.world ?? "Unknown" }}</div>
 					<div class="bg-gray-5 px-2 py-1">Terraria Version</div>
 					<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.serverversion ?? "Unknown" }}</div>
-					<div class="px-2 py-1">TShock Version</div>
-					<div class="px-2 py-1 text-right">{{ selectedServerData.tshockversion ?? "Unknown" }}</div>
+					<div class="px-2 py-1">{{ flavor.displayName }} Version</div>
+					<div class="px-2 py-1 text-right">{{ flavorVersion ?? "Unknown" }}</div>
 					<div class="bg-gray-5 px-2 py-1">Port</div>
 					<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.port ?? "Unknown" }}</div>
 					<div class="px-2 py-1">Max Players</div>
@@ -31,6 +39,10 @@
 					<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.uptime ?? "Unknown" }}</div>
 					<div class="px-2 py-1">Has Password</div>
 					<div class="px-2 py-1 text-right">{{ selectedServerData.serverpassword ?? "Unknown" }}</div>
+					<template v-if="Array.isArray(selectedServerData.mods)">
+						<div class="bg-gray-5 px-2 py-1">Loaded Mods</div>
+						<div class="bg-gray-5 px-2 py-1 text-right">{{ selectedServerData.mods.length }}</div>
+					</template>
 				</div>
 
 				<p class="font-main font-bold text-gray-7 px-5">RULES</p>
@@ -75,6 +87,14 @@ export default {
 		},
 		ruleEntryCount() {
 			return Object.keys(this.selectedServerData.rules || {}).length;
+		},
+		flavor() {
+			return this.serverStore.selectedServerFlavor;
+		},
+		flavorVersion() {
+			return this.flavor.serverType === "tmodloader"
+				? this.selectedServerData.tmodloaderversion
+				: this.selectedServerData.tshockversion;
 		}
 	},
 	methods: {

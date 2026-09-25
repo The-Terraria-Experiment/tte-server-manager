@@ -170,28 +170,29 @@
 					sprite version legitimately has none — hence the ID box below, which always works.
 				-->
 				<ValueInput
-					v-if="namesAvailable"
+					v-if="namesAvailable || modItemCount"
 					placeholder="Search by name, e.g. 'zenith'"
 					v-model="searchQuery"
 				/>
 				<p v-else class="font-mono text-xs text-yellow-2 mb-1">
 					No item-name list has been published for this sprite version — add by ID below.
 				</p>
+				<p v-if="modNamesNote" class="font-mono text-xs text-gray-7 mt-1">{{ modNamesNote }}</p>
 
 				<div v-if="searchResults.length" class="mt-2 max-h-64 overflow-y-auto rounded-lg border border-gray-5">
 					<div
 						v-for="result in searchResults"
-						:key="result.netId"
+						:key="identityOf(result)"
 						class="flex items-center p-2 border-b border-gray-5 last:border-b-0"
-						:class="isListed(result.netId) ? 'bg-gray-3' : 'bg-gray-4 cursor-pointer hover:bg-gray-5'"
+						:class="isListed(result) ? 'bg-gray-3' : 'bg-gray-4 cursor-pointer hover:bg-gray-5'"
 						@click="addFromSearch(result)"
 					>
 						<InventorySlot :item="slotFor(result)" :size="28" />
 						<div class="ml-2 min-w-0 grow">
 							<p class="font-main text-white-0 truncate">{{ result.name }}</p>
-							<p class="font-mono text-xs text-gray-7">ID {{ result.netId }}</p>
+							<p class="font-mono text-xs text-gray-7 truncate">{{ idLabel(result) }}</p>
 						</div>
-						<p v-if="isListed(result.netId)" class="font-mono text-xs text-teal-5 shrink-0 ml-2">on list</p>
+						<p v-if="isListed(result)" class="font-mono text-xs text-teal-5 shrink-0 ml-2">on list</p>
 					</div>
 				</div>
 				<p v-else-if="searchQuery.trim().length >= MIN_QUERY" class="font-mono text-xs text-gray-7 mt-2">
@@ -224,15 +225,15 @@
 			<div class="flex flex-wrap gap-2">
 				<div
 					v-for="entry in draft.entries"
-					:key="entry.netId"
+					:key="identityOf(entry)"
 					class="flex items-center rounded-lg border border-gray-5 bg-gray-4 p-2 w-full sm:w-64"
 				>
 					<InventorySlot :item="slotFor(entry)" :size="32" />
 					<div class="ml-2 min-w-0 grow">
 						<p class="font-main font-semibold text-white-0 truncate">{{ displayName(entry) }}</p>
-						<p class="font-mono text-xs text-gray-7">ID {{ entry.netId }}</p>
+						<p class="font-mono text-xs text-gray-7 truncate">{{ idLabel(entry) }}</p>
 					</div>
-					<div v-if="!disabled" class="cursor-pointer shrink-0 ml-2" @click="removeEntry(entry.netId)">
+					<div v-if="!disabled" class="cursor-pointer shrink-0 ml-2" @click="removeEntry(entry)">
 						<Icon icon="trash-can" size="4" color="text-gray-7" />
 					</div>
 				</div>
@@ -270,7 +271,9 @@ import Icon from '@/components/common/Icon.vue';
 import InventorySlot from '../basic/players/InventorySlot.vue';
 import { useSpriteStore } from '@/stores/spriteStore';
 import { useItemPresetsStore } from '@/stores/itemPresetsStore';
-import { post } from '@/util/api';
+import { useServerStore } from '@/stores/serverStore';
+import { get, post } from '@/util/api';
+import { isModdedItem, itemIdentity } from '@/util/itemIdentity';
 import { PERMISSIONS } from '@/util/permissionValues';
 import { similarity } from '@/util/fuzzyMatch';
 import { BTN_VARIANT } from '@/util/constants';
@@ -332,8 +335,16 @@ export default {
 			DEFAULT_KICK_REASON,
 			spriteStore: useSpriteStore(),
 			presetsStore: useItemPresetsStore(),
+			serverStore: useServerStore(),
 			searchQuery: "",
 			draftNetId: null,
+			/**
+			 * `{ itemKey: name }` for the modded items the selected tModLoader server has loaded, or null
+			 * when there's nothing to show (TShock, not fetched, or the server is stopped). Per-server and
+			 * only known to a running server, unlike the vanilla map, so it's fetched on open, not stored.
+			 */
+			modItemNames: null,
+			modNamesNote: "",
 			selectedPresetId: null,
 			presetName: "",
 			namingPreset: false,
@@ -377,8 +388,15 @@ export default {
 		 */
 		searchable() {
 			const names = this.spriteStore.names;
-			if (!names) return [];
-			return Object.entries(names).map(([netId, name]) => ({ netId: Number(netId), name }));
+			const vanilla = names
+				? Object.entries(names).map(([netId, name]) => ({ netId: Number(netId), name }))
+				: [];
+			// Modded items are searched by name like vanilla ones, and listed by itemKey, never netId.
+			const modded = Object.entries(this.modItemNames || {}).map(([itemKey, name]) => ({ itemKey, name }));
+			return [...vanilla, ...modded];
+		},
+		modItemCount() {
+			return Object.keys(this.modItemNames || {}).length;
 		},
 		/**
 		 * Substring matches first, fuzzy behind them.
@@ -444,14 +462,28 @@ export default {
 		},
 	},
 	methods: {
-		/** The published map wins over the label stored with the entry — it is the same source, fresher. */
+		identityOf(item) {
+			return itemIdentity(item);
+		},
+		/** "ID 3384" for vanilla, "ModName/ItemName" for modded: the thing the rule actually matches on. */
+		idLabel(item) {
+			return isModdedItem(item) ? item.itemKey : `ID ${item.netId}`;
+		},
+		/**
+		 * The published map wins over the label stored with the entry — it is the same source, fresher.
+		 * A modded entry's name comes from the server's own list; the vanilla map knows nothing about it.
+		 */
 		displayName(entry) {
+			if (isModdedItem(entry)) {
+				return this.modItemNames?.[entry.itemKey] || entry.name || entry.itemKey;
+			}
 			return this.spriteStore.itemName(entry.netId) || entry.name || `Item #${entry.netId}`;
 		},
 		/** Shapes an entry like an inventory slot so InventorySlot can draw its sprite. */
 		slotFor(entry) {
 			return {
-				netId: entry.netId,
+				netId: entry.netId ?? 0,
+				...(entry.itemKey ? { itemKey: entry.itemKey } : {}),
 				name: this.displayName(entry),
 				stack: 1,
 				prefix: 0,
@@ -461,8 +493,37 @@ export default {
 				globalSlot: 0,
 			};
 		},
-		isListed(netId) {
-			return this.draft.entries.some(entry => entry.netId === netId);
+		isListed(item) {
+			const identity = itemIdentity(item);
+			return this.draft.entries.some(entry => itemIdentity(entry) === identity);
+		},
+		/**
+		 * Loads the selected server's modded item names, on tModLoader only. Best-effort: without it the
+		 * editor still lists vanilla items and still shows saved modded entries by their stored name.
+		 */
+		async loadModItemNames() {
+			this.modItemNames = null;
+			this.modNamesNote = "";
+
+			const instanceId = this.serverStore.selectedInstanceID;
+			if (!instanceId || !this.serverStore.serverFlavor(instanceId).capabilities.has("mods")) {
+				return;
+			}
+
+			try {
+				const data = await get(`/server/${instanceId}/items/names`, PERMISSIONS.server.player.inventory.rules.read);
+				if (!data.running) {
+					this.modNamesNote = "Start the server to search its modded items.";
+					return;
+				}
+				this.modItemNames = data.modItems || {};
+				if (!Object.keys(this.modItemNames).length) {
+					this.modNamesNote = "This server has no modded items loaded.";
+				}
+			} catch (error) {
+				console.error(error);
+				this.modNamesNote = "Couldn't load this server's modded items. Only vanilla items are searchable.";
+			}
 		},
 		resetDraft() {
 			this.draft = {
@@ -506,13 +567,14 @@ export default {
 		 * Adds an id to the draft. The name is stored alongside it so a saved list stays readable even
 		 * if the map is later unavailable — a copy of the same source, not a second source.
 		 */
-		add(netId, name) {
-			if (this.isListed(netId)) return false;
-			this.draft.entries.push({ netId, ...(name ? { name } : {}) });
+		add(item, name) {
+			if (this.isListed(item)) return false;
+			const identity = isModdedItem(item) ? { itemKey: item.itemKey } : { netId: item.netId };
+			this.draft.entries.push({ ...identity, ...(name ? { name } : {}) });
 			return true;
 		},
 		addFromSearch(result) {
-			this.add(result.netId, result.name);
+			this.add(result, result.name);
 		},
 		addById() {
 			const netId = Number(this.draftNetId);
@@ -521,13 +583,14 @@ export default {
 				this.$alert.error("Enter a whole item ID other than zero");
 				return;
 			}
-			if (!this.add(netId, this.spriteStore.itemName(netId))) {
+			if (!this.add({ netId }, this.spriteStore.itemName(netId))) {
 				this.$alert.warning(`Item ${netId} is already on the list`);
 			}
 			this.draftNetId = null;
 		},
-		removeEntry(netId) {
-			this.draft.entries = this.draft.entries.filter(entry => entry.netId !== netId);
+		removeEntry(item) {
+			const identity = itemIdentity(item);
+			this.draft.entries = this.draft.entries.filter(entry => itemIdentity(entry) !== identity);
 		},
 		onCancel() {
 			this.$emit('cancel');
@@ -701,6 +764,7 @@ export default {
 			// it is a separate ~150KB object from the atlas. Both calls are idempotent.
 			this.spriteStore.loadAtlas();
 			this.spriteStore.loadItemNames();
+			this.loadModItemNames();
 			// Same reasoning for the preset library, and skipped entirely without write permission —
 			// the bar it feeds is hidden in that case.
 			if (!this.disabled) {

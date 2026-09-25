@@ -42,6 +42,7 @@
 
 <script>
 import { useSpriteStore } from '../../../../../../stores/spriteStore';
+import { isModdedItem } from '../../../../../../util/itemIdentity';
 
 export default {
 	emits: ["select"],
@@ -78,6 +79,11 @@ export default {
 			if (!this.item) {
 				return null;
 			}
+			// A modded item's netId is assigned at load time and, in the vanilla atlas, belongs to some
+			// unrelated item, so it gets the name fallback rather than a wrong picture.
+			if (isModdedItem(this.item)) {
+				return null;
+			}
 			// Sized to the slot's interior so a large sprite scales down instead of overflowing.
 			return this.spriteStore.spriteStyle(this.item.netId, this.size - 4);
 		},
@@ -94,7 +100,7 @@ export default {
 
 			const lines = [
 				this.item.prefixName ? `${this.item.prefixName} ${this.item.name}` : this.item.name,
-				`ID ${this.item.netId}${this.item.stack > 1 ? ` × ${this.item.stack}` : ""}`,
+				`${isModdedItem(this.item) ? this.item.itemKey : `ID ${this.item.netId}`}${this.item.stack > 1 ? ` × ${this.item.stack}` : ""}`,
 				`Slot ${this.item.globalSlot}${this.label ? ` (${this.label})` : ""}`,
 			];
 			if (this.item.favorited) {
