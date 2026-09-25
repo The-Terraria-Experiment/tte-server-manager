@@ -44,6 +44,12 @@ export const REALTIME_EVENTS = {
 	SERVER_VIOLATIONS: "server.violations",
 	/** A worldgen job was queued or changed phase. */
 	WORLD_CREATE: "world.create",
+	/**
+	 * The public play address was pointed at a different instance. Fleet-wide, unlike every other
+	 * event: `instanceId` is the new target, and clients refetch `GET /instances/public-address`
+	 * whichever instance they have selected.
+	 */
+	PUBLIC_ADDRESS: "instance.publicaddress",
 } as const;
 
 export type RealtimeEventType = (typeof REALTIME_EVENTS)[keyof typeof REALTIME_EVENTS];

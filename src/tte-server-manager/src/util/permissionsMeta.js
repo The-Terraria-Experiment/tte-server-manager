@@ -75,6 +75,9 @@ export const PermissionsMeta = {
 			read: {value: "instance.metrics.read", description: pfx + "view and force refresh instance metrics"},
 			write: {value: "instance.metrics.write", description: pfx + "modify metrics collector configuration"},
 		},
+		publicaddress: {
+			write: {value: "instance.publicaddress.write", description: pfx + "point the public play address at an instance (fleet-wide: affects prod and stage, and disconnects players on the old server)"},
+		},
 		files: {
 			read: {value: "instance.files.read", description: pfx + "view and download all files on the instance"},
 			write: {value: "instance.files.write", description: pfx + "upload, delete, and sync instance files"},

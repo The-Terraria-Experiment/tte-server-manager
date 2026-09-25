@@ -23,6 +23,7 @@ export const REALTIME_EVENTS = {
 	SERVER_AUTOSHUTOFF: "server.autoshutoff",
 	SERVER_VIOLATIONS: "server.violations",
 	WORLD_CREATE: "world.create",
+	PUBLIC_ADDRESS: "instance.publicaddress",
 };
 
 /** Every value of REALTIME_EVENTS, for the "do we know this type?" check. */

@@ -19,6 +19,9 @@
 				inputClass="bg-teal-3 text-white-1"
 				iconColor="text-white-1"
 			/>
+			<p v-if="publicAddressLine" class="font-mono text-xs mt-2" :class="publicAddressIsHere ? 'text-teal-4' : 'text-gray-7'">
+				{{ publicAddressLine }}
+			</p>
 			<div class="flex flex-col sm:flex-row gap-4 mt-4">
 				<RefreshButton
 					:loading="serverStore.somethingIsLoading"
@@ -174,6 +177,20 @@ export default {
 		serverIsOnline() {
 			return this.selectedInstance && this.selectedServerData.state && this.selectedInstanceData?.online;
 		},
+		publicAddressIsHere() {
+			return Boolean(this.selectedInstance) && this.serverStore.publicAddress?.targetInstanceId === this.selectedInstance;
+		},
+		/** Which box players reach through the public address, so nobody launches a world nobody can join. */
+		publicAddressLine() {
+			const address = this.serverStore.publicAddress;
+			if (!address?.configured || !this.selectedInstance) return "";
+			const host = address.hostname || "The public address";
+			if (this.publicAddressIsHere) return `${host} points at this instance.`;
+			const names = (address.targets || []).map(t => t.name || t.instanceId).join(", ");
+			return names
+				? `${host} points at ${names}, not this instance. Change it on the Instance page.`
+				: `${host} doesn't point at any instance.`;
+		},
 		hasModList() {
 			return this.serverStore.selectedServerFlavor.capabilities.has("mods");
 		}
@@ -273,6 +290,7 @@ export default {
 	},
 	async created() {
 		if (this.$checkPermissions(PERMISSIONS.instance.list)) {
+			this.serverStore.fetchPublicAddress().catch(e => console.error("Error reading public address:", e));
 			await this.fetchInstanceList();
 			if (this.$checkPermissions([PERMISSIONS.server.world.list, PERMISSIONS.instance.files.read], false) && this.$checkResourceAccess(`server::${this.selectedInstance}`)) {
 				this.fetchInstanceFiles(this.selectedInstance);

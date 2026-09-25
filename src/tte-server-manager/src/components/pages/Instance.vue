@@ -56,6 +56,10 @@
 		:loading="loading"
 	/>
 
+	<PublicAddressTile
+		v-if="selectedInstance"
+	/>
+
 	<InstanceFilePaths 
 		v-if="selectedInstance"
 		:selected-instance-data="selectedInstanceData" 
@@ -86,6 +90,7 @@ import BasicInstanceInfo from './tools/instance/BasicInstanceInfo.vue';
 import InstanceFiles from './tools/instance/InstanceFiles.vue';
 import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
 import InstanceMetrics from './tools/instance/InstanceMetrics.vue';
+import PublicAddressTile from './tools/instance/PublicAddressTile.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
@@ -100,6 +105,7 @@ export default {
 		InstanceFiles,
 		InstanceFilePaths,
 		InstanceMetrics,
+		PublicAddressTile,
 		MajorLoader,
 	},
 	props: {

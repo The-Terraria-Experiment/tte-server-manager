@@ -41,6 +41,12 @@ export const useServerStore = defineStore("serverstore", {
 		/** True when a TShock read was dropped for time - see OVERVIEW_BUDGET_MS on the backend. */
 		fleetOverviewTruncated: false,
 		instanceStatusData: {},
+		/**
+		 * Which instance the public play address reaches, from `GET /instances/public-address`:
+		 * `{ configured, hostname, targetInstanceId, targets, mixed }`, or null before the first read.
+		 * Fleet-wide, so one value rather than a per-instance map.
+		 */
+		publicAddress: null,
 		instanceFiles: {},
 		instanceFileRoots: {},
 		instanceWorldPaths: {},
@@ -266,6 +272,26 @@ export const useServerStore = defineStore("serverstore", {
 			} finally {
 				this.loading.fleet = false;
 			}
+		},
+		/**
+		 * Re-reads the public address. Deliberately has no drop-if-in-flight guard: it's rare, cheap, and
+		 * the socket handler calls it without a busy re-arm, so a dropped call would be a lost update.
+		 */
+		async fetchPublicAddress() {
+			const data = await get("/instances/public-address", PERMISSIONS.instance.list);
+			this.publicAddress = data;
+			return data;
+		},
+		/**
+		 * Points the public address at `instanceId`. Throws the API error as-is so the caller can branch
+		 * on `code === "PLAYERS_CONNECTED"` and re-send with `force`.
+		 */
+		async routePublicAddress(instanceId, force = false) {
+			const data = await post(`/instance/${instanceId}/public-address`, PERMISSIONS.instance.publicaddress.write, { force });
+			if (data?.publicAddress) {
+				this.publicAddress = data.publicAddress;
+			}
+			return data;
 		},
 		async fetchInstanceList() {
 			if (this.loading.list) return;

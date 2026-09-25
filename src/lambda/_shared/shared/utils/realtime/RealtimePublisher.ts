@@ -102,6 +102,11 @@ export class Realtime {
 		return Realtime.Publish({ type: REALTIME_EVENTS.SERVER_PLAYERS, instanceId, ...(hint ? { hint } : {}) });
 	}
 
+	/** The public play address now reaches `instanceId`. Rare and operator-driven, like job lifecycle events. */
+	public static async PublishPublicAddress(instanceId: string): Promise<void> {
+		return Realtime.Publish({ type: REALTIME_EVENTS.PUBLIC_ADDRESS, instanceId });
+	}
+
 	/** Auto-shutoff countdown state changed in a way a user would see. */
 	public static async PublishAutoShutoff(instanceId: string, hint?: string): Promise<void> {
 		return Realtime.Publish({ type: REALTIME_EVENTS.SERVER_AUTOSHUTOFF, instanceId, ...(hint ? { hint } : {}) });

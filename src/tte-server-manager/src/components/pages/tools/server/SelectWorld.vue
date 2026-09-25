@@ -14,6 +14,10 @@
 			<p class="text-2xl text-teal-4">{{ instanceWorldFiles.length }} world{{ plural(instanceWorldFiles.length) }} available</p>
 		</template>
 		<template #content v-if="serverIsAvailable">
+			<div v-if="publicAddressElsewhere" class="mx-4 mb-3 rounded-lg bg-gray-2 border border-yellow-2 p-3 flex items-start">
+				<Icon icon="warning" size="4" color="text-yellow-2" />
+				<p class="font-mono text-xs text-gray-8 ml-2">{{ publicAddressElsewhere }}</p>
+			</div>
 			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
 			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
 				<div :class="['grid px-2 py-2 overflow-x-auto', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
@@ -194,6 +198,19 @@ export default {
 		},
 		selectedServerData() {
 			return this.serverStore.selectedServerData;
+		},
+		/**
+		 * Set when the public address reaches some other instance. Launching here is still allowed (it's
+		 * how you'd test before switching), but nobody using the public address will land on it.
+		 */
+		publicAddressElsewhere() {
+			const address = this.serverStore.publicAddress;
+			if (!address?.configured || !this.selectedInstance) return "";
+			if (address.targetInstanceId === this.selectedInstance) return "";
+			const host = address.hostname || "the public address";
+			const names = (address.targets || []).map(t => t.name || t.instanceId).join(", ");
+			return `Players can't reach this server at ${host}: it points at ${names || "no instance"}. ` +
+				"Use the Public Address tile on the Instance page to route it here.";
 		},
 		serverIsAvailable() {
 			return this.serverStore.worldStatusData[this.selectedInstance] === WORLD_STATES.OFFLINE;
