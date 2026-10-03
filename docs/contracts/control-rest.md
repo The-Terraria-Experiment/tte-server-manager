@@ -69,13 +69,13 @@ Response fields the backend and UI read (all at top level):
 | `name` | string | server name |
 | `world` | string | world name, shown as the tile headline |
 | `port` | number | game port |
-| `playercount` | number | auto-shutoff reads this (falling back to `players.length`) to confirm the server is empty before stopping it |
+| `playercount` | number | auto-shutoff reads this (falling back to `players.length`) to confirm the server is empty before stopping it. The site's own status reads recompute it from the filtered `players` instead (see below), so on those paths it is only a fallback |
 | `maxplayers` | number | |
 | `uptime` | string | `d.hh:mm:ss` |
 | `serverversion` | string | Terraria version, shown as "Terraria Version" |
 | `tshockversion` | string | TShock only; tML omits it |
 | `serverpassword` | any | rendered verbatim. TShock reports whether one is set. **Never the password itself** |
-| `players` | array | when `players=true`. Only **`nickname`** is read (roster chips, fleet roster, inventory cache eviction). TShock also sends `username`, `group`, `active`, `state` and `team`; extras are ignored |
+| `players` | array | when `players=true`. **`nickname`** is required (roster chips, fleet roster, inventory cache eviction). **`active`** is optional: an entry with `active: false`, or with an empty nickname, is dropped as not yet in game. TShock needs this because it counts only in-game players but lists every connected slot, including connections still joining. An implementation that lists only in-game players can omit the field. TShock also sends `username`, `group`, `state` and `team`; those are ignored |
 | `rules` | object | when `rules=true`. Arbitrary `key → scalar` map rendered as a grid. Any keys are fine |
 
 **(tML extension)** fields:
