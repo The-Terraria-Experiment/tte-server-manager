@@ -208,8 +208,11 @@ async function checkStatus(config, contractVersions) {
 	}
 	expect("uptime is d.hh:mm:ss", /^\d+\.\d{2}:\d{2}:\d{2}$/.test(String(s.uptime)), JSON.stringify(s.uptime));
 	expect("players is an array", Array.isArray(s.players), typeof s.players);
-	expect("every player has a nickname", (s.players ?? []).every((p) => isStr(pick(p, "nickname"))), JSON.stringify(s.players));
-	expect("playercount matches players.length", s.playercount === (s.players ?? []).length, `${s.playercount} vs ${(s.players ?? []).length}`);
+	// TShock lists every connected slot but counts only in-game ones, so a connection still joining
+	// is listed with `active: false` (and often no name yet). The backend drops those; so does this.
+	const inGame = (s.players ?? []).filter((p) => pick(p, "active") !== false);
+	expect("every in-game player has a nickname", inGame.every((p) => isStr(pick(p, "nickname"))), JSON.stringify(s.players));
+	expect("playercount matches the in-game players", s.playercount === inGame.length, `${s.playercount} vs ${inGame.length}`);
 	expect("rules is a key -> scalar map", isObj(s.rules) && Object.values(s.rules).every((v) => v === null || typeof v !== "object"), JSON.stringify(s.rules)?.slice(0, 120));
 
 	if (isTml) {

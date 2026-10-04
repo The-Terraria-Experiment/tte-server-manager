@@ -15,6 +15,7 @@ import type { AutoShutoffStateEntry, SystemWorldCreateEntry } from "../shared/sc
 import { readShutdownState } from "../shared/utils/jobs/ShutdownJob.js";
 import { isWorldgenBlocking } from "../shared/utils/jobs/WorldgenJob.js";
 import { contractWarnings } from "../shared/utils/tshock/ContractVersions.js";
+import { inGameRoster } from "../shared/utils/tshock/ServerRoster.js";
 
 /**
  * `?fields=players` — the slim variant, for a refetch that only needs the roster.
@@ -115,11 +116,14 @@ export const getStatus = async (event: AuthorizedEvent, context: Context) => {
 		// `players: true` already returns the roster the UI renders. There used to be a second call to
 		// /v2/players/list here whose result nothing ever read — a wasted round trip to the game server
 		// on every status read, on a box that is sometimes single-core.
-		const status = await tshock.APIRequest(
+		const raw = await tshock.APIRequest(
 			userId!,
 			"/v2/server/status",
 			playersOnly ? { players: true } : { players: true, rules: true },
 		);
+		// TShock counts in-game players but lists every connected slot; see inGameRoster.
+		const roster = inGameRoster(raw);
+		const status = roster ? { ...raw, ...roster } : raw;
 
 		if (playersOnly) {
 			// Deliberately unlogged. This is a read, it fires per join and leave per operator, and the

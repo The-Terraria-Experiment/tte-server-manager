@@ -10,6 +10,7 @@ import { Permissions } from "../shared/utils/core/Perms.js";
 import { InstanceRegistry } from "../shared/utils/instance/InstanceRegistry.js";
 import { flavorFor, toClientFlavor, type ClientServerFlavor } from "../shared/utils/instance/ServerFlavor.js";
 import { TShockAPI } from "../shared/utils/tshock/TShockAPI.js";
+import { inGameRoster } from "../shared/utils/tshock/ServerRoster.js";
 
 /**
  * The whole fleet in one read, for the Overview page's at-a-glance card grid.
@@ -123,14 +124,17 @@ const readServerStatus = async (instance: MultiInstanceStatus, userId: string): 
 		return noStatus("offline");
 	}
 
+	// Same count/roster reconciliation as getStatus, so a card can't disagree with the Players tile.
+	const roster = inGameRoster(raw);
+
 	return {
 		online: true,
 		reachable: "ok",
 		name: raw.name ?? null,
 		world: raw.world ?? null,
-		playercount: raw.playercount ?? 0,
+		playercount: roster?.playercount ?? raw.playercount ?? 0,
 		maxplayers: raw.maxplayers ?? null,
-		players: raw.players ?? [],
+		players: roster?.players ?? [],
 		uptime: raw.uptime ?? null,
 		serverversion: raw.serverversion ?? null,
 		tshockversion: raw.tshockversion ?? null,
