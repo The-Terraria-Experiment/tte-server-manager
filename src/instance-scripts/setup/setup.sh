@@ -20,8 +20,8 @@
 # (tshock, the default, or tmodloader) and recorded on the inst# row.
 #
 # Steps run in order; use --only/--skip to re-run a subset:
-#   tshock:     awscli dotnet layout ssm tshock metrics account config register summary
-#   tmodloader: awscli layout ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary
+#   tshock:     awscli dotnet layout norestart ssm tshock metrics account config register summary
+#   tmodloader: awscli layout norestart ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary
 # (preflight always runs -- later steps depend on what it resolves.)
 #
 set -euo pipefail
@@ -123,8 +123,8 @@ REST_PERMS=(
 # own runtime, installed by step_tmodloader) and no account/config steps (there is
 # no TShock user table; TteControl reads the credential file step_credential writes).
 case "$SERVER_TYPE" in
-	tmodloader) STEPS=(awscli layout ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary) ;;
-	*)          STEPS=(awscli dotnet layout ssm tshock metrics account config register summary) ;;
+	tmodloader) STEPS=(awscli layout norestart ssm tmodloader tmlmods metrics credential eventlogger tmlconfig register summary) ;;
+	*)          STEPS=(awscli dotnet layout norestart ssm tshock metrics account config register summary) ;;
 esac
 
 # --- plumbing -----------------------------------------------------------------
@@ -349,6 +349,32 @@ step_layout() {
 	install -d -o "$RUN_AS" -g "$RUN_AS" -m 0755 "$ROOT/worlds"
 
 	ok "$ROOT/{tshock,logs/{stdout,errout},worlds}"
+}
+
+# Unattended upgrades run needrestart after every package install, and needrestart
+# restarts any service still mapping a replaced library. The game server maps libssl,
+# so a routine OpenSSL update SIGTERMs it mid-session and systemd relaunches it a
+# second later: every player sees "Lost Connection" and nothing looks down. The
+# daily upgrade timer is Persistent and these boxes are off most of the day, so it
+# catches up within the first hour of nearly every session. Exempting our launch
+# units (tshock-* from launchWorld/beginCreateWorld, tml-* from TModLoaderLaunch)
+# leaves the upgrade itself alone; the server picks up the new library on its next
+# launch. Rename those units and this regex must follow.
+step_norestart() {
+	log "needrestart exemption for game server units"
+
+	install -d -m 0755 /etc/needrestart/conf.d
+	# A conf.d file, not an edit to needrestart.conf, so a package upgrade can't
+	# overwrite it. Adds one key to the shipped override_rc map rather than
+	# replacing the map. 0 = never auto-restart.
+	cat > /etc/needrestart/conf.d/tte-game-server.conf <<'EOF'
+# Managed by tte setup.sh (step_norestart). Never auto-restart the game server
+# after a library upgrade: a restart drops every connected player.
+$nrconf{override_rc}{qr(^(?:tshock|tml)-\d+-\d+(?:\.service)?$)} = 0;
+EOF
+	chmod 0644 /etc/needrestart/conf.d/tte-game-server.conf
+
+	ok "/etc/needrestart/conf.d/tte-game-server.conf"
 }
 
 step_ssm() {
