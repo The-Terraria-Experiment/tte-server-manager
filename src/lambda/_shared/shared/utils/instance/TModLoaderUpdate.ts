@@ -217,6 +217,8 @@ export async function mirrorRelease(release: TModLoaderRelease): Promise<{ key: 
  * against GitHub's reported size and SHA-256 on the way through. A mismatch deletes the object, because
  * an object at a release key is trusted from then on and never downloaded again.
  */
+const UPLOAD_CHUNK_BYTES = 64 * 1024;
+
 async function streamReleaseToS3(release: TModLoaderRelease, key: string, metadata: Record<string, string>): Promise<void> {
 	const response = await fetch(release.assetUrl, {
 		headers: { "User-Agent": "tte-server-manager" },
@@ -233,11 +235,27 @@ async function streamReleaseToS3(release: TModLoaderRelease, key: string, metada
 
 	const hash = createHash("sha256");
 	let bytes = 0;
+	// Also regroups the download into UPLOAD_CHUNK_BYTES pieces. The SDK sends a stream body with a
+	// checksum trailer (aws-chunked), which rejects any chunk under 8KB but the last, and fetch hands
+	// back whatever the network delivered, often much smaller.
+	let pending: Buffer[] = [];
+	let pendingBytes = 0;
 	const tap = new Transform({
 		transform(chunk: Buffer, _encoding, callback) {
 			hash.update(chunk);
 			bytes += chunk.length;
-			callback(null, chunk);
+			pending.push(chunk);
+			pendingBytes += chunk.length;
+			if (pendingBytes >= UPLOAD_CHUNK_BYTES) {
+				this.push(Buffer.concat(pending, pendingBytes));
+				pending = [];
+				pendingBytes = 0;
+			}
+			callback();
+		},
+		flush(callback) {
+			if (pendingBytes > 0) this.push(Buffer.concat(pending, pendingBytes));
+			callback();
 		},
 	});
 	const body = new PassThrough();
