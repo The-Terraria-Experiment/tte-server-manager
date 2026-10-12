@@ -1,12 +1,15 @@
 import {
+	CopyObjectCommand,
 	DeleteObjectCommand,
 	DeleteObjectsCommand,
 	GetObjectCommand,
+	HeadObjectCommand,
 	ListObjectsV2Command,
 	PutObjectCommand,
 	S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import type { Readable } from "stream";
 import { gunzipSync, gzipSync } from "zlib";
 import { CWLogger } from "./CloudWatch.js";
 import { SsmDao } from "./SSM.js";
@@ -15,6 +18,14 @@ import { CW_LOG_GENERAL } from "../constants.js";
 export interface S3ObjectSummary {
 	key: string;
 	size: number;
+	lastModified: Date | undefined;
+}
+
+export interface S3ObjectHead {
+	/** Without the surrounding quotes S3 returns it in. */
+	etag: string;
+	size: number;
+	metadata: Record<string, string>;
 	lastModified: Date | undefined;
 }
 
@@ -117,6 +128,89 @@ export class S3Dao {
 		});
 
 		await this.s3Client.send(command);
+	}
+
+	/**
+	 * An object's ETag (quotes stripped), size and user metadata, or `null` when it doesn't exist.
+	 * Metadata keys come back lowercased without the `x-amz-meta-` prefix, as S3 stores them.
+	 */
+	public async HeadObject(bucketName: string, key: string): Promise<S3ObjectHead | null> {
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-head-s3-object",
+			resource: null,
+			details: { bucketName, key },
+		});
+
+		try {
+			const response = await this.s3Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
+			return {
+				etag: (response.ETag || "").replace(/"/g, ""),
+				size: response.ContentLength ?? 0,
+				metadata: response.Metadata || {},
+				lastModified: response.LastModified,
+			};
+		} catch (error) {
+			const err = error as { name?: string; $metadata?: { httpStatusCode?: number } };
+			if (err.name === "NotFound" || err.name === "NoSuchKey" || err.$metadata?.httpStatusCode === 404) {
+				return null;
+			}
+			throw error;
+		}
+	}
+
+	/**
+	 * Uploads a stream as a single PUT, without buffering it. `contentLength` is required: a single
+	 * PUT must declare its size up front, and the caller always knows it for the uses this serves (a
+	 * release asset whose size the GitHub API reports). Single-part on purpose — a multipart upload's
+	 * ETag is not the content MD5, and boxes compare ETags to decide whether they are up to date.
+	 */
+	public async PutObjectStream(
+		bucketName: string,
+		key: string,
+		body: Readable,
+		contentLength: number,
+		options: { contentType?: string; metadata?: Record<string, string> } = {},
+	): Promise<string> {
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-put-object-stream",
+			resource: null,
+			details: { bucketName, key, contentLength },
+		});
+
+		const response = await this.s3Client.send(new PutObjectCommand({
+			Bucket: bucketName,
+			Key: key,
+			Body: body,
+			ContentLength: contentLength,
+			ContentType: options.contentType || "application/octet-stream",
+			Metadata: options.metadata,
+		}));
+		return (response.ETag || "").replace(/"/g, "");
+	}
+
+	/**
+	 * Server-side copy within one bucket, replacing the user metadata with `metadata`. A single-part
+	 * source copies to an identical ETag, which is what lets a stable pointer key (`current.zip`) and
+	 * the versioned object it was copied from be recognised as the same bytes.
+	 */
+	public async CopyObject(bucketName: string, sourceKey: string, destinationKey: string, metadata: Record<string, string> = {}): Promise<string> {
+		await CWLogger.CAction(2, CW_LOG_GENERAL, {
+			userId: null,
+			action: "shared-aws-copy-s3-object",
+			resource: null,
+			details: { bucketName, sourceKey, destinationKey },
+		});
+
+		const response = await this.s3Client.send(new CopyObjectCommand({
+			Bucket: bucketName,
+			Key: destinationKey,
+			CopySource: `${bucketName}/${sourceKey.split("/").map(encodeURIComponent).join("/")}`,
+			MetadataDirective: "REPLACE",
+			Metadata: metadata,
+		}));
+		return (response.CopyObjectResult?.ETag || "").replace(/"/g, "");
 	}
 
 	/**

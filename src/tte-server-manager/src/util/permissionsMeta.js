@@ -78,6 +78,9 @@ export const PermissionsMeta = {
 		publicaddress: {
 			write: {value: "instance.publicaddress.write", description: pfx + "point the public play address at an instance (fleet-wide: affects prod and stage, and disconnects players on the old server)"},
 		},
+		tmodloader: {
+			update: {value: "instance.tmodloader.update", description: pfx + "update tModLoader to the latest stable release, or roll it back (fleet-wide: the new release becomes what every tModLoader instance installs)"},
+		},
 		files: {
 			read: {value: "instance.files.read", description: pfx + "view and download all files on the instance"},
 			write: {value: "instance.files.write", description: pfx + "upload, delete, and sync instance files"},

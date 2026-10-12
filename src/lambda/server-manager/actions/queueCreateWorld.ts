@@ -17,6 +17,7 @@ import { SsmDao } from "../shared/aws/SSM.js";
 import { isWorldgenBlocking, worldgenIdleForMs, writeWorldgenProgress } from "../shared/utils/jobs/WorldgenJob.js";
 import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { blockIfTmlUpdateInProgress } from "../shared/utils/jobs/TModLoaderUpdateJob.js";
 
 const validateCreateWorldInput = (body: Record<PropertyKey, any>) => {
 	const { worldFolderPath, port, maxPlayers, password, size, difficulty, evil, seed, worldName } = body;
@@ -80,6 +81,9 @@ export const queueCreateWorld = async (event: AuthorizedEvent, context: Context)
 
 	const blocked = await blockIfShutdownInProgress(instanceID);
 	if (blocked) return blocked;
+
+	const updating = await blockIfTmlUpdateInProgress(instanceID);
+	if (updating) return updating;
 
 	try {
 		validateCreateWorldInput(event.parsedBody || {});

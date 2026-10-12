@@ -16,6 +16,7 @@ import {
 	shutdownJobKey,
 	SHUTDOWN_IN_PROGRESS_CODE,
 } from "../shared/utils/jobs/ShutdownJob.js";
+import { blockIfTmlUpdateInProgress } from "../shared/utils/jobs/TModLoaderUpdateJob.js";
 import { PERM_TABLE, SYSTEM_TABLE } from "../shared/vars.js";
 
 const EC2 = new Ec2Dao();
@@ -35,6 +36,11 @@ export const stop = async (event: AuthorizedEvent, context: Context) => {
 	}
 
 	await Permissions.ValidateResourceAccess(event, `instance::${instanceId}`);
+
+	// Stopping mid-install is survivable (the live install isn't touched until the final swap), but it
+	// leaves the job reporting "installing" until it goes stale. Cheaper to make the operator wait a minute.
+	const updating = await blockIfTmlUpdateInProgress(instanceId);
+	if (updating) return updating;
 
 	const DB = new DynamoDao();
 	const jobKey = shutdownJobKey(instanceId);

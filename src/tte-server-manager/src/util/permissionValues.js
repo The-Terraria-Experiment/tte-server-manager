@@ -77,6 +77,9 @@ export const PERMISSIONS = {
 		publicaddress: {
 			write: "instance.publicaddress.write",
 		},
+		tmodloader: {
+			update: "instance.tmodloader.update",
+		},
 		files: {
 			read: "instance.files.read",
 			write: "instance.files.write",
