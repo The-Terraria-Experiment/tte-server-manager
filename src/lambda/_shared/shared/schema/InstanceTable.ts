@@ -11,6 +11,30 @@ export type InstanceMetricsConfigEntry = MetricsConfig & {
 	appliedBy?: string
 };
 
+/**
+ * The `tmlupdate#<instanceID>` job row. See `utils/jobs/TModLoaderUpdateJob.ts` for why it lives in
+ * this (shared) table rather than the per-environment system table beside `shutdown#`.
+ */
+export type InstanceTmlUpdateEntry = {
+	uid?: string,
+	instanceID?: string,
+	jobID?: string,
+	requestedBy?: string,
+	status?: "queued" | "running" | "completed" | "failed",
+	step?: string,
+	progress?: number,
+	detail?: string,
+	/** `installed` or `up-to-date`, once completed. */
+	result?: string,
+	targetVersion?: string,
+	/** What the box ran before, when it's known (installs done by setup.sh don't record a version). */
+	fromVersion?: string,
+	failureReason?: string,
+	workerStartedAt?: string,
+	createdAt?: string,
+	updatedAt?: string,
+};
+
 export type InstanceDataEntry = {
 	uid?: string,
 	updatedAt?: string,

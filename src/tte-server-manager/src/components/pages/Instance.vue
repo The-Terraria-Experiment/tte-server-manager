@@ -60,6 +60,12 @@
 		v-if="selectedInstance"
 	/>
 
+	<TModLoaderUpdateTile
+		v-if="selectedInstance"
+		:key="selectedInstance"
+		:selected-instance-data="selectedInstanceData"
+	/>
+
 	<InstanceFilePaths 
 		v-if="selectedInstance"
 		:selected-instance-data="selectedInstanceData" 
@@ -91,6 +97,7 @@ import InstanceFiles from './tools/instance/InstanceFiles.vue';
 import InstanceFilePaths from './tools/instance/InstanceFilePaths.vue';
 import InstanceMetrics from './tools/instance/InstanceMetrics.vue';
 import PublicAddressTile from './tools/instance/PublicAddressTile.vue';
+import TModLoaderUpdateTile from './tools/instance/TModLoaderUpdateTile.vue';
 import MajorLoader from '../shared/MajorLoader.vue';
 import { useStatusStore } from '../../stores/statusStore';
 import { TASK_IDS } from '../../stores/statusStore';
@@ -106,6 +113,7 @@ export default {
 		InstanceFilePaths,
 		InstanceMetrics,
 		PublicAddressTile,
+		TModLoaderUpdateTile,
 		MajorLoader,
 	},
 	props: {

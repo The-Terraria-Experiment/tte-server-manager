@@ -31,7 +31,9 @@ export type ServerCapability =
 	/** User accounts and groups (`acc:` ban identity, account/group on players and logs). */
 	| "accounts"
 	/** A mod list that can be viewed and toggled (`/tte/mods`). */
-	| "mods";
+	| "mods"
+	/** Self-service upgrade of the server itself from its upstream releases (`TModLoaderUpdate.ts`). */
+	| "loaderUpdate";
 
 export type ServerFlavor = {
 	type: ServerType,
@@ -49,7 +51,7 @@ const FLAVORS: Record<ServerType, ServerFlavor> = {
 	tmodloader: {
 		type: "tmodloader",
 		displayName: "tModLoader",
-		capabilities: new Set<ServerCapability>(["mods"]),
+		capabilities: new Set<ServerCapability>(["mods", "loaderUpdate"]),
 	},
 };
 

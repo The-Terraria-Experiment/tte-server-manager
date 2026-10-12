@@ -46,6 +46,8 @@ INSTANCE_TABLE=${TTE_INSTANCE_TABLE:-ttesm-instance-data}
 # tModLoader artifacts. The release zip is the GitHub tModLoader.zip, mirrored
 # into the bucket the same way TShock's is (a static current.zip pointer, ETag
 # gated). Each mod in TML_MODS comes from <prefix>/<ModName>.tmod and is enabled.
+# The web app's tModLoader update (TML_RELEASE in TModLoaderUpdate.ts) rewrites
+# the default current.zip, so keep these defaults in step with it.
 TML_BUCKET=${TTE_TML_BUCKET:-ttesm-resources}
 TML_KEY=${TTE_TML_KEY:-tmodloader/current.zip}
 TML_MODS_PREFIX=${TTE_TML_MODS_PREFIX:-tmodloader/mods}

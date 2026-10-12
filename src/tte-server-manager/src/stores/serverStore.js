@@ -302,6 +302,20 @@ export const useServerStore = defineStore("serverstore", {
 			}
 			return data;
 		},
+		/**
+		 * tModLoader self-update. Nothing is cached here: only the tile reads it, and the full read asks
+		 * the box over SSM, so it shouldn't be refetched behind the tile's back. `jobOnly` is the cheap
+		 * variant the tile polls while an update runs.
+		 */
+		async fetchTModLoaderStatus(instanceId, { jobOnly = false } = {}) {
+			return await get(`/instance/${instanceId}/tmodloader${jobOnly ? "?fields=job" : ""}`, PERMISSIONS.instance.tmodloader.update);
+		},
+		async updateTModLoader(instanceId) {
+			return await post(`/instance/${instanceId}/tmodloader/update`, PERMISSIONS.instance.tmodloader.update, {});
+		},
+		async rollbackTModLoader(instanceId) {
+			return await post(`/instance/${instanceId}/tmodloader/rollback`, PERMISSIONS.instance.tmodloader.update, {});
+		},
 		async fetchInstanceList() {
 			if (this.loading.list) return;
 			this.loading.list = true;

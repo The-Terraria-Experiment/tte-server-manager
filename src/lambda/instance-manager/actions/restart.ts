@@ -8,6 +8,7 @@ import { Permissions } from "../shared/utils/core/Perms.js";
 import { Parsers } from "../shared/utils/core/Parsers.js";
 import { CleanupUtil } from "../shared/utils/jobs/Cleanup.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { blockIfTmlUpdateInProgress } from "../shared/utils/jobs/TModLoaderUpdateJob.js";
 import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 
 const EC2 = new Ec2Dao();
@@ -24,6 +25,9 @@ export const restart = async (event: AuthorizedEvent, context: Context) => {
 
 	const blocked = await blockIfShutdownInProgress(instanceId);
 	if (blocked) return blocked;
+
+	const updating = await blockIfTmlUpdateInProgress(instanceId);
+	if (updating) return updating;
 
 	await EC2.RebootInstance(instanceId);
 
