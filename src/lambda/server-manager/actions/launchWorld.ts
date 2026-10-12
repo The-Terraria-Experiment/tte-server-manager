@@ -17,6 +17,7 @@ import { Ec2Dao, InstanceState } from "../shared/aws/EC2.js";
 import { SYSTEM_TABLE } from "../shared/vars.js";
 import { ensureLogDirsCommand, joinLaunchSteps, gameServerProcessPattern } from "../shared/utils/tshock/TShockLaunch.js";
 import { blockIfShutdownInProgress } from "../shared/utils/jobs/ShutdownJob.js";
+import { blockIfTmlUpdateInProgress } from "../shared/utils/jobs/TModLoaderUpdateJob.js";
 import { beginServerSession } from "../shared/utils/tshock/ServerSession.js";
 import { Realtime } from "../shared/utils/realtime/RealtimePublisher.js";
 
@@ -114,6 +115,9 @@ export const launchWorld = async (event: AuthorizedEvent, context: Context) => {
 
 	const blocked = await blockIfShutdownInProgress(instanceID);
 	if (blocked) return blocked;
+
+	const updating = await blockIfTmlUpdateInProgress(instanceID);
+	if (updating) return updating;
 
 	try {
 		validateLaunchParams(event.parsedBody || {});

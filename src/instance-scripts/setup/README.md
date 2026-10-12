@@ -399,6 +399,34 @@ Finally: **confirm the Secrets Manager password matches** what you passed as
 `TTE_REST_PASSWORD` — the script can't check this itself, and a mismatch
 surfaces as every REST call failing at token creation.
 
+## Library updates must not restart the game server
+
+Ubuntu's unattended upgrades run `needrestart` after each install, and needrestart
+restarts every service still using a replaced library. The game server uses libssl,
+so a routine OpenSSL update used to SIGTERM it mid-session, and systemd brought it
+straight back. Players saw "Lost Connection" and nothing looked down. The daily
+upgrade timer catches up on missed runs at boot, and these boxes are off most of the
+day, so it hit within the first hour of most sessions.
+
+The `norestart` step writes `/etc/needrestart/conf.d/tte-game-server.conf`, which
+exempts the launch units (`tshock-*`, `tml-*`) from those restarts. Upgrades still
+install. The server picks up the new library on its next launch. To add it to a box
+provisioned before this step existed, without a full re-setup, write the same file
+(this works over SSM Run Command too). `--only norestart` works as well, but
+preflight still demands `TTE_REST_PASSWORD` and the rest of the environment:
+
+```bash
+sudo install -d /etc/needrestart/conf.d
+printf '%s\n' '# Managed by tte setup.sh (step_norestart).' \
+  '$nrconf{override_rc}{qr(^(?:tshock|tml)-\d+-\d+(?:\.service)?$)} = 0;' \
+  | sudo tee /etc/needrestart/conf.d/tte-game-server.conf >/dev/null
+```
+
+No restart of anything is needed. needrestart reads the file on its next run.
+
+Check it with `journalctl -u apt-daily-upgrade` after the next upgrade run. A
+pending game-server restart is now listed as skipped instead of performed.
+
 ## Then snapshot an AMI
 
 Once one instance is verified working, image it. New instances become "launch

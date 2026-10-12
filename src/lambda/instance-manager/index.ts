@@ -32,6 +32,9 @@ import { readInstanceRegistry } from "./actions/readInstanceRegistry.js";
 import { createInstanceRegistration, updateInstanceRegistration } from "./actions/writeInstanceRegistry.js";
 import { deleteInstanceRegistration } from "./actions/deleteInstanceRegistration.js";
 import type { ShutdownRequestData } from "./shared/utils/jobs/ShutdownJob.js";
+import type { TmlUpdateRequestData } from "./shared/utils/jobs/TModLoaderUpdateJob.js";
+import { queueTModLoaderUpdate, readTModLoaderStatus, rollbackTModLoader } from "./actions/tmodloader.js";
+import { tmlUpdateWorker } from "./actions/tmlUpdateWorker.js";
 import { readMetrics } from "./actions/readMetrics.js";
 
 const endpoints: EndpointList = {
@@ -104,6 +107,20 @@ const endpoints: EndpointList = {
 	"POST /instance/{id}/metrics/upload": {
 		action: triggerMetricsUpload,
 		permRequired: PERMISSIONS.instance.metrics.read,
+	},
+	// tModLoader self-update. One permission for all three: the status read shows the update controls
+	// and nothing else, and it costs an SSM round trip to the box.
+	"GET /instance/{id}/tmodloader": {
+		action: readTModLoaderStatus,
+		permRequired: PERMISSIONS.instance.tmodloader.update,
+	},
+	"POST /instance/{id}/tmodloader/update": {
+		action: queueTModLoaderUpdate,
+		permRequired: PERMISSIONS.instance.tmodloader.update,
+	},
+	"POST /instance/{id}/tmodloader/rollback": {
+		action: rollbackTModLoader,
+		permRequired: PERMISSIONS.instance.tmodloader.update,
 	},
 	"GET /instance/{id}/files": {
 		action: readFiles,
@@ -200,11 +217,23 @@ const hWorker = async (event: ShutdownRequestData, context: Context): Promise<AP
 	return shutdownWorker(event, context);
 }
 
-const h = async (event: AuthorizedEvent | ShutdownRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+const hTmlUpdateWorker = async (event: TmlUpdateRequestData, context: Context): Promise<APIGatewayProxyResult> => {
+	CWLogger.Action(FUNC_NAMES.INST_MGR, {
+		userId: event.requestedBy,
+		action: "invoke-tml-update-worker",
+		resource: event.instanceID,
+	});
+
+	return tmlUpdateWorker(event, context);
+}
+
+const h = async (event: AuthorizedEvent | ShutdownRequestData | TmlUpdateRequestData, context: Context): Promise<APIGatewayProxyResult> => {
 	let result: APIGatewayProxyResult;
 
 	if ("requestType" in event && event.requestType === "shutdown-request") {
 		result = await hWorker(event as ShutdownRequestData, context);
+	} else if ("requestType" in event && event.requestType === "tml-update-request") {
+		result = await hTmlUpdateWorker(event as TmlUpdateRequestData, context);
 	} else {
 		result = await hNormal(event as AuthorizedEvent, context);
 	}
