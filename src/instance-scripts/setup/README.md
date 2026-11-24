@@ -203,7 +203,7 @@ What's different from TShock, and why:
   shows up here, not as a server that silently never starts). There is no TShock
   user table, so instead of creating a REST account, `step_credential` writes the
   credential file TteControl reads (`TTE_REST_USER`/`TTE_REST_PASSWORD`, the same
-  pair as the Secrets Manager secret). Re-run `--only credential` after rotating it.
+  pair as the secret named by `TSHOCK_SECRET_NAME`). Re-run `--only credential` after rotating it.
 - **The credential is never in `ModConfigs/`.** That folder is browsable from the
   Instance Files page, and anything browsable can be downloaded and so copied
   into the S3 filestore. The credential file sits outside every `validRoots` path.
@@ -261,7 +261,7 @@ What `remote-setup.sh` does under the hood, if you'd rather drive it yourself
 scp -r src/instance-scripts/ ubuntu@<ip>:/tmp/tte/
 ssh ubuntu@<ip>
 
-sudo TTE_REST_PASSWORD='<matches Secrets Manager>' /tmp/tte/setup/setup.sh
+sudo TTE_REST_PASSWORD='<matches TSHOCK_SECRET_NAME secret>' /tmp/tte/setup/setup.sh
 ```
 
 The bucket/port/table variables below default to the real fleet-wide values
@@ -278,7 +278,7 @@ step reads it back and applies it, so a fleet replacement doesn't silently reset
 everyone's settings to defaults. A genuinely new instance has no row yet — this
 step runs before `register` seeds one — and gets the installer's defaults.
 
-`TTE_REST_PASSWORD` **must** match `TSHOCK_PASSWORD` in the Secrets Manager
+`TTE_REST_PASSWORD` **must** match `TSHOCK_PASSWORD` in the
 secret named by `TSHOCK_SECRET_NAME`. The script has no way to check this; if
 they disagree, every REST call fails at token creation and the server reads as
 permanently offline in the UI.
@@ -395,7 +395,7 @@ uses `UpdateItem`, so it can never clobber what this script wrote.
 > DynamoDB removes all of that: the instance role never gained a permission,
 > and nothing needs a deploy.
 
-Finally: **confirm the Secrets Manager password matches** what you passed as
+Finally: **confirm the stored REST password matches** what you passed as
 `TTE_REST_PASSWORD` — the script can't check this itself, and a mismatch
 surfaces as every REST call failing at token creation.
 

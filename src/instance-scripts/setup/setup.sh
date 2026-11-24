@@ -223,7 +223,7 @@ step_preflight() {
 		[ -n "$TSHOCK_BUCKET" ] || die "TTE_TSHOCK_BUCKET must be set (bucket holding the TShock zip)"
 	fi
 	[ -n "$LOGS_BUCKET" ]   || die "TTE_LOGS_BUCKET must be set (logs bucket, for metrics + console logs)"
-	[ -n "$REST_PASSWORD" ] || die "TTE_REST_PASSWORD must be set, and must match TSHOCK_PASSWORD in the Secrets Manager secret"
+	[ -n "$REST_PASSWORD" ] || die "TTE_REST_PASSWORD must be set, and must match TSHOCK_PASSWORD in the secret named by TSHOCK_SECRET_NAME"
 	if [ "$SERVER_TYPE" = tmodloader ] && [ "$REST_PORT" != 3891 ]; then
 		warn "TTE_REST_PORT=$REST_PORT only applies to TShock; TteControl's port comes from its own ModConfig (default 3891) and must match the lambdas' TSHOCK_API_PORT"
 	fi
@@ -914,7 +914,7 @@ step_config() {
 
 	# REST is off by default and the lambda has no other way in. Token endpoint
 	# auth is what makes /v2/token/create accept the user/password pair the
-	# lambda pulls from Secrets Manager.
+	# lambda pulls from the secret named by TSHOCK_SECRET_NAME.
 	local patched
 	patched=$(jq \
 		--argjson port "$REST_PORT" \
@@ -1127,7 +1127,7 @@ step_summary() {
 	echo
 	echo "  Still to do BY HAND:"
 	echo
-	echo "    1) confirm TSHOCK_PASSWORD in Secrets Manager matches what was set here"
+	echo "    1) confirm TSHOCK_PASSWORD in the TSHOCK_SECRET_NAME secret matches what was set here"
 	echo
 	echo "    2) register $INSTANCE_ID in the web UI:"
 	echo

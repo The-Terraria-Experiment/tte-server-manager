@@ -19,6 +19,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { LambdaClient, GetFunctionConfigurationCommand, InvokeCommand } from "@aws-sdk/client-lambda";
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
+import { SSMClient, GetParameterCommand } from "@aws-sdk/client-ssm";
 import { EC2Client, DescribeInstancesCommand } from "@aws-sdk/client-ec2";
 import { DynamoDBClient, GetItemCommand } from "@aws-sdk/client-dynamodb";
 
@@ -79,8 +80,12 @@ async function loadConfig(args) {
 		if (!env[key]) throw new Error(`${args.serverManager}:${args.alias} has no ${key}; can't reach the server the way the backend does`);
 	}
 
-	const secret = await new SecretsManagerClient({ region: REGION }).send(new GetSecretValueCommand({ SecretId: env.TSHOCK_SECRET_NAME }));
-	const parsed = JSON.parse(secret.SecretString ?? "{}");
+	// Same routing as the backend's SecretsManagerDao: a "/"-prefixed name is a Parameter Store
+	// SecureString, anything else a Secrets Manager secret.
+	const secretString = env.TSHOCK_SECRET_NAME.startsWith("/")
+		? (await new SSMClient({ region: REGION }).send(new GetParameterCommand({ Name: env.TSHOCK_SECRET_NAME, WithDecryption: true }))).Parameter?.Value
+		: (await new SecretsManagerClient({ region: REGION }).send(new GetSecretValueCommand({ SecretId: env.TSHOCK_SECRET_NAME }))).SecretString;
+	const parsed = JSON.parse(secretString ?? "{}");
 	if (!parsed.TSHOCK_USER || !parsed.TSHOCK_PASSWORD) throw new Error("REST secret is missing TSHOCK_USER/TSHOCK_PASSWORD");
 
 	const row = await new DynamoDBClient({ region: REGION }).send(new GetItemCommand({
