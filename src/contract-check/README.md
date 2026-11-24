@@ -63,6 +63,7 @@ command history. An invoke payload is never persisted.
 Permissions the caller needs:
 - `lambda:GetFunctionConfiguration` on `ttesm-server-manager`
 - `lambda:InvokeFunction` on `ttesm-tshock-proxy`
-- `secretsmanager:GetSecretValue` on the REST credential
+- read access to the REST credential: `ssm:GetParameter` if `TSHOCK_SECRET_NAME` starts with `/`
+  (Parameter Store), otherwise `secretsmanager:GetSecretValue`
 - `dynamodb:GetItem` on the instance table
 - `ec2:DescribeInstances`

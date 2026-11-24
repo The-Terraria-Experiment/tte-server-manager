@@ -68,8 +68,8 @@ The application runs in three environments with distinct deployment strategies a
 **S3 Buckets:**
 - Common buckets between environments (config, world/log storage)
 
-**Secrets Manager:**
-- Common secrets between environments
+**Secrets (Secrets Manager / SSM Parameter Store):**
+- Common secrets between environments — see "Secrets" under Environment & Configuration for how a name picks its store
 
 ### Development Workflow
 1. **Local development:** Work on `dev/*` branches; run frontend locally; calls stage backend.
@@ -103,7 +103,7 @@ The application runs in three environments with distinct deployment strategies a
 - **Auth:** Cognito User Pool (Amplify Gen 2 backend, config in `src/tte-server-manager/amplify/`), federated with the in-house `patreon-oidc` Lambda so Patreon is the identity source; permission checks are per-user, resolved from a permissions table keyed by `user#<sub>` and enforced both client-side (`hasPermissions` in `userStore`, gating UI + `apiRequest` calls) and server-side (each lambda's action handlers).
 - **Data:** DynamoDB — permission/user-link data, instance metadata/status, system notices, Patreon tier map, roles. Table names/keys are supplied via env vars per function rather than fixed constants; verify the current schema in `_shared/shared/utils/core/Perms.ts` and the relevant `_shared/shared/aws/DynamoDB.ts` callers before assuming structure.
 - **Files:** S3 buckets for the instance filestore (`S3_FILESTORE_NAME`), TShock config (`S3_CONFIG_BUCKET_NAME`), and console logs + instance metrics + archived inventory snapshots (`S3_LOGS_BUCKET_NAME`, under the `tshock-console/`, `metrics/` and `inventory/` prefixes respectively); synced to/from EC2 via SSM; world/instance files served through `instance-manager`. The filestore is the source of truth for which instance files are *tracked*: whatever exists under `{instanceId}/` is what gets browsed, downloaded, and re-synced on shutdown — so anything that lands there stays tracked until explicitly deleted.
-- **Secrets/IAM:** TShock REST token in Secrets Manager (`TSHOCK_SECRET_NAME`); Patreon OAuth creds, OIDC signing key, relay-state and link-intent secrets also in Secrets Manager; Lambda roles least-privilege (S3, Dynamo, EC2, SSM, Secrets).
+- **Secrets/IAM:** TShock REST token (`TSHOCK_SECRET_NAME`), Patreon OAuth creds, OIDC signing key, relay-state and link-intent secrets, in Secrets Manager or SSM Parameter Store depending on how the env var names them (see "Secrets" below); Lambda roles least-privilege (S3, Dynamo, EC2, SSM, Secrets).
 - **Observability:** CloudWatch logs via the shared `CWLogger`; structured logs from Lambdas. Instance-level CPU/memory is *not* on CloudWatch custom metrics — a homebrew collector (`src/instance-scripts/metrics/`) samples `/proc` on a systemd timer and pushes JSONL to the logs bucket under `metrics/{instanceId}/YYYY/MM/DD/HH.jsonl`. The local buffer mirrors that same key layout so a local path becomes its S3 key by stripping the buffer root; uploads are SigV4-signed `curl` PUTs rather than the AWS CLI. The free built-in EC2 metrics (CPU, network, disk I/O, status checks) are still in CloudWatch and still free; only the paid custom series were replaced. The collector can be turned off and retuned from the Instance page — see the metrics gotchas below.
 
 ## Frontend Conventions
@@ -170,10 +170,10 @@ The application runs in three environments with distinct deployment strategies a
   - `PATREON_CREDS_SECRET_NAME`, `SIGNING_KEY_SECRET_NAME`, `LINK_INTENT_SECRET_NAME`, `RELAY_STATE_SECRET_NAME`, `SHIM_TOKEN_CREDS_SECRET_NAME`
   - `SERVER_MANAGER_FUNCTION_ARN` (logs-manager — **unqualified** base ARN, `vars.ts` appends `:prod`/`:stage`; the role also needs `lambda:InvokeFunction` on it). Read raw before use, so leaving it unset is the per-environment kill switch for the item-rule scanner.
   - `REALTIME_MANAGER_FUNCTION_ARN` (logs-manager, instance-manager, server-manager, auto-shutoff-manager — **unqualified** base ARN, `vars.ts` appends `:prod`/`:stage`; those roles also need `lambda:InvokeFunction` on it). `Realtime.Publish` checks the **raw** env var, so leaving it unset is the per-environment kill switch for the whole notification pipeline, no deploy required.
-  - `REALTIME_TICKET_SECRET_NAME` (system-manager to sign connect tickets, realtime-manager to verify them; both roles need `secretsmanager:GetSecretValue` on it)
+  - `REALTIME_TICKET_SECRET_NAME` (system-manager to sign connect tickets, realtime-manager to verify them; both roles need read access to it — `secretsmanager:GetSecretValue`, or `ssm:GetParameter` for a `/`-named parameter)
   - `ALLOWED_ORIGIN` (CORS)
   - These are set by hand and are not defined anywhere in this repo or an IaC template — see project memory `project_lambda_env_out_of_band`.
-- **Secrets:** TShock API token and Patreon-related secrets all in Secrets Manager, referenced by the `*_SECRET_NAME` env vars above.
+- **Secrets:** TShock API token, Patreon-related secrets and the realtime ticket key, referenced by the `*_SECRET_NAME` env vars above. Every read goes through `SecretsManagerDao.GetSecret` (`_shared/shared/aws/SecretsManager.ts`), which routes on the **value** of the env var: a name starting with `/` is an SSM Parameter Store `SecureString` (read with decryption, default `aws/ssm` key), anything else a Secrets Manager secret. This exists to move secrets off Secrets Manager ($0.40/secret/month) to Parameter Store's free Standard tier one at a time, by changing only the env var — and to move one back the same way. A role reading a `/`-named secret needs `ssm:GetParameter` on `parameter/ttesm/*`; no KMS statement is needed for the AWS-managed key. Standard-tier values cap at **4 KB** (the OIDC signing key is the largest, ~2.3 KB). `contract-check` mirrors the same routing.
 
 ## Security & Permissions
 - **Least privilege:** IAM roles only grant exact actions (Dynamo, S3, EC2:Start/Stop, SSM:SendCommand, Secrets:GetSecretValue).
