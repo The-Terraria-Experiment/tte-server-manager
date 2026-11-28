@@ -14,10 +14,10 @@
 			<p class="text-2xl text-teal-4">{{ instanceWorldFiles.length }} world{{ plural(instanceWorldFiles.length) }} available</p>
 		</template>
 		<template #content v-if="serverIsAvailable">
-			<div v-if="publicAddressElsewhere" class="mx-4 mb-3 rounded-lg bg-gray-2 border border-yellow-2 p-3 flex items-start">
+			<!-- <div v-if="publicAddressElsewhere" class="mx-4 mb-3 rounded-lg bg-gray-2 border border-yellow-2 p-3 flex items-start">
 				<Icon icon="warning" size="4" color="text-yellow-2" />
 				<p class="font-mono text-xs text-gray-8 ml-2">{{ publicAddressElsewhere }}</p>
-			</div>
+			</div> -->
 			<p class="font-main font-bold text-gray-7 px-5">SELECT WORLD</p>
 			<div class="mx-4 mt-1 mb-4 bg-gray-5 rounded-lg">
 				<div :class="['grid px-2 py-2 overflow-x-auto', isMobile ? 'world-select-grid-mobile' : 'world-select-grid']">
